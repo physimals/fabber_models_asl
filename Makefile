@@ -1,6 +1,6 @@
 include ${FSLCONFDIR}/default.mk
 
-PROJNAME = fabber_models_asl
+PROJNAME = fabber_asl
 
 USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_BOOST}
 USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB}

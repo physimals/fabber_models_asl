@@ -9,8 +9,8 @@
 #ifndef __FABBER_ASL_MULTIPHASE_FWDMODEL_H
 #define __FABBER_ASL_MULTIPHASE_FWDMODEL_H 1
 
-#include "fwdmodel.h"
-#include "inference.h"
+#include "fabbercore/fwdmodel.h"
+#include "fabbercore/inference.h"
 #include <string>
 
 using namespace std;
