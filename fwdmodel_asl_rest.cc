@@ -469,6 +469,7 @@ void ASLFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
     double FAtrue = (g+dg)*FA;
 
     // modify the T1 values according to the simplified relationship for LL
+    // FA in radians
     T_1 = 1/( 1/T_1 - log(cos(FAtrue))/dti);
     T_1wm = 1/( 1/T_1wm - log(cos(FAtrue))/dti);
 
@@ -530,12 +531,14 @@ void ASLFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
 	}
 	*/
 
+
 	//Tissue
 	if (inctiss) kctissue = pvgm*ftiss*tiss_model->kctissue(ti,f_calib,delttiss,tautiss,T_1b,T_1,lambda,casl,disptiss,residtiss);
 	//White matter 
 	if (incwm)   kcwm     = pvwm*fwm*tiss_model->kctissue(ti,f_calibwm,deltwm,tauwm,T_1b,T_1wm,lamwm,casl,dispwm,residwm);
 	// Arterial
 	if (incart)  kcblood  = artweight*fblood*art_model->kcblood(ti,deltblood,taublood,T_1b,casl,dispart);
+
 	  
 	if (incpc) {
 	  // pre-capilliary component
@@ -990,14 +993,13 @@ void ASLFwdModel::Initialize(ArgsType& args)
 	  }
       }
 
-
-
       // Look-Locker correction
       string FAin = args.ReadWithDefault("FA","none");
       if (FAin == "none") looklocker = false;
       else {
 	looklocker = true;
 	FA = convertTo<double>(FAin);
+	FA *= M_PI/180; //convert to radians
 	dti = tis(2)-tis(1); //NOTE LL correction is only valid with evenly spaced TIs
       }
       incfacorr = args.ReadBool("facorr"); // indicate that we want to do FA correction - the g image will need to be separately loaded in as an image prior
