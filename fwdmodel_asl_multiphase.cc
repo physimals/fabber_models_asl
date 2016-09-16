@@ -140,67 +140,63 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params,
 {
     // ensure that values are reasonable
     // negative check
-    ColumnVector paramcpy = params;
-    for (int i = 1; i <= NumParams(); i++)
-    {
-        if (params(i) < 0)
-        {
-            paramcpy(i) = 0;
-        }
-    }
 
-    // parameters that are inferred - extract and give sensible names
-    double mag;
-    double phase;
-    double phaserad;
-    double offset;
-    double flowvel;
+  ColumnVector paramcpy = params;
+   for (int i=1;i<=NumParams();i++) {
+      if (params(i)<0) { paramcpy(i) = 0; }
+      }
 
-    mag = params(1);
-    phaserad = params(2);           //in radians
-    phase = params(2) * 180 / M_PI; //in degrees
-    offset = params(3);
+  // parameters that are inferred - extract and give sensible names
+   double mag;
+   double phase;
+   double phaserad;
+   double offset;
+   double flowvel;
 
-    if (incvel)
-    {
-        flowvel = params(4);
-    }
-    else
-    {
-        flowvel = 0.3;
-    }
+   mag=params(1);
+   phaserad = params(2);  //in radians
+   phase=params(2)*180/M_PI; //in degrees
+   offset=params(3);
 
-    int nn = 8 * repeats;
-    result.ReSize(nn);
-    // loop to create result
-    for (int i = 1; i <= 8; i++)
-    {
-        double evalfunc;
+   if (incvel) {
+     flowvel = params(4);
+   }
+   else {
+     flowvel = 0.3;
+   }   
 
-        double ph = (360 / 8 * (i - 1)); //in degrees
-        if (ph > 179)
-            ph -= 360;
-        double ph_rad = ph * M_PI / 180; //in radians
+   int nn=nph*repeats;
+   result.ReSize(nn);
+   // loop to create result
+   for (int i=1; i<=nph; i++)
+     {
+       double evalfunc;
 
-        if (modfn == "fermi")
-        {
-            // use the Fermi modulation function
-            evalfunc = mag * (-2 / (1 + exp((abs(ph - phase) - alpha) / beta)))
-                + offset; //note using the given values requires phases here to be in degrees
-        }
-        else if (modfn == "mat")
-        {
-            //evaluation modulation function from interpolation of values
-            evalfunc = mag * (mod_fn(ph_rad - phaserad, flowvel)) + offset;
-        }
+       
+       double ph;
+       ph = ph_list(i); //extract the measurement phase from list (vector)
+       if (ph>179) ph -= 360; 
+       double ph_rad = ph*M_PI/180; //in radians
 
-        for (int j = 1; j <= repeats; j++)
-        {
-            result((j - 1) * 8 + i) = evalfunc;
-        }
-    }
+       if (modfn == "fermi") {
+	 // use the Fermi modulation function
+	 evalfunc = mag*( -2/(1+exp( (abs(ph - phase) -alpha)/beta)) ) + offset; //note using the given values requires phases here to be in degrees
+       }
+       else if (modfn == "mat") {
+	 //evaluation modulation function from interpolation of values
+	 evalfunc = mag*(mod_fn(ph_rad - phaserad,flowvel)) + offset;
+       }
 
-    return;
+
+       for (int j=1; j<=repeats; j++) {
+	 result((j-1)*nph+i) = evalfunc;
+       }
+ 
+      }
+    //cout << result.t();
+
+  return;
+
 }
 
 FwdModel *MultiPhaseASLFwdModel::NewInstance()
@@ -210,71 +206,103 @@ FwdModel *MultiPhaseASLFwdModel::NewInstance()
 
 void MultiPhaseASLFwdModel::Initialize(ArgsType &args)
 {
-    // number of repeats in data
-    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1"));
 
-    // modulation function
-    modfn = args.ReadWithDefault("modfn", "fermi");
+      // specify command line parameters here
+      repeats = convertTo<int>(args.ReadWithDefault("repeats","1")); // number of repeats in data
 
-    //modmat
-    string modmatstring;
-    Matrix mod_temp;
-    modmatstring = args.ReadWithDefault("modmat", "none");
-    if (modmatstring != "none")
-    {
-        mod_temp = read_ascii_matrix(modmatstring);
-    }
+      // phases
+      string ph_temp;
+      ph_temp = args.ReadWithDefault("ph1","none");
+	if (ph_temp != "none" ) {
+	  // a list of phases
+	  ph_list.ReSize(1); //will add extra values onto end as needed
+	  ph_list(1) = convertTo<double>(ph_temp);
 
-    // shape of the fermi function
-    alpha = convertTo<double>(args.ReadWithDefault("alpha", "55"));
-    beta = convertTo<double>(args.ReadWithDefault("beta", "12"));
+	  while (true) //get the rest of the phases
+	    {
+	      int N = ph_list.Nrows()+1;
+	      ph_temp = args.ReadWithDefault("ph"+stringify(N), "stop!");
+	      if (ph_temp == "stop!") break; //we have run out of phases
+	 
+	      // append the new phase onto the end of the list
+	      ColumnVector tmp(1);
+	      tmp = convertTo<double>(ph_temp);
+	      ph_list &= tmp; //vertical concatenation
+	    }
+	}
+	else {
+	  // phases have not been specified on command line  - use defaults
+	  nph = convertTo<int>(args.ReadWithDefault("nph","8")); //number of phases
+	  for (int i=1; i<=nph; i++)
+	    {
+	      //evenly spaced phases
+	      double ph = (360/nph*(i-1) ); //in degrees
+	      ColumnVector tmp(1);
+	      tmp = ph;
+	      ph_list &= tmp; //vertical concatention
+	    }
+	}
 
-    // deal with ARD selection
-    //doard=false;
-    //if (inferart==true && ardoff==false) { doard=true; }
+      // modulation function
+      modfn = args.ReadWithDefault("modfn","fermi");      
 
-    infervel = false;
-    incvel = false;
-    if (modfn == "mat")
-    {
-        assert(mod_temp(1, 1) == 99);
-        int nphasepts = mod_temp.Nrows() - 1;
-        nvelpts = mod_temp.Ncols() - 1;
+      //modmat
+      string modmatstring;
+      Matrix mod_temp;
+      modmatstring = args.ReadWithDefault("modmat","none");
+      if (modmatstring != "none") {
+	mod_temp = read_ascii_matrix(modmatstring);
+      }
 
-        mod_phase = (mod_temp.SubMatrix(2, nphasepts + 1, 1, 1)).AsColumn();
-        mod_v = (mod_temp.SubMatrix(1, 1, 2, nvelpts + 1)).AsColumn();
-        mod_mat = mod_temp.SubMatrix(2, nphasepts + 1, 2, nvelpts + 1);
+      // shape of the fermi function
+      alpha = convertTo<double>(args.ReadWithDefault("alpha","55"));
+      beta = convertTo<double>(args.ReadWithDefault("beta","12"));
+      
 
-        vmax = mod_v(nvelpts);
-        vmin = mod_v(1);
+      // deal with ARD selection
+      //doard=false;
+      //if (inferart==true && ardoff==false) { doard=true; }
 
-        infervel = args.ReadBool("infervel");
-        if (infervel)
-        {
-            incvel = true;
-        }
-        else
-        {
-            incvel = args.ReadBool("incvel");
-        }
-    }
+      infervel=false;
+      incvel=false;
+      if ( modfn == "mat" ) {
+	assert(mod_temp(1,1)==99);
+	int nphasepts = mod_temp.Nrows()-1;
+	nvelpts = mod_temp.Ncols()-1;
+	
+	mod_phase = ( mod_temp.SubMatrix(2,nphasepts+1,1,1) ).AsColumn();
+	mod_v = ( mod_temp.SubMatrix(1,1,2,nvelpts+1) ).AsColumn();
+	mod_mat = mod_temp.SubMatrix(2,nphasepts+1,2,nvelpts+1);
+	
+	vmax = mod_v(nvelpts);
+	vmin = mod_v(1);
+	
+	
+	infervel = args.ReadBool("infervel");
+	if (infervel) {
+	  incvel=true;
+	}
+	else {
+	  incvel = args.ReadBool("incvel");
+	}
+	
+      }
 
-    // add information about the parameters to the log
-    // test correctness of specified modulation function
-    if (modfn == "fermi")
-    {
-        LOG << "Inference using Fermi model" << endl;
-        LOG << "alpha=" << alpha << " ,beta=" << beta << endl;
-    }
-    else if (modfn == "mat")
-    {
-        LOG << "Inference using numerical modulation function" << endl;
-        LOG << "File is: " << modmatstring << endl;
-    }
-    else
-    {
-        throw invalid_argument("Unrecognised modulation function");
-    }
+     
+      // add information about the parameters to the log
+      // test correctness of specified modulation function
+      if (modfn == "fermi") {
+	LOG << "Inference using Fermi model" << endl;
+	LOG << "alpha=" << alpha << " ,beta=" << beta << endl;
+      }
+      else if (modfn == "mat") {
+	LOG << "Inference using numerical modulation function" << endl;
+	LOG << "File is: " << modmatstring << endl;
+      }
+      else {
+	throw invalid_argument("Unrecognised modulation function");
+      }
+      
 }
 
 void MultiPhaseASLFwdModel::NameParams(vector<string> &names) const
