@@ -32,6 +32,7 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist& prior,
 
     // Set priors
     SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e12; // by default all paramerers are included as fully informative
+    prior.means = 0; // set a default zero value - this should get overwritten if a non-zero mean is not applicable
 
     // Flow
     if (infertiss) {
