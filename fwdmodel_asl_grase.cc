@@ -14,7 +14,10 @@
 #include "newimage/newimageall.h"
 #include "miscmaths/miscprob.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
+
+#include "utils/tracer_plus.h"
+using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory, GraseFwdModel> 
    GraseFwdModel::registration("buxton");

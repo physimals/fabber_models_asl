@@ -9,6 +9,7 @@
 #if !defined(asl_models_h)
 #define asl_models_h
 
+#include "fabber_core/fwdmodel.h"
 #include "miscmaths/miscmaths.h"
 #include "miscmaths/miscprob.h"
 
@@ -17,6 +18,24 @@ using namespace MISCMATHS;
 #include "utils/tracer_plus.h"
 
 using namespace Utilities;
+
+#ifdef _WIN32
+  #ifdef fabber_asl_EXPORTS
+    #define DLLAPI __declspec(dllexport)
+  #else
+    #define DLLAPI __declspec(dllimport)
+  #endif
+  #define CALL __stdcall
+#else
+  #define DLLAPI
+  #define CALL
+#endif
+
+extern "C" {
+	DLLAPI int CALL get_num_models();
+	DLLAPI const char * CALL get_model_name(int index);
+	DLLAPI NewInstanceFptr CALL get_new_instance_func(const char *name);
+}
 
 namespace OXASL {
 

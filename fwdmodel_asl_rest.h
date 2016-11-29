@@ -9,8 +9,8 @@
 #ifndef __FABBER_ASL_REST_FWDMODEL_H
 #define __FABBER_ASL_REST_FWDMODEL_H 1
 
-#include "fabbercore/fwdmodel.h"
-#include "fabbercore/inference.h"
+#include "fabber_core/fwdmodel.h"
+#include "fabber_core/inference.h"
 #include <string>
 
 #include "asl_models.h"
@@ -23,6 +23,7 @@ public:
   static FwdModel* NewInstance();
 
   // Virtual function overrides
+  virtual void GetOptions(vector<OptionSpec> &opts) const;
   virtual void Initialize(ArgsType& args);
   virtual void Evaluate(const ColumnVector& params, 
 			      ColumnVector& result) const;

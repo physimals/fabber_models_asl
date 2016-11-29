@@ -13,7 +13,10 @@
 #include <stdexcept>
 #include "newimage/newimageall.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
+
+#include "utils/tracer_plus.h"
+using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory,  MultiPhaseASLFwdModel> 
   MultiPhaseASLFwdModel::registration("asl_multiphase");

@@ -6,7 +6,7 @@
 
 /*  CCOPYRIGHT */
 
-#include "fabbercore/fabber_core.h"
+#include "fabber_core/fabber_core.h"
 
 // ASL models to be included from library
 #include "fwdmodel_asl_multiphase.h"
