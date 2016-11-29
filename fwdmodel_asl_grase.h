@@ -21,12 +21,12 @@ public:
 
   // Virtual function overrides
   virtual void Initialize(ArgsType& args);
-  virtual void Evaluate(const ColumnVector& params, 
-			      ColumnVector& result) const;
+  virtual void Evaluate(const NEWMAT::ColumnVector& params, 
+			      NEWMAT::ColumnVector& result) const;
   virtual vector<string> GetUsage() const;
   virtual string ModelVersion() const;
                   
-  virtual void DumpParameters(const ColumnVector& vec,
+  virtual void DumpParameters(const NEWMAT::ColumnVector& vec,
                                 const string& indents = "") const;
                                 
   virtual void NameParams(vector<string>& names) const;     
@@ -87,8 +87,8 @@ protected: // Constants
   //bool inferinveff;
   //bool infertrailing;
   bool doard;
-  ColumnVector tis;
-  Real timax;
+  NEWMAT::ColumnVector tis;
+  NEWMAT::Real timax;
 
  private:
   /** Auto-register with forward model factory. */
