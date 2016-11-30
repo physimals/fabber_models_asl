@@ -85,3 +85,18 @@ or
   
 Note that you still need to specify the model (e.g. --model=aslrest) on the command line to tell Fabber to use one of the ASL models.
 
+### <a name="fslbuild"></a>Building in an FSL environment
+
+If you have built `fabber_core` within an FSL source distribution which you may prefer to build the ASL models within the same system. You will need to do the following:
+
+1. Move the fabber_models_asl directory into the FSL source tree `mv fabber_models_asl $FSLDIR/src/`
+2. `cd $FSLDIR/src/fabber_models_asl`
+3. make
+
+`fabber_asl` should now be set up to build, provided you have the following environment variables set up:
+
+    FSLDIR
+    FSLCONFDIR
+    FSLMACHTYPE
+
+Note that the FSL makefile does not attempt to build the shared library.
