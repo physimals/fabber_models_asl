@@ -21,7 +21,14 @@ using Utilities::Tracer_Plus;
 
 string ASL_PVC_FwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_pvc.cc,v 1.6 2013/09/03 15:08:04 chappell Exp $";
+   string version = "fwdmodel_asl_pvc.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
 }
 
 void ASL_PVC_FwdModel::HardcodedInitialDists(MVNDist& prior, 

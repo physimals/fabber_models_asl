@@ -21,8 +21,14 @@ using Utilities::Tracer_Plus;
 
 string QuasarFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_quasar.cc,v 1.9 2014/10/24 15:25:58 chappell Exp $";
-}
+   string version = "fwdmodel_asl_quasar.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;}
 
 void QuasarFwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
@@ -939,7 +945,7 @@ ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float deltb
       if(ti < deltblood)
 	{ 
 	  kcblood(it) = 2 * exp(-deltblood/T_1b) * (0.98 * exp( (ti-deltblood)/0.05 ) + 0.02 * ti/deltblood );
-	  // use a arti§fical lead in period for arterial bolus to improve model fitting
+	  // use a arti\A7fical lead in period for arterial bolus to improve model fitting
 	}
       else if(ti >= deltblood && ti <= (deltblood + taub))
 	{ 

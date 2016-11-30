@@ -24,7 +24,14 @@ FactoryRegistration<FwdModelFactory, GraseFwdModel>
 
 string GraseFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_grase.cc,v 1.22 2013/09/04 15:13:00 chappell Exp $";
+    string version = "fwdmodel_asl_grase.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
 }
 
 void GraseFwdModel::HardcodedInitialDists(MVNDist& prior, 
