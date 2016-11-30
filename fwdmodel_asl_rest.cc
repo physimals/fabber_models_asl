@@ -21,7 +21,14 @@ FactoryRegistration<FwdModelFactory, ASLFwdModel>
 
 string ASLFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_rest.cc,v 1.9 2014/12/19 16:18:31 chappell Exp $";
+    string version = "fwdmodel_asl_rest.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
 }
 
 static OptionSpec OPTIONS[] =

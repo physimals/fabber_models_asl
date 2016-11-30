@@ -21,7 +21,14 @@ using Utilities::Tracer_Plus;
 
 string SatrecovFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_satrecov.cc,v 1.4 2012/12/19 17:16:43 chappell Exp $";
+   string version = "fwdmodel_asl_satrecov.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
 }
 
 void SatrecovFwdModel::HardcodedInitialDists(MVNDist& prior, 
