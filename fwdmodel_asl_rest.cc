@@ -508,7 +508,15 @@ void ASLFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) con
   
     for(int it=1; it<=tis.Nrows(); it++)
       {
-	ti = tis(it) + slicedt*coord_z; //account here for an increase in the TI due to delays between slices
+	//account here for an increase in the TI due to delays between slices
+	int thisz = coord_z; //the slice number
+	if (sliceband>0) {
+	  //multiband setup in which we have specified the number of slices per band
+	  div_t divresult;
+	  divresult = div(coord_z,sliceband);
+	  thisz = divresult.rem; //the number of sluices above the base of this band (lowest slice in volume for normal (non multi-band) data)
+	}
+	ti = tis(it) + slicedt*thisz; //calcualte the actual TI for this slice
 
 	if (multitau) {
 	  //overwrite default tau value with the TI specific one
@@ -704,6 +712,7 @@ void ASLFwdModel::Initialize(ArgsType& args)
       repeats = convertTo<int>(args.ReadWithDefault("repeats","1")); // number of repeats in data
       pretisat = convertTo<double>(args.ReadWithDefault("pretisat","0")); // deal with saturation of the bolus a fixed time pre TI measurement
       slicedt = convertTo<double>(args.ReadWithDefault("slicedt","0.0")); // increase in TI per slice
+      sliceband = convertTo<int>(args.ReadWithDefault("sliceband","0")); //number of slices in a band in a multi-band setup (zero implies single band)
       casl = args.ReadBool("casl"); //set if the data is CASL or PASL (default)
       //seqtau = convertTo<double>(args.ReadWithDefault("tau","1000")); //bolus length as set by sequence (default of 1000 is effectively infinite
       setdelt = convertTo<double>(args.ReadWithDefault("bat","0.7"));

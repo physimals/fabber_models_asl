@@ -93,6 +93,7 @@ int stattiss_index() const {return facorr_index() + (incfacorr?1:0);} //includin
   int repeats;
   ColumnVector crush;
   Matrix crushdir;
+  int sliceband; //number of slices per band
 
   //data information
   bool raw; //data is 'raw' (non-subtracted)
