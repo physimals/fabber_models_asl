@@ -13,14 +13,24 @@
 #include <stdexcept>
 #include "newimage/newimageall.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
+
+#include "utils/tracer_plus.h"
+using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory,  MultiPhaseASLFwdModel> 
   MultiPhaseASLFwdModel::registration("asl_multiphase");
 
 string MultiPhaseASLFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_multiphase.cc,v 1.3 2014/11/07 11:43:43 chappell Exp $";
+   string version = "fwdmodel_asl_multiphase.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
 }
 
 void MultiPhaseASLFwdModel::HardcodedInitialDists(MVNDist& prior, 

@@ -14,14 +14,24 @@
 #include "newimage/newimageall.h"
 #include "miscmaths/miscprob.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
+
+#include "utils/tracer_plus.h"
+using Utilities::Tracer_Plus;
 
 FactoryRegistration<FwdModelFactory, GraseFwdModel> 
    GraseFwdModel::registration("buxton");
 
 string GraseFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_grase.cc,v 1.22 2013/09/04 15:13:00 chappell Exp $";
+    string version = "fwdmodel_asl_grase.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
 }
 
 void GraseFwdModel::HardcodedInitialDists(MVNDist& prior, 

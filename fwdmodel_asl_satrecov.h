@@ -6,8 +6,8 @@
 
 /*  CCOPYRIGHT */
 
-#include "fabbercore/fwdmodel.h"
-#include "fabbercore/inference.h"
+#include "fabber_core/fwdmodel.h"
+#include "fabber_core/inference.h"
 #include <string>
 using namespace std;
 

@@ -7,6 +7,39 @@ Copyright (C) 2010-2011 University of Oxford */
 /* CCOPYRIGHT  */
 
 #include "asl_models.h"
+#include "fabber_core/fwdmodel.h"
+
+#include <algorithm>
+
+#include "fwdmodel_asl_rest.h"
+
+extern "C" {
+	int get_num_models()
+	{
+		return 1;
+	}
+
+	const char *get_model_name(int index)
+	{
+		switch (index) {
+		case 0:
+			return "aslrest";
+			break;
+		default:
+			return NULL;
+		}
+	}
+
+	NewInstanceFptr get_new_instance_func(const char *name)
+	{
+		if (string(name) == "aslrest") {
+			return ASLFwdModel::NewInstance;
+		}
+		else {
+			return NULL;
+		}
+	}
+}
 
 namespace OXASL {
 

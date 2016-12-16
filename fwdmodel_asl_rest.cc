@@ -14,14 +14,83 @@
 #include "newimage/newimageall.h"
 #include "miscmaths/miscprob.h"
 using namespace NEWIMAGE;
-#include "fabbercore/easylog.h"
+#include "fabber_core/easylog.h"
 
 FactoryRegistration<FwdModelFactory, ASLFwdModel> 
   ASLFwdModel::registration("aslrest");
 
 string ASLFwdModel::ModelVersion() const
 {
-  return "$Id: fwdmodel_asl_rest.cc,v 1.9 2014/12/19 16:18:31 chappell Exp $";
+    string version = "fwdmodel_asl_rest.cc";
+#ifdef GIT_SHA1
+    version += string(" Revision ") + GIT_SHA1;
+#endif
+#ifdef GIT_DATE
+    version += string(" Last commit ") + GIT_DATE;
+#endif
+    return version;
+}
+
+static OptionSpec OPTIONS[] =
+{
+	{ "disp", OPT_STR, "AIF dispersion type", OPT_NONREQ, "none" },
+	{ "exch", OPT_STR, "Type of exchange in tissue compartment", OPT_NONREQ, "mix" },
+	{ "forceconv", OPT_BOOL, "Force numerical convolution for evaluation of model", OPT_NONREQ, "" },
+	{ "inctiss", OPT_BOOL, "Include tissue parameters", OPT_NONREQ, "" },
+	{ "infertiss", OPT_BOOL, "Infer tissue parameters", OPT_NONREQ, "" },
+	{ "incart", OPT_BOOL, "Include arterial parameters", OPT_NONREQ, "" },
+	{ "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
+	{ "incwm", OPT_BOOL, "Include white matter parameters", OPT_NONREQ, "" },
+	{ "incbat", OPT_BOOL, "Include BAT?????? parameters", OPT_NONREQ, "" },
+	{ "inferbat", OPT_BOOL, "Infer BAT?????? parameters", OPT_NONREQ, "" },
+	{ "incpc", OPT_BOOL, "Include PC?????? parameters", OPT_NONREQ, "" },
+	{ "inferpc", OPT_BOOL, "Infer PC?????? parameters", OPT_NONREQ, "" },
+	{ "inctau", OPT_BOOL, "Include tau", OPT_NONREQ, "" },
+	{ "infertau", OPT_BOOL, "Infer tau", OPT_NONREQ, "" },
+	{ "septau", OPT_BOOL, "??????", OPT_NONREQ, "" },
+	{ "inct1", OPT_BOOL, "Include T1 parameter", OPT_NONREQ, "" },
+	{ "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
+	{ "inferdisp", OPT_BOOL, "Infer dispersion parameters (if present in model)", OPT_NONREQ, "" },
+	{ "sepdisp", OPT_BOOL, "??????", OPT_NONREQ, "" },
+	{ "inferexch", OPT_BOOL, "Infer exchange parameters (if present in model)", OPT_NONREQ, "" },
+	{ "incpve", OPT_BOOL, "Include PVE?????? parameters", OPT_NONREQ, "" },
+	{ "pvcorr", OPT_BOOL, "PV correction", OPT_NONREQ, "" },
+	{ "incstattiss", OPT_BOOL, "Include static tissue parameters", OPT_NONREQ, "" },
+	{ "inferstattiss", OPT_BOOL, "Infer static tissue parameters", OPT_NONREQ, "" },
+	{ "ardoff", OPT_BOOL, "Turn off ARD", OPT_NONREQ, "" },
+	{ "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
+	{ "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement", OPT_NONREQ, "0.0" },
+	{ "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
+	{ "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
+	{ "bat", OPT_FLOAT, "??????", OPT_NONREQ, "0.7" },
+	{ "batwm", OPT_FLOAT, "??????", OPT_NONREQ, "bat+0.3" },
+	{ "batart", OPT_FLOAT, "??????", OPT_NONREQ, "bat-0.3" },
+	{ "batsd", OPT_FLOAT, "??????", OPT_NONREQ, "0.316" },
+	{ "--iaf", OPT_STR, "?????? - is this option name an error?", OPT_NONREQ, "diff" },
+	{ "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
+	{ "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
+	{ "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
+	{ "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
+	{ "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9 (0.98 with WM component)" },
+	{ "ti", OPT_FLOAT, "Single TI value", OPT_NONREQ, "" },
+	{ "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
+	{ "pld", OPT_FLOAT, "Single PLD value", OPT_NONREQ, "" },
+	{ "pld<n>", OPT_FLOAT, "List of PLD values", OPT_NONREQ, "" },
+	{ "hadamard", OPT_INT, "Number of Hadamard encoding lines", OPT_NONREQ, "0" },
+	{ "fullhad", OPT_BOOL, "Activate full Hadamard matrix", OPT_NONREQ, "" },
+	{ "tau", OPT_FLOAT, "Single tau value", OPT_NONREQ, "" },
+	{ "tau<n>", OPT_FLOAT, "List of tau values", OPT_NONREQ, "" },
+	{ "crush<n>", OPT_STR, "List of vascular crushing specifications values", OPT_NONREQ, "" },
+	{ "FA", OPT_FLOAT, "Look-Locker correction", OPT_NONREQ, "" },
+	{ "facorr", OPT_BOOL, "Do FA correction", OPT_NONREQ, "" },
+	{ "" }, };
+
+void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
+{
+	for (int i = 0; OPTIONS[i].name != ""; i++)
+	{
+		opts.push_back(OPTIONS[i]);
+	}
 }
 
 void ASLFwdModel::HardcodedInitialDists(MVNDist& prior, 
@@ -628,6 +697,7 @@ void ASLFwdModel::Initialize(ArgsType& args)
   Tracer_Plus tr("ASLFwdModel::Initialize");
     string scanParams = args.ReadWithDefault("scan-params","cmdline");
     
+	
     bool forceconv;
 
     if (scanParams == "cmdline")
@@ -652,8 +722,8 @@ void ASLFwdModel::Initialize(ArgsType& args)
       inferwm = false; // we only infer WM if we are doing PV correction (below)
 
       if (!inctiss & !incart) {
-	throw invalid_argument("Error: neither tissue nor arterial components have been selected: make sure you set either (or both) of --inctiss and --incart");
-      }
+		throw invalid_argument("Error: neither tissue nor arterial components have been selected: make sure you set either (or both) of --inctiss and --incart");
+     }
 
       // -common things
       incbat = args.ReadBool("incbat");
@@ -688,7 +758,6 @@ void ASLFwdModel::Initialize(ArgsType& args)
       }
       // make sure if we include PVE that we always have WM component in the model
       if (incpve) incwm = true;
-
 
       //include the static tissue
       incstattiss = args.ReadBool("incstattiss");
@@ -858,7 +927,6 @@ void ASLFwdModel::Initialize(ArgsType& args)
       else {
 	  hadamard = true;
 	  HadamardSize = convertTo<int>(hadamardin); // This gives the number of encoding lines
-
 	  if ( ( (HadamardSize % 2) != 0 ) & (HadamardSize != 12 ) ) {
 	      //check that we have a sensible hadamard scheme
 	      throw invalid_argument("Hadamard encoding is only possible with a number of encodings that are modulo 2 (2,4,8,16...) or number of encodings equal to 12");
@@ -871,8 +939,7 @@ void ASLFwdModel::Initialize(ArgsType& args)
 	  // we will usually ingore the first column (all control), unless we are doign FullHad
 	  HadEncMatrix = HadEncMatrix.SubMatrix(1,HadamardSize,HadamardSize-(NumberOfSubBoli-1),HadamardSize);
       }
-      
-      
+
       // Populate the inflow time (TI) vector
       if (hadamard) {
 	//set TIs up for hadamard data
