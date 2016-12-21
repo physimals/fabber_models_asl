@@ -23,13 +23,14 @@ public:
   static FwdModel* NewInstance();
 
   // Virtual function overrides
-  virtual void GetOptions(vector<OptionSpec> &opts) const;
   virtual void Initialize(ArgsType& args);
   virtual void Evaluate(const ColumnVector& params, 
 			      ColumnVector& result) const;
-  virtual vector<string> GetUsage() const;
-  virtual string ModelVersion() const;
-                  
+  virtual std::vector<std::string> GetUsage() const;
+  virtual std::string ModelVersion() const;
+  virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+  virtual std::string GetDescription() const;
+       
   virtual void DumpParameters(const ColumnVector& vec,
                                 const string& indents = "") const;
                                 

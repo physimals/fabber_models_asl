@@ -16,9 +16,6 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
-
 string ASL_PVC_FwdModel::ModelVersion() const
 {
    string version = "fwdmodel_asl_pvc.cc";
@@ -34,7 +31,6 @@ string ASL_PVC_FwdModel::ModelVersion() const
 void ASL_PVC_FwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
 {
-    Tracer_Plus tr("ASL_PVC_FwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
      SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
@@ -162,8 +158,6 @@ void ASL_PVC_FwdModel::HardcodedInitialDists(MVNDist& prior,
 
 void ASL_PVC_FwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-  Tracer_Plus tr("ASL_PVC_FwdModel::Evaluate");
-
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
@@ -666,8 +660,6 @@ void ASL_PVC_FwdModel::NameParams(vector<string>& names) const
 
 void ASL_PVC_FwdModel::SetupARD( const MVNDist& theta, MVNDist& thetaPrior, double& Fard)
 {
-  Tracer_Plus tr("ASL_PVC_FwdModel::SetupARD");
-
   if (doard)
     {
       //sort out ARD indices
@@ -704,8 +696,6 @@ void ASL_PVC_FwdModel::UpdateARD(
 				const MVNDist& theta,
 				MVNDist& thetaPrior, double& Fard) const
 {
-  Tracer_Plus tr("ASL_PVC_FwdModel::UpdateARD");
-  
   if (doard)
     Fard=0;
     {

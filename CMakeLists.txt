@@ -8,6 +8,8 @@ add_executable(fabber_asl ${ASL_SRC} fabber_client.cc)
 if(APPLE)
   # Force use of libstdc++ on Mac as FSL uses this and we cannot link otherwise
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libstdc++")
+  # Get rid of CMake warning
+  set(CMAKE_MACOSX_RPATH ON)
 endif(APPLE)
 
 find_path(FABBER_INCLUDE_DIR fabber_core/fwdmodel.h
@@ -34,8 +36,6 @@ find_library(NEWMAT_LIBRARY NAMES newmat libnewmat
              HINTS $ENV{FSLDIR}/extras/lib REQUIRED )
 find_library(MISCMATHS_LIBRARY NAMES miscmaths libmiscmaths
              HINTS $ENV{FSLDIR}/lib REQUIRED )
-find_library(UTILS_LIBRARY NAMES utils libutils
-             HINTS $ENV{FSLDIR}/lib REQUIRED )
 find_library(NEWIMAGE_LIBRARY NAMES newimage libnewimage
              HINTS $ENV{FSLDIR}/lib REQUIRED )
 find_library(FSLIO_LIBRARY NAMES fslio libfslio
@@ -49,15 +49,17 @@ find_library(Z_LIBRARY NAMES z libz zlib zlibd
 find_library(PROB_LIBRARY NAMES prob libprob
              HINTS $ENV{FSLDIR}/extras/lib REQUIRED )
 
-set(LIBS ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}  ${NEWIMAGE_LIBRARY} ${FSLIO_LIBRARY} ${NIFTIIO_LIBRARY} ${MISCMATHS_LIBRARY} ${UTILS_LIBRARY} ${ZNZ_LIBRARY} ${Z_LIBRARY} ${NEWMAT_LIBRARY} ${PROB_LIBRARY})
+set(LIBS ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}  ${NEWIMAGE_LIBRARY} ${FSLIO_LIBRARY} ${MISCMATHS_LIBRARY} ${NIFTIIO_LIBRARY}  ${ZNZ_LIBRARY} ${Z_LIBRARY} ${NEWMAT_LIBRARY} ${PROB_LIBRARY})
+#set(SHLIBS ${PROB_LIBRARY})
 
 if (UNIX)
   set(LIBS ${LIBS} dl)
 endif(UNIX)
+set(SHLIBS ${LIBS})
+set (CMAKE_SHARED_LINKER_FLAGS  "-z defs")
 
 Message("-- Using Fabber libraries: ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}")
 Message("-- Using libznz: ${ZNZ_LIBRARY}")
-Message("-- Using libutils: ${UTILS_LIBRARY} ${UTILS_INCLUDE_DIR}")
 Message("-- Using miscmaths: ${MISCMATHS_LIBRARY}")
 Message("-- Using fslio: ${FSLIO_LIBRARY}")
 Message("-- Using newimage: ${NEWIMAGE_LIBRARY}")
@@ -67,7 +69,7 @@ Message("-- Using newimage: ${NEWIMAGE_LIBRARY}")
 Message("-- Using prob: ${PROB_LIBRARY}")
 Message("-- Using zlib: ${Z_LIBRARY}")
 
-target_link_libraries(fabber_models_asl ${LIBS})
+target_link_libraries(fabber_models_asl ${SHLIBS})
 target_link_libraries(fabber_asl ${LIBS})
 
 include_directories(SYSTEM ${FABBER_INCLUDE_DIR} ${NEWMAT_INCLUDE_DIR} ${FSL_INCLUDE_DIR} ${FSL_EXT_INCLUDE_DIR} ${FSL_EXT_INCLUDE_DIR}/libprob ${BOOST_INCLUDE_DIR})

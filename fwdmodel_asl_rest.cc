@@ -41,20 +41,20 @@ static OptionSpec OPTIONS[] =
 	{ "incart", OPT_BOOL, "Include arterial parameters", OPT_NONREQ, "" },
 	{ "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
 	{ "incwm", OPT_BOOL, "Include white matter parameters", OPT_NONREQ, "" },
-	{ "incbat", OPT_BOOL, "Include BAT?????? parameters", OPT_NONREQ, "" },
-	{ "inferbat", OPT_BOOL, "Infer BAT?????? parameters", OPT_NONREQ, "" },
-	{ "incpc", OPT_BOOL, "Include PC?????? parameters", OPT_NONREQ, "" },
-	{ "inferpc", OPT_BOOL, "Infer PC?????? parameters", OPT_NONREQ, "" },
-	{ "inctau", OPT_BOOL, "Include tau", OPT_NONREQ, "" },
-	{ "infertau", OPT_BOOL, "Infer tau", OPT_NONREQ, "" },
-	{ "septau", OPT_BOOL, "??????", OPT_NONREQ, "" },
+	{ "incbat", OPT_BOOL, "Include bolus arrival time parameter", OPT_NONREQ, "" },
+	{ "inferbat", OPT_BOOL, "Infer bolus arrival time parameter", OPT_NONREQ, "" },
+	{ "incpc", OPT_BOOL, "Include pre-capillary parameters", OPT_NONREQ, "" },
+	{ "inferpc", OPT_BOOL, "Infer pre-capillary parameters", OPT_NONREQ, "" },
+	{ "inctau", OPT_BOOL, "Include bolus duration parameter", OPT_NONREQ, "" },
+	{ "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
+	{ "septau", OPT_BOOL, "Separate values of tau for each component", OPT_NONREQ, "" },
 	{ "inct1", OPT_BOOL, "Include T1 parameter", OPT_NONREQ, "" },
 	{ "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
 	{ "inferdisp", OPT_BOOL, "Infer dispersion parameters (if present in model)", OPT_NONREQ, "" },
-	{ "sepdisp", OPT_BOOL, "??????", OPT_NONREQ, "" },
+	{ "sepdisp", OPT_BOOL, "Separate tissue dispersion parameters for each component", OPT_NONREQ, "" },
 	{ "inferexch", OPT_BOOL, "Infer exchange parameters (if present in model)", OPT_NONREQ, "" },
-	{ "incpve", OPT_BOOL, "Include PVE?????? parameters", OPT_NONREQ, "" },
-	{ "pvcorr", OPT_BOOL, "PV correction", OPT_NONREQ, "" },
+	{ "incpve", OPT_BOOL, "Include PVE parameters", OPT_NONREQ, "" },
+	{ "pvcorr", OPT_BOOL, "Partial volume correction", OPT_NONREQ, "" },
 	{ "incstattiss", OPT_BOOL, "Include static tissue parameters", OPT_NONREQ, "" },
 	{ "inferstattiss", OPT_BOOL, "Infer static tissue parameters", OPT_NONREQ, "" },
 	{ "ardoff", OPT_BOOL, "Turn off ARD", OPT_NONREQ, "" },
@@ -62,11 +62,11 @@ static OptionSpec OPTIONS[] =
 	{ "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement", OPT_NONREQ, "0.0" },
 	{ "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
 	{ "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
-	{ "bat", OPT_FLOAT, "??????", OPT_NONREQ, "0.7" },
-	{ "batwm", OPT_FLOAT, "??????", OPT_NONREQ, "bat+0.3" },
-	{ "batart", OPT_FLOAT, "??????", OPT_NONREQ, "bat-0.3" },
-	{ "batsd", OPT_FLOAT, "??????", OPT_NONREQ, "0.316" },
-	{ "--iaf", OPT_STR, "?????? - is this option name an error?", OPT_NONREQ, "diff" },
+	{ "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
+	{ "batwm", OPT_FLOAT, "Bolus arrival time (white matter)", OPT_NONREQ, "bat+0.3" },
+	{ "batart", OPT_FLOAT, "Bolus arrival time (arterial)", OPT_NONREQ, "bat-0.3" },
+	{ "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
+	{ "--iaf", OPT_STR, "Data information - is this option name an error?", OPT_NONREQ, "diff" },
 	{ "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
 	{ "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
 	{ "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
@@ -93,10 +93,14 @@ void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
 	}
 }
 
+std::string ASLFwdModel::GetDescription() const
+{
+	return "Resting state ASL model";
+}
+ 
 void ASLFwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
 {
-    Tracer_Plus tr("ASLFwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
     // Set priors
@@ -349,8 +353,6 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist& prior,
     
 void ASLFwdModel::InitParams(MVNDist& posterior) const
 {
-  Tracer_Plus tr("ASLFwdModel::Initialise");
-
   if (inferstattiss) {
     // if we have static tissue then this should be init from the raw data intensities
     double dataval = data.Maximum();
@@ -384,8 +386,6 @@ void ASLFwdModel::InitParams(MVNDist& posterior) const
 
 void ASLFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-  Tracer_Plus tr("ASLFwdModel::Evaluate");
-
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
@@ -686,7 +686,6 @@ FwdModel* ASLFwdModel::NewInstance()
 
 void ASLFwdModel::Initialize(ArgsType& args)
 {
-  Tracer_Plus tr("ASLFwdModel::Initialize");
     string scanParams = args.ReadWithDefault("scan-params","cmdline");
     
 	
@@ -1362,8 +1361,6 @@ Matrix ASLFwdModel::HadamardMatrix( const int size) const
 {
   // generate a Hadamard matrix
   // This has zeros (for control) and ones (for label) in place of the classic +1 and -1
-  Tracer_Plus tr("ASLFwdModel::HadamardMatrix");
-
   Matrix matrix;
   
   if (size == 12) {
@@ -1405,11 +1402,7 @@ Matrix ASLFwdModel::HadamardMatrix( const int size) const
 
 void ASLFwdModel::SetupARD( const MVNDist& theta, MVNDist& thetaPrior, double& Fard) const
 {
-  Tracer_Plus tr("ASLFwdModel::SetupARD");
-
- 
-
-  int ardindex = ard_index();
+ int ardindex = ard_index();
 
 
    if (doard)
@@ -1436,9 +1429,7 @@ void ASLFwdModel::SetupARD( const MVNDist& theta, MVNDist& thetaPrior, double& F
 void ASLFwdModel::UpdateARD(
 				const MVNDist& theta,
 				MVNDist& thetaPrior, double& Fard) const
-{
-  Tracer_Plus tr("ASLFwdModel::UpdateARD");
-  
+{  
   int ardindex = ard_index();
 
 

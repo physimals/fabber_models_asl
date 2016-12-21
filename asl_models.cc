@@ -16,12 +16,12 @@ Copyright (C) 2010-2011 University of Oxford */
 extern "C" {
 	int get_num_models()
 	{
-		return 1;
+                return 1;
 	}
 
 	const char *get_model_name(int index)
 	{
-		switch (index) {
+                switch (index) {
 		case 0:
 			return "aslrest";
 			break;
@@ -32,7 +32,7 @@ extern "C" {
 
 	NewInstanceFptr get_new_instance_func(const char *name)
 	{
-		if (string(name) == "aslrest") {
+                if (string(name) == "aslrest") {
 			return ASLFwdModel::NewInstance;
 		}
 		else {
@@ -48,7 +48,6 @@ namespace OXASL {
 
   double AIFModel_nodisp::kcblood(const double ti, const double deltblood, const double taub, const double T_1b, const bool casl,const ColumnVector dispparam) const {
   // Non dispersed arterial curve
-  Tracer_Plus tr("OXASL:kcblood_nodisp");
   double kcblood = 0.0;
 
 
@@ -80,7 +79,6 @@ namespace OXASL {
   //NOTE: for cASL the version here is an over simplificaiton (just changing the decay term and leaving the rest alone) since it ignores the fact that some blood will be more delayed than the rest due to dispersion
   double AIFModel_gammadisp::kcblood(const double ti,const double deltblood,const double taub,const double T_1b,const bool casl,const ColumnVector dispparam) const {
     // Gamma dispersed arterial curve (pASL)
-    Tracer_Plus tr("OXASL:kcblood_gammadisp");
     double kcblood = 0.0;
 
     //extract dispersion parameters
@@ -118,7 +116,6 @@ namespace OXASL {
 
   double AIFModel_gvf::kcblood(const double ti,const double deltblood,const double taub,const double T_1b,const bool casl,const ColumnVector dispparam) const {
     //GVF AIF shape
-    Tracer_Plus tr("OXASL:kcblood_gvf");
     double kcblood = 0.0;
 
     //extract dispersion parameters
@@ -156,7 +153,6 @@ namespace OXASL {
   // Gaussian dispersion arterial curve
   // after Hrabe & Lewis, MRM, 2004 for pASL
     // my derrivation based on the spatial gauss solution for cASL
-  Tracer_Plus tr("OXASL:kcblood_gaussdisp");
   double kcblood = 0.0;
   double sqrt2 = sqrt(2);
 
@@ -210,7 +206,6 @@ namespace OXASL {
     // This is the (orignal, now) alternate version that assumes that dispersion happens with TI
     // NB pASl case is same for both versions
   
-  Tracer_Plus tr("OXASL:kcblood_spatialgaussdisp");
   double kcblood = 0.0;
 
   double k;
@@ -253,7 +248,6 @@ double AIFModel_spatialgaussdisp::kcblood(const double ti,const double deltblood
   // using derrivation from Thijs van Osch for cASL, but developed into closed form solution
     // This is the (orignal, now) alternate version that assumes that dispersion happens with TI
   
-  Tracer_Plus tr("OXASL:kcblood_spatialgaussdisp");
   double kcblood = 0.0;
 
   double k;
@@ -313,7 +307,6 @@ double kcblood_gallichan(const double ti,const double deltblood,const double tau
   // Taking equation [6] (so not including QUIPSSII style saturation)
   // including an 'extra' arrival time term as per the paper
   // bolus duration (taub) takes the place of X/V_m and we let it be a variable
-    //Tracer_Plus tr("OXASL:kcblood_normdisp");
   double kcblood = 0.0;
 
   assert(casl==false); // this model is pASL only
@@ -348,8 +341,6 @@ double kcblood_gallichan(const double ti,const double deltblood,const double tau
   double ResidModel_wellmix::resid(const double ti, const double fcalib, const double T_1, const double T_1b, const double lambda, const ColumnVector residparam) const {
     // Well mixed single compartment
     // Buxton (1998) model
-    Tracer_Plus tr("OXASL::residmodel_wellmix");
-
     double T_1app = 1/( 1/T_1 + fcalib/lambda );
     return exp(-ti/T_1app);
   }
@@ -357,16 +348,12 @@ double kcblood_gallichan(const double ti,const double deltblood,const double tau
 double ResidModel_simple::resid(const double ti, const double fcalib, const double T_1, const double T_1b, const double lambda, const ColumnVector residparam) const {
     // Simple impermeable comparment
   // decays with T1b
-    Tracer_Plus tr("OXASL::residmodel_simple");
-
     return exp(-ti/T_1b);;
   }
 
   double ResidModel_imperm::resid(const double ti, const double fcalib, const double T_1, const double T_1b, const double lambda, const ColumnVector residparam) const {
     // impermeable compartment with transit time
     //decays with T1b
-    Tracer_Plus tr("OXASL::residmodel_imperm");
-
     double transit = (residparam.Row(1)).AsScalar();
     double resid = exp(-ti/T_1b);
     if (ti>transit) resid=0.0;
@@ -378,8 +365,6 @@ double ResidModel_simple::resid(const double ti, const double fcalib, const doub
     // No backflow from tissue to blood
     // no venous outflow
     // From Parkes & Tofts and also St. Lawrence 2000 - both models are the same under these assumptions
-    Tracer_Plus tr("OXASL::residmodel_twocpt");
-
     // extract residue function parameters
     double kw; //exchange rate = PS/vb
     kw = (residparam.Row(1)).AsScalar();
@@ -397,8 +382,6 @@ double ResidModel_simple::resid(const double ti, const double fcalib, const doub
     // Two compartment model - Single Pass Approximation from St. Lawrence (2000)
     // No backflow from tissue to blood
     // label starts to leave the cappilliary after a capilliary transit time
-    Tracer_Plus tr("OXASL::residmodel_spa");
-
 // extract residue function parameters
     double PS; double vb; double tauc;
     PS = (residparam.Row(1)).AsScalar();
@@ -424,7 +407,6 @@ double ResidModel_simple::resid(const double ti, const double fcalib, const doub
 double TissueModel_nodisp_simple::kctissue(const double ti,const double fcalib, const double delttiss,const double tau,const double T_1b,const double T_1, const double lambda,const bool casl, const ColumnVector dispparam, const ColumnVector residparam) const {
   // Tissue kinetic curve - well mixed, but no outflow and decay with T1 blood only
   // (This is just the impermeable model with infinite residence time)
-  Tracer_Plus tr("OXASL::kctissue_nodisp_simple");
   double kctissue = 0.0;
 
 
@@ -451,7 +433,6 @@ double TissueModel_nodisp_simple::kctissue(const double ti,const double fcalib, 
   double TissueModel_nodisp_wellmix::kctissue(const double ti,const double fcalib, const double delttiss,const double tau,const double T_1b,const double T_1, const double lambda,const bool casl, const ColumnVector dispparam, const ColumnVector residparam) const {
   // Tissue kinetic curve no dispersion
   // Buxton (1998) model
-  Tracer_Plus tr("OXASL::kctissue_nodisp_wellmix");
   double kctissue = 0.0;
 
   double T_1app = 1/( 1/T_1 + fcalib/lambda );
@@ -475,7 +456,6 @@ double TissueModel_nodisp_simple::kctissue(const double ti,const double fcalib, 
 
   double TissueModel_nodisp_imperm::kctissue(const double ti,const double fcalib, const double delttiss,const double tau,const double T_1b,const double T_1, const double lambda,const bool casl, const ColumnVector dispparam, const ColumnVector residparam) const {
   // Tissue kinetic curve no dispersion impermeable vessel
-  Tracer_Plus tr("OXASL::kctissue_nodisp_imperm");
   double kctissue = 0.0;
 
   //extract the pre-cap residence time
@@ -512,8 +492,6 @@ double TissueModel_nodisp_2cpt::kctissue(const double ti,const double fcalib, co
     // No backflow from tissue to blood
     // no venous outflow
     // From Parkes & Tofts and also St. Lawrence 2000 - both models are the same under these assumptions
-    Tracer_Plus tr("OXASL::Tissuemodel_nodisp_twocpt");
-
     // extract residue function parameters
     double kw; //exchange rate = PS/vb
     kw = (residparam.Row(1)).AsScalar();
@@ -553,8 +531,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
     // No backflow from tissue to blood
     // venous outflow (alhtough we dont model a venous component to the signal here)
     // St. Lawrence 2000
-    Tracer_Plus tr("OXASL::Tissuemodel_nodisp_spa");
-
     assert(!casl);
 
     // extract residue function parameters
@@ -592,7 +568,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
 }
 
   double TissueModel_nodisp_spa::Q(const double t1, const double t2, const double t3,const double PS, const double vb, const double tauc, const double fcalib, const double T_1, const double T_1b) const {
-    Tracer_Plus tr("OXASL::TissueModel_nodisp_spa::Q");
     double a = PS/vb + 1/T_1b;
     double b = (PS*T_1*T_1b) / (PS*T_1*T_1b + (T_1-T_1b)*vb );
     double S = 1/T_1-1/T_1b;
@@ -601,7 +576,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
   }
 
   double TissueModel_nodisp_spa::R(const double t1, const double t2, const double t3,const double PS, const double vb, const double tauc, const double fcalib, const double T_1, const double T_1b) const {
-    Tracer_Plus tr("OXASL::TissueModel_nodisp_spa::R");
     double b = (PS*T_1*T_1b) / (PS*T_1*T_1b + (T_1-T_1b)*vb );
     double ER = 1 - exp(-PS/fcalib - (1/T_1b - 1/T_1)*tauc);
     double S = 1/T_1-1/T_1b;
@@ -609,7 +583,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
   }
 
   double TissueModel_gammadisp_wellmix::kctissue(const double ti,const double fcalib, const double delttiss,const double tau,const double T_1b,const double T_1, const double lambda,const bool casl, const ColumnVector dispparam, const ColumnVector residparam) const {
-  Tracer_Plus tr("OXASL::kctissue_gammadisp_wellmix");
   double kctissue = 0.0;
 
   assert(!casl); //only pASL at the moment!
@@ -660,7 +633,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
   double kctissue_gvf(const double ti,const double delttiss,const double tau, const double T_1b,const double T_1app,const double s,const double p) {
     // Tissue KC with a GVF AIF
     // NOTE: tau onyl scales the magnitude and does not affacet the overall shape in this model (see also kcblood_gvf)
-  //Tracer_Plus tr("OXASL::kctissue_gvf");
   double kctissue = 0.0;
 
   double k=1+p*s;
@@ -688,7 +660,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
   double kctissue_gaussdisp(const double ti,const double delttiss,const double tau,const double T_1b,const double T_1app,const double sig1,const double sig2) {
     // Tissue kinetic curve gaussian dispersion (pASL)
     // Hrabe & Lewis, MRM, 2004
-    //Tracer_Plus tr("OXASL::kctissue_gaussdisp");
     double kctissue = 0.0;
 
     double R = 1/T_1app - 1/T_1b; 
@@ -707,7 +678,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
   */
 
  double TissueModel_aif_residue::kctissue(const double ti,const double fcalib, const double delttiss,const double tau,const double T_1b,const double T_1, const double lambda,const bool casl, const ColumnVector dispparam, const ColumnVector residparam) const {
-  Tracer_Plus tr("OXASL::kctissue_aif_residue");
   double kctissue = 0.0;
 
   // calculate the appropraite time series for the aif and residue
@@ -783,15 +753,12 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
 
 // --- useful general functions ---
   double icgf(const double a,const double x) {
-    Tracer_Plus tr("OXASL::icgf");
-    
     //incomplete gamma function with a=k, based on the incomplete gamma integral
     
     return MISCMATHS::gamma(a)*igamc(a,x);
   }
   
   double gvf(const double t,const double s,const double p) {
-    Tracer_Plus tr("OXASL::gvf");
     
     //The Gamma Variate Function (correctly normalised for area under curve) 
     // Form of Rausch 2000
@@ -802,8 +769,6 @@ double TissueModel_nodisp_spa::kctissue(const double ti,const double fcalib, con
   }
 
   double numerical_integration(ColumnVector integrand, double del, double finalval, double finaldel, string method) {
-    Tracer_Plus tr("OXASL::numerical_integration");
-
     int ndel;
     ndel = integrand.Nrows();
     ColumnVector prod(ndel);
