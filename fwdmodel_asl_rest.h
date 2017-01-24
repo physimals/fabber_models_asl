@@ -105,7 +105,8 @@ int stattiss_index() const {return facorr_index() + (incfacorr?1:0);} //includin
   double setdelt; //BAT for prior (tissue compartment)
   double setdeltwm;
   double setdeltart;
-  double deltprec; //precision for BAT
+  double deltprec; //precision for tissue BAT (WM and GM)
+  double deltartprec; //precision for arterial BAT
   bool calib; //indicates calibrated data for T_1app calculation
   bool doard;
 

@@ -138,7 +138,7 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist& prior,
       if (incart) {
 	prior.means(bat_index()+artidx) = setdeltart;
 	if (inferart & inferbat) {
-	  precisions(bat_index()+artidx,bat_index()+artidx) = deltprec;
+	  precisions(bat_index()+artidx,bat_index()+artidx) = deltartprec;
 	}
       }
     }
@@ -798,10 +798,19 @@ void ASLFwdModel::Initialize(ArgsType& args)
       else {
 	setdeltart = convertTo<double>(deltart);
       }
-       //std dev for delt prior (same for all BAT)
+       //std dev for delt prior (same for all tissue BAT)
       double deltsd;
       deltsd = convertTo<double>(args.ReadWithDefault("batsd","0.316"));
       deltprec = 1/(deltsd*deltsd);
+      // now arterial BAT precision
+      string batartsd = args.ReadWithDefault("batartsd","null");
+      if (batartsd == "null") {
+	//by default the arterial BAT SD is same as tissue
+      }
+      else {
+	deltsd = convertTo<double>(batartsd);
+      }
+      deltartprec = 1/(deltsd*deltsd);
 
       //data information
       raw=false;
