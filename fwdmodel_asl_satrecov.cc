@@ -16,9 +16,6 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
-
 string SatrecovFwdModel::ModelVersion() const
 {
    string version = "fwdmodel_asl_satrecov.cc";
@@ -34,7 +31,6 @@ string SatrecovFwdModel::ModelVersion() const
 void SatrecovFwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
 {
-    Tracer_Plus tr("SatrecovFwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
      SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
@@ -76,8 +72,6 @@ void SatrecovFwdModel::HardcodedInitialDists(MVNDist& prior,
 
 void SatrecovFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-  Tracer_Plus tr("SatrecovFwdModel::Evaluate");
-
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;

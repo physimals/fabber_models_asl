@@ -15,9 +15,6 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
-
 FactoryRegistration<FwdModelFactory,  MultiPhaseASLFwdModel> 
   MultiPhaseASLFwdModel::registration("asl_multiphase");
 
@@ -36,7 +33,6 @@ string MultiPhaseASLFwdModel::ModelVersion() const
 void MultiPhaseASLFwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
 {
-    Tracer_Plus tr("MultiPhaseASLFwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
      SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e12;
@@ -74,7 +70,6 @@ void MultiPhaseASLFwdModel::HardcodedInitialDists(MVNDist& prior,
 
 void MultiPhaseASLFwdModel::InitParams(MVNDist& posterior) const
 {
-  Tracer_Plus tr("MultiPhaseASLFwdModel::Initialise");
   // init the magntidue and offset parameters
 
   // mean over the repeats
@@ -112,8 +107,6 @@ void MultiPhaseASLFwdModel::InitParams(MVNDist& posterior) const
 
 void MultiPhaseASLFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-  Tracer_Plus tr("MultiPhaseASLFwdModel::Evaluate");
-
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
@@ -274,7 +267,6 @@ void MultiPhaseASLFwdModel::NameParams(vector<string>& names) const
 }
 
 double MultiPhaseASLFwdModel::mod_fn( const double inphase, const double v) const {
-    Tracer_Plus trace("MultiPhaseASLFwdModel::mod_fn");
     // the modulation function - evaluated from interpolation of modmat
     double ans;
     double phase=inphase;

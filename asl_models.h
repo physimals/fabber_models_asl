@@ -15,10 +15,6 @@
 
 using namespace MISCMATHS;
 
-#include "utils/tracer_plus.h"
-
-using namespace Utilities;
-
 #ifdef _WIN32
   #ifdef fabber_asl_EXPORTS
     #define DLLAPI __declspec(dllexport)

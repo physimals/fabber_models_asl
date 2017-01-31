@@ -23,13 +23,14 @@ public:
   static FwdModel* NewInstance();
 
   // Virtual function overrides
-  virtual void GetOptions(vector<OptionSpec> &opts) const;
   virtual void Initialize(ArgsType& args);
   virtual void Evaluate(const ColumnVector& params, 
 			      ColumnVector& result) const;
-  virtual vector<string> GetUsage() const;
-  virtual string ModelVersion() const;
-                  
+  virtual std::vector<std::string> GetUsage() const;
+  virtual std::string ModelVersion() const;
+  virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+  virtual std::string GetDescription() const;
+       
   virtual void DumpParameters(const ColumnVector& vec,
                                 const string& indents = "") const;
                                 
@@ -94,6 +95,7 @@ int stattiss_index() const {return facorr_index() + (incfacorr?1:0);} //includin
   int repeats;
   ColumnVector crush;
   Matrix crushdir;
+  int sliceband; //number of slices per band
 
   //data information
   bool raw; //data is 'raw' (non-subtracted)
@@ -103,7 +105,8 @@ int stattiss_index() const {return facorr_index() + (incfacorr?1:0);} //includin
   double setdelt; //BAT for prior (tissue compartment)
   double setdeltwm;
   double setdeltart;
-  double deltprec; //precision for BAT
+  double deltprec; //precision for tissue BAT (WM and GM)
+  double deltartprec; //precision for arterial BAT
   bool calib; //indicates calibrated data for T_1app calculation
   bool doard;
 

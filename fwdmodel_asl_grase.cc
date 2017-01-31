@@ -16,12 +16,42 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
-
 FactoryRegistration<FwdModelFactory, GraseFwdModel> 
    GraseFwdModel::registration("buxton");
 
+
+static OptionSpec OPTIONS[] =
+{
+	{ "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
+	{ "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
+	{ "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9" },
+	{ "ti<n>", OPT_FLOAT, "List of TI values. At least one required", OPT_NONREQ, "" },
+	{ "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
+	{ "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement", OPT_NONREQ, "0.0" },
+	{ "tau", OPT_FLOAT, "Bolus duration. Default is effectively infinite", OPT_NONREQ, "1000" },
+	{ "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
+	{ "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
+	{ "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
+	{ "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
+	{ "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
+	{ "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
+	{ "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
+	{ "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
+	{ "" }, };
+
+void GraseFwdModel::GetOptions(vector<OptionSpec> &opts) const
+{
+	for (int i = 0; OPTIONS[i].name != ""; i++)
+	{
+		opts.push_back(OPTIONS[i]);
+	}
+}
+
+std::string GraseFwdModel::GetDescription() const
+{
+	return "Implements the dual echo GRASE resting state ASL model";
+}
+ 
 string GraseFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_grase.cc";
@@ -37,7 +67,6 @@ string GraseFwdModel::ModelVersion() const
 void GraseFwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
 {
-    Tracer_Plus tr("GraseFwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
      SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
@@ -113,8 +142,6 @@ void GraseFwdModel::HardcodedInitialDists(MVNDist& prior,
 
 void GraseFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-  Tracer_Plus tr("GraseFwdModel::Evaluate");
-
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
@@ -396,7 +423,6 @@ FwdModel* GraseFwdModel::NewInstance()
 
 void GraseFwdModel::Initialize(ArgsType& args)
 {
-  Tracer_Plus tr("GraseFwdModel::Initialize");
     string scanParams = args.ReadWithDefault("scan-params","cmdline");
     
     if (scanParams == "cmdline")
@@ -585,9 +611,6 @@ void GraseFwdModel::NameParams(vector<string>& names) const
 
 void GraseFwdModel::SetupARD( const MVNDist& theta, MVNDist& thetaPrior, double& Fard) const
 {
-  Tracer_Plus tr("GraseFwdModel::SetupARD");
-
- 
 
   int ardindex = ard_index();
 
@@ -617,8 +640,6 @@ void GraseFwdModel::UpdateARD(
 				const MVNDist& theta,
 				MVNDist& thetaPrior, double& Fard) const
 {
-  Tracer_Plus tr("GraseFwdModel::UpdateARD");
-  
   int ardindex = ard_index();
 
 

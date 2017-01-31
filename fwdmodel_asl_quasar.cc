@@ -16,9 +16,6 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
-#include "utils/tracer_plus.h"
-using Utilities::Tracer_Plus;
-
 string QuasarFwdModel::ModelVersion() const
 {
    string version = "fwdmodel_asl_quasar.cc";
@@ -33,7 +30,6 @@ string QuasarFwdModel::ModelVersion() const
 void QuasarFwdModel::HardcodedInitialDists(MVNDist& prior, 
     MVNDist& posterior) const
 {
-    Tracer_Plus tr("QuasarFwdModel::HardcodedInitialDists");
     assert(prior.means.Nrows() == NumParams());
 
      SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
@@ -228,8 +224,6 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist& prior,
 
 void QuasarFwdModel::Evaluate(const ColumnVector& params, ColumnVector& result) const
 {
-  Tracer_Plus tr("QuasarFwdModel::Evaluate");
-
     // ensure that values are reasonable
     // negative check
   ColumnVector paramcpy = params;
@@ -855,8 +849,6 @@ void QuasarFwdModel::NameParams(vector<string>& names) const
 
 void QuasarFwdModel::SetupARD( const MVNDist& theta, MVNDist& thetaPrior, double& Fard)
 {
-  Tracer_Plus tr("QuasarFwdModel::SetupARD");
-
   if (doard)
     {
       //sort out ARD indices
@@ -893,8 +885,6 @@ void QuasarFwdModel::UpdateARD(
 				const MVNDist& theta,
 				MVNDist& thetaPrior, double& Fard) const
 {
-  Tracer_Plus tr("QuasarFwdModel::UpdateARD");
-  
   if (doard)
     Fard=0;
     {
@@ -928,7 +918,6 @@ void QuasarFwdModel::UpdateARD(
 //Arterial
 
 ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float deltblood, float taub, float T_1bin, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel:kcblood_nodisp");
   ColumnVector kcblood(tis.Nrows());
   kcblood=0.0;
   float T_1b;
@@ -965,7 +954,6 @@ ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector& tis, float deltb
 }
 
 ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector& tis, float deltblood, float taub, float T_1bin, float s, float p, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel:kcblood_gammadisp");
   ColumnVector kcblood(tis.Nrows());
   kcblood=0.0;
   float T_1b;
@@ -1000,7 +988,6 @@ ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector& tis, float de
 }
 
 ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector& tis, float deltblood, float taub, float T_1bin, float s, float p, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel:kcblood_gvf");
   ColumnVector kcblood(tis.Nrows());
   kcblood=0.0;
   float T_1b;
@@ -1039,7 +1026,6 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector& tis, float deltbloo
 }
 
 ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector& tis, float deltblood, float taub, float T_1bin, float sig1, float sig2, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel:kcblood_normdisp");
   ColumnVector kcblood(tis.Nrows());
   kcblood=0.0;
   float T_1b;
@@ -1063,7 +1049,6 @@ ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector& tis, float de
 
 //Tissue
 ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector& tis, float delttiss, float tau, float T_1bin, float T_1app, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel::kctissue_nodisp");
 ColumnVector kctissue(tis.Nrows());
  kctissue=0.0;
  float ti=0.0;
@@ -1098,7 +1083,6 @@ ColumnVector kctissue(tis.Nrows());
 }
 
 ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector& tis, float delttiss, float tau, float T_1bin, float T_1app, float s, float p, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel::kctissue_gammadisp");
   ColumnVector kctissue(tis.Nrows());
   kctissue=0.0;
   float ti=0.0;
@@ -1146,7 +1130,6 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector& tis, float d
 }
 
 ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector& tis, float delttiss, float tau, float T_1bin, float T_1app, float s, float p, float deltll,float T_1ll) const {
-  Tracer_Plus tr("QuasarFwdModel::kctissue_gvf");
   ColumnVector kctissue(tis.Nrows());
   kctissue=0.0;
   float ti=0.0;
@@ -1185,7 +1168,6 @@ ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector& tis, float delttis
 }
 
 ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector& tis, float delttiss, float tau, float T_1bin, float T_1app, float sig1, float sig2, float deltll,float T_1ll) const {
-    Tracer_Plus tr("QuasarFwdModel::kctissue_gaussdisp");
 ColumnVector kctissue(tis.Nrows());
  kctissue=0.0;
  float ti=0.0;
@@ -1219,7 +1201,6 @@ ColumnVector kctissue(tis.Nrows());
 
 // --- useful general functions ---
 float QuasarFwdModel::icgf(float a, float x) const {
-  Tracer_Plus tr("QuasarFwdModel::icgf");
 
   //incomplete gamma function with a=k, based on the incomplete gamma integral
 
@@ -1227,8 +1208,7 @@ float QuasarFwdModel::icgf(float a, float x) const {
 }
 
 float QuasarFwdModel::gvf(float t, float s, float p) const {
-  Tracer_Plus tr("QuasarFwdModel::gvf");
-
+ 
   //The Gamma Variate Function (correctly normalised for area under curve) 
   // Form of Rausch 2000
   // NB this is basically a gamma pdf
