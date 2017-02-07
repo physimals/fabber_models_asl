@@ -1,8 +1,8 @@
 /*  fwdmodel_asl_satrecov.h - Saturation Recovery curve calibration for ASL
 
-    Michael Chappell, IBME & FMRIB Image Analysis Group
+ Michael Chappell, IBME & FMRIB Image Analysis Group
 
-    Copyright (C) 2010 University of Oxford  */
+ Copyright (C) 2010 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -11,57 +11,62 @@
 #include <string>
 using namespace std;
 
-class SatrecovFwdModel : public FwdModel {
-public: 
-  // Virtual function overrides
-  virtual void Evaluate(const ColumnVector& params, 
-			      ColumnVector& result) const;
-  static void ModelUsage();
-  virtual string ModelVersion() const;
-                  
-  virtual void DumpParameters(const ColumnVector& vec,
-                                const string& indents = "") const;
-                                
-  virtual void NameParams(vector<string>& names) const;     
-  virtual int NumParams() const 
-  { return (LFAon?4:3);  } 
+class SatrecovFwdModel: public FwdModel
+{
+public:
+	// Virtual function overrides
+	virtual void Evaluate(const ColumnVector& params,
+			ColumnVector& result) const;
+	static void ModelUsage();
+	virtual string ModelVersion() const;
 
-  virtual ~SatrecovFwdModel() { return; }
+	virtual void DumpParameters(const ColumnVector& vec, const string& indents =
+			"") const;
 
-  virtual void HardcodedInitialDists(MVNDist& prior, MVNDist& posterior) const;
+	virtual void NameParams(vector<string>& names) const;
+	virtual int NumParams() const
+	{
+		return (LFAon ? 4 : 3);
+	}
 
-  //virtual void SetupARD(const MVNDist& posterior, MVNDist& prior, double& Fard);
-  //virtual void UpdateARD(const MVNDist& posterior, MVNDist& prior, double& Fard) const;
+	virtual ~SatrecovFwdModel()
+	{
+		return;
+	}
 
-  // Constructor
-  SatrecovFwdModel(ArgsType& args);
+	virtual void HardcodedInitialDists(MVNDist& prior,
+			MVNDist& posterior) const;
 
+	//virtual void SetupARD(const MVNDist& posterior, MVNDist& prior, double& Fard);
+	//virtual void UpdateARD(const MVNDist& posterior, MVNDist& prior, double& Fard) const;
 
-protected: // Constants
+	// Constructor
+	SatrecovFwdModel(ArgsType& args);
 
-  // Lookup the starting indices of the parameters
+protected:
+	// Constants
 
-  // vector indices for the parameters to expereicne ARD
-  vector<int> ard_index;
+	// Lookup the starting indices of the parameters
 
+	// vector indices for the parameters to expereicne ARD
+	vector<int> ard_index;
 
-  // scan parameters
-  int repeats;
-  int nphases;
-  double t1;
-  double slicedt;
+	// scan parameters
+	int repeats;
+	int nphases;
+	double t1;
+	double slicedt;
 
-  double FAnom;
-  double LFA;
-  double dti;
-  float dg;
+	double FAnom;
+	double LFA;
+	double dti;
+	float dg;
 
-  bool looklocker;
-  bool LFAon;
-  bool fixA;
+	bool looklocker;
+	bool LFAon;
+	bool fixA;
 
-  ColumnVector tis;
-  Real timax;
-
+	ColumnVector tis;
+	Real timax;
 
 };
