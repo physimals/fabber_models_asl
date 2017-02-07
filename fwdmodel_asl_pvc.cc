@@ -16,6 +16,237 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
+static OptionSpec OPTIONS[] =
+		{
+		{ "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
+		{ "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.5" },
+		{ "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
+		{ "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9" },
+		{ "ti<n>", OPT_FLOAT, "List of TI values. At least one required",
+				OPT_NONREQ, "" },
+		{ "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
+				{ "pretisat", OPT_FLOAT,
+						"Deal with saturation of the bolus a fixed time pre TI measurement",
+						OPT_NONREQ, "0.0" },
+				{ "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ,
+						"PASL" },
+				{ "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ,
+						"0.0" },
+				{ "infertau", OPT_BOOL, "Infer bolus duration parameter",
+						OPT_NONREQ, "" },
+				{ "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
+				{ "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ,
+						"" },
+				{ "inferwm", OPT_BOOL, "Infer white matter parameters",
+						OPT_NONREQ, "" },
+				{ "tau", OPT_FLOAT,
+						"Bolus duration. Default is effectively infinite",
+						OPT_NONREQ, "1000" },
+				{ "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
+				{ "ardoff", OPT_BOOL, "Disable ARD", OPT_NONREQ, "" },
+				{ "tauboff", OPT_BOOL,
+						"Forces the inference of arterial bolus off",
+						OPT_NONREQ, "" },
+				{ "tissoff", OPT_BOOL,
+						"Forces the inference of tissue parameters off",
+						OPT_NONREQ, "" },
+				{ "usepve", OPT_BOOL, "Use PVE correction", OPT_NONREQ, "" },
+				{ "tissardon", OPT_BOOL, "Enable ARD for tissue parameters",
+						OPT_NONREQ, "" },
+				{ "artardon", OPT_BOOL, "Enable ARD for arterial parameters",
+						OPT_NONREQ, "" },
+				{ "wmardon", OPT_BOOL, "Enable ARD for WM parameters",
+						OPT_NONREQ, "" },
+				{ "batsd", OPT_FLOAT, "Bolus arrival time standard deviation",
+						OPT_NONREQ, "0.316" },
+
+				{ "calib", OPT_BOOL,
+						"Data has already been subjected to calibration",
+						OPT_NONREQ, "" },
+
+				{ "" }, };
+
+ASL_PVC_FwdModel::Initialize(ArgsType& args)
+{
+	// specify command line parameters here
+	repeats = convertTo<int>(args.Read("repeats")); // number of repeats in data
+	t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
+	t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.5"));
+	t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
+	lambda = convertTo<double>(args.ReadWithDefault("lambda", "0.9")); //NOT used - here for compatibility
+
+	pretisat = convertTo<double>(args.ReadWithDefault("pretisat", "0")); // deal with saturation of the bolus a fixed time pre TI measurement
+	grase = args.ReadBool("grase"); // DEPRECEATED data has come from the GRASE-ASL sequence - therefore apply pretisat of 0.1s
+	if (grase)
+		pretisat = 0.1;
+
+	casl = args.ReadBool("casl"); //set if the data is CASL or PASL (default)
+	slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+
+	infertau = args.ReadBool("infertau"); // infer on bolus length?
+	infert1 = args.ReadBool("infert1"); //infer on T1 values?
+	inferart = args.ReadBool("inferart"); //infer on arterial compartment?
+	inferwm = args.ReadBool("inferwm");
+	//inferinveff = args.ReadBool("inferinveff"); //infer on a linear decrease in inversion efficiency?
+	//infertrailing = args.ReadBool("infertrailing"); //infers a trailing edge bolus slope using new model
+	seqtau = convertTo<double>(args.ReadWithDefault("tau", "1000")); //bolus length as set by sequence (default of 1000 is effectively infinite
+	setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
+
+	bool ardoff = false;
+	ardoff = args.ReadBool("ardoff");
+	bool tauboff = false;
+	tauboff = args.ReadBool("tauboff"); //forces the inference of arterial bolus off
+
+	usepve = args.ReadBool("usepve");
+
+	// combination options
+	infertaub = false;
+	if (inferart && infertau && !tauboff)
+		infertaub = true;
+
+	//special - turn off tissue cpt
+	infertiss = true;
+	bool tissoff = args.ReadBool("tissoff");
+	if (tissoff)
+		infertiss = false;
+
+	// deal with ARD selection
+	doard = false;
+	tissard = false;
+	artard = true;
+	wmard = true; //default ARD flags
+	//if (inferart==true && ardoff==false) { doard=true;}
+	//if (inferwm==true && ardoff==false) {doard=true; }
+	//special, individual ARD switches
+	bool tissardon = args.ReadBool("tissardon");
+	if (tissardon)
+		tissard = true;
+	bool artardoff = args.ReadBool("artardoff");
+	if (artardoff)
+		artard = false;
+	bool wmardoff = args.ReadBool("wmardoff");
+	if (wmardoff)
+		wmard = false;
+
+	// ** ardoff overrides all other ARD options
+	if ((tissard || artard || wmard) && !ardoff)
+		doard = true;
+
+	/* if (infertrailing) {
+	 if (!infertau) {
+	 // do not permit trailing edge inference without inferring on bolus length
+	 throw Invalid_option("--infertrailing has been set without setting --infertau");
+	 }
+	 else if (inferinveff)
+	 //do not permit trailing edge inference and inversion efficiency inference (they are mututally exclusive)
+	 throw Invalid_option("--infertrailing and --inferinveff may not both be set");
+	 }*/
+
+	// Deal with tis
+	tis.ReSize(1); //will add extra values onto end as needed
+	tis(1) = atof(args.Read("ti1").c_str());
+
+	while (true) //get the rest of the tis
+	{
+		int N = tis.Nrows() + 1;
+		string tiString = args.ReadWithDefault("ti" + stringify(N), "stop!");
+		if (tiString == "stop!")
+			break; //we have run out of tis
+
+		// append the new ti onto the end of the list
+		ColumnVector tmp(1);
+		tmp = convertTo<double>(tiString);
+		tis &= tmp; //vertical concatenation
+
+	}
+	timax = tis.Maximum(); //dtermine the final TI
+
+	// need to set the voxel coordinates to a deafult of 0 (for the times we call the model before we start handling data)
+	coord_x = 0;
+	coord_y = 0;
+	coord_z = 0;
+
+	singleti = false; //normally we do multi TI ASL
+	/*if (tis.Nrows()==1) {
+	 //only one TI therefore only infer on CBF and ignore other inference options
+	 LOG << "--Single inversion time mode--" << endl;
+	 LOG << "Only a sinlge inversion time has been supplied," << endl;
+	 LOG << "Therefore only tissue perfusion will be inferred." << endl;
+	 LOG << "-----" << endl;
+	 singleti = true;
+	 // force other inference options to be false
+	 infertau = false; infert1 = false; inferart = false; //inferinveff = false;
+	 }*/
+
+	// add information about the parameters to the log
+	LOG << "Inference using development model" << endl;
+	if (pretisat > 0)
+		LOG << "Saturation of" << pretisat << "s before TI has been specified"
+				<< endl;
+	if (grase)
+		LOG << "Using pre TI saturation of 0.1 for GRASE-ASL sequence" << endl;
+	LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
+			<< ", t1b = " << t1b;
+	LOG << ", bolus length (tau) = " << seqtau << endl;
+	if (infertau)
+	{
+		LOG << "Infering on bolus length " << endl;
+	}
+	if (doard)
+	{
+		LOG << "ARD subsystem is enabled" << endl;
+	}
+	if (infertiss)
+	{
+		LOG << "Infertting on tissue component " << endl;
+	}
+	if (doard && tissard)
+	{
+		LOG << "ARD has been set on the tissue component " << endl;
+	}
+	if (inferart)
+	{
+		LOG << "Infering on artertial compartment " << endl;
+	}
+	if (doard && artard)
+	{
+		LOG << "ARD has been set on arterial compartment " << endl;
+	}
+	if (inferwm)
+	{
+		LOG << "Inferring on white matter component" << endl;
+		if (doard && wmard)
+		{
+			LOG << "ARD has been set on wm component" << endl;
+		}
+	}
+	if (infert1)
+	{
+		LOG << "Infering on T1 values " << endl;
+	}
+	/*if (inferinveff) {
+	 LOG << "Infering on Inversion Efficency slope " << endl; }
+	 if (infertrailing) {
+	 LOG << "Infering bolus trailing edge period" << endl; }*/
+	LOG << "TIs: ";
+	for (int i = 1; i <= tis.Nrows(); i++)
+		LOG << tis(i) << " ";
+	LOG << endl;
+}
+
+void ASL_PVC_FwdModel::GetOptions(vector<OptionSpec> &opts) const
+{
+	for (int i = 0; OPTIONS[i].name != ""; i++)
+	{
+		opts.push_back(OPTIONS[i]);
+	}
+}
+
+string ASL_PVC_FwdModel::GetDescription() const
+{
+	return "ASL multiphase model";
+}
+
 string ASL_PVC_FwdModel::ModelVersion() const
 {
 	string version = "fwdmodel_asl_pvc.cc";
@@ -518,187 +749,6 @@ void ASL_PVC_FwdModel::Evaluate(const ColumnVector& params,
 	//cout << result.t();
 
 	return;
-}
-
-ASL_PVC_FwdModel::ASL_PVC_FwdModel(ArgsType& args)
-{
-	string scanParams = args.ReadWithDefault("scan-params", "cmdline");
-
-	if (scanParams == "cmdline")
-	{
-		// specify command line parameters here
-		repeats = convertTo<int>(args.Read("repeats")); // number of repeats in data
-		t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
-		t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.5"));
-		t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
-		lambda = convertTo<double>(args.ReadWithDefault("lambda", "0.9")); //NOT used - here for compatibility
-
-		pretisat = convertTo<double>(args.ReadWithDefault("pretisat", "0")); // deal with saturation of the bolus a fixed time pre TI measurement
-		grase = args.ReadBool("grase"); // DEPRECEATED data has come from the GRASE-ASL sequence - therefore apply pretisat of 0.1s
-		if (grase)
-			pretisat = 0.1;
-
-		casl = args.ReadBool("casl"); //set if the data is CASL or PASL (default)
-		slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
-
-		infertau = args.ReadBool("infertau"); // infer on bolus length?
-		infert1 = args.ReadBool("infert1"); //infer on T1 values?
-		inferart = args.ReadBool("inferart"); //infer on arterial compartment?
-		inferwm = args.ReadBool("inferwm");
-		//inferinveff = args.ReadBool("inferinveff"); //infer on a linear decrease in inversion efficiency?
-		//infertrailing = args.ReadBool("infertrailing"); //infers a trailing edge bolus slope using new model
-		seqtau = convertTo<double>(args.ReadWithDefault("tau", "1000")); //bolus length as set by sequence (default of 1000 is effectively infinite
-		setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
-
-		bool ardoff = false;
-		ardoff = args.ReadBool("ardoff");
-		bool tauboff = false;
-		tauboff = args.ReadBool("tauboff"); //forces the inference of arterial bolus off
-
-		usepve = args.ReadBool("usepve");
-
-		// combination options
-		infertaub = false;
-		if (inferart && infertau && !tauboff)
-			infertaub = true;
-
-		//special - turn off tissue cpt
-		infertiss = true;
-		bool tissoff = args.ReadBool("tissoff");
-		if (tissoff)
-			infertiss = false;
-
-		// deal with ARD selection
-		doard = false;
-		tissard = false;
-		artard = true;
-		wmard = true; //default ARD flags
-		//if (inferart==true && ardoff==false) { doard=true;}
-		//if (inferwm==true && ardoff==false) {doard=true; }
-		//special, individual ARD switches
-		bool tissardon = args.ReadBool("tissardon");
-		if (tissardon)
-			tissard = true;
-		bool artardoff = args.ReadBool("artardoff");
-		if (artardoff)
-			artard = false;
-		bool wmardoff = args.ReadBool("wmardoff");
-		if (wmardoff)
-			wmard = false;
-
-		// ** ardoff overrides all other ARD options
-		if ((tissard || artard || wmard) && !ardoff)
-			doard = true;
-
-		/* if (infertrailing) {
-		 if (!infertau) {
-		 // do not permit trailing edge inference without inferring on bolus length
-		 throw Invalid_option("--infertrailing has been set without setting --infertau");
-		 }
-		 else if (inferinveff)
-		 //do not permit trailing edge inference and inversion efficiency inference (they are mututally exclusive)
-		 throw Invalid_option("--infertrailing and --inferinveff may not both be set");
-		 }*/
-
-		// Deal with tis
-		tis.ReSize(1); //will add extra values onto end as needed
-		tis(1) = atof(args.Read("ti1").c_str());
-
-		while (true) //get the rest of the tis
-		{
-			int N = tis.Nrows() + 1;
-			string tiString = args.ReadWithDefault("ti" + stringify(N),
-					"stop!");
-			if (tiString == "stop!")
-				break; //we have run out of tis
-
-			// append the new ti onto the end of the list
-			ColumnVector tmp(1);
-			tmp = convertTo<double>(tiString);
-			tis &= tmp; //vertical concatenation
-
-		}
-		timax = tis.Maximum(); //dtermine the final TI
-
-		// need to set the voxel coordinates to a deafult of 0 (for the times we call the model before we start handling data)
-		coord_x = 0;
-		coord_y = 0;
-		coord_z = 0;
-
-		singleti = false; //normally we do multi TI ASL
-		/*if (tis.Nrows()==1) {
-		 //only one TI therefore only infer on CBF and ignore other inference options
-		 LOG << "--Single inversion time mode--" << endl;
-		 LOG << "Only a sinlge inversion time has been supplied," << endl;
-		 LOG << "Therefore only tissue perfusion will be inferred." << endl;
-		 LOG << "-----" << endl;
-		 singleti = true;
-		 // force other inference options to be false
-		 infertau = false; infert1 = false; inferart = false; //inferinveff = false;
-		 }*/
-
-		// add information about the parameters to the log
-		LOG << "Inference using development model" << endl;
-		if (pretisat > 0)
-			LOG << "Saturation of" << pretisat
-					<< "s before TI has been specified" << endl;
-		if (grase)
-			LOG << "Using pre TI saturation of 0.1 for GRASE-ASL sequence"
-					<< endl;
-		LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
-				<< ", t1b = " << t1b;
-		LOG << ", bolus length (tau) = " << seqtau << endl;
-		if (infertau)
-		{
-			LOG << "Infering on bolus length " << endl;
-		}
-		if (doard)
-		{
-			LOG << "ARD subsystem is enabled" << endl;
-		}
-		if (infertiss)
-		{
-			LOG << "Infertting on tissue component " << endl;
-		}
-		if (doard && tissard)
-		{
-			LOG << "ARD has been set on the tissue component " << endl;
-		}
-		if (inferart)
-		{
-			LOG << "Infering on artertial compartment " << endl;
-		}
-		if (doard && artard)
-		{
-			LOG << "ARD has been set on arterial compartment " << endl;
-		}
-		if (inferwm)
-		{
-			LOG << "Inferring on white matter component" << endl;
-			if (doard && wmard)
-			{
-				LOG << "ARD has been set on wm component" << endl;
-			}
-		}
-		if (infert1)
-		{
-			LOG << "Infering on T1 values " << endl;
-		}
-		/*if (inferinveff) {
-		 LOG << "Infering on Inversion Efficency slope " << endl; }
-		 if (infertrailing) {
-		 LOG << "Infering bolus trailing edge period" << endl; }*/
-		LOG << "TIs: ";
-		for (int i = 1; i <= tis.Nrows(); i++)
-			LOG << tis(i) << " ";
-		LOG << endl;
-
-	}
-
-	else
-		throw invalid_argument(
-				"Only --scan-params=cmdline is accepted at the moment");
-
 }
 
 void ASL_PVC_FwdModel::ModelUsage()

@@ -41,11 +41,6 @@ public:
 		//return 2 - (singleti?1:0) + (infertau?1:0) + (inferart?2:0) + (infert1?2:0) + (inferinveff?1:0) + (infertrailing?1:0) + (infertaub?1:0);
 	}
 
-	virtual ~GraseFwdModel()
-	{
-		return;
-	}
-
 	virtual void HardcodedInitialDists(MVNDist& prior,
 			MVNDist& posterior) const;
 

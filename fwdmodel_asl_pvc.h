@@ -19,6 +19,8 @@ public:
 			ColumnVector& result) const;
 	static void ModelUsage();
 	virtual string ModelVersion() const;
+	virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+		virtual std::string GetDescription() const;
 
 	virtual void DumpParameters(const ColumnVector& vec, const string& indents =
 			"") const;

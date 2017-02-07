@@ -18,6 +18,35 @@ using namespace NEWIMAGE;
 FactoryRegistration<FwdModelFactory, MultiPhaseASLFwdModel> MultiPhaseASLFwdModel::registration(
 		"asl_multiphase");
 
+static OptionSpec OPTIONS[] =
+		{
+		{ "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
+		{ "modfn", OPT_STR, "Modulation function", OPT_NONREQ, "fermi" },
+		{ "modmat", OPT_MATRIX,
+				"Modulation function matrix file, used if modfn=mat",
+				OPT_NONREQ, "" },
+		{ "alpha", OPT_FLOAT, "Shape of the modulation function - alpha",
+				OPT_NONREQ, "66" },
+		{ "beta", OPT_FLOAT, "Shape of the modulation function - beta",
+				OPT_NONREQ, "12" },
+		{ "incvel", OPT_BOOL, "Include vel parameter", OPT_NONREQ, "" },
+				{ "infervel", OPT_BOOL, "Infer value of vel parameter",
+						OPT_NONREQ, "" },
+				{ "" }, };
+
+void MultiPhaseASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
+{
+	for (int i = 0; OPTIONS[i].name != ""; i++)
+	{
+		opts.push_back(OPTIONS[i]);
+	}
+}
+
+string MultiPhaseASLFwdModel::GetDescription() const
+{
+	return "ASL multiphase model";
+}
+
 string MultiPhaseASLFwdModel::ModelVersion() const
 {
 	string version = "fwdmodel_asl_multiphase.cc";
@@ -171,9 +200,7 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector& params,
 		{
 			result((j - 1) * 8 + i) = evalfunc;
 		}
-
 	}
-	//cout << result.t();
 
 	return;
 }
@@ -185,90 +212,71 @@ FwdModel* MultiPhaseASLFwdModel::NewInstance()
 
 void MultiPhaseASLFwdModel::Initialize(ArgsType& args)
 {
-	string scanParams = args.ReadWithDefault("scan-params", "cmdline");
+	// number of repeats in data
+	repeats = convertTo<int>(args.ReadWithDefault("repeats", "1"));
 
-	if (scanParams == "cmdline")
+	// modulation function
+	modfn = args.ReadWithDefault("modfn", "fermi");
+
+	//modmat
+	string modmatstring;
+	Matrix mod_temp;
+	modmatstring = args.ReadWithDefault("modmat", "none");
+	if (modmatstring != "none")
 	{
-		// specify command line parameters here
-		repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
+		mod_temp = read_ascii_matrix(modmatstring);
+	}
 
-		// modulation function
-		modfn = args.ReadWithDefault("modfn", "fermi");
+	// shape of the fermi function
+	alpha = convertTo<double>(args.ReadWithDefault("alpha", "55"));
+	beta = convertTo<double>(args.ReadWithDefault("beta", "12"));
 
-		//modmat
-		string modmatstring;
-		Matrix mod_temp;
-		modmatstring = args.ReadWithDefault("modmat", "none");
-		if (modmatstring != "none")
+	// deal with ARD selection
+	//doard=false;
+	//if (inferart==true && ardoff==false) { doard=true; }
+
+	infervel = false;
+	incvel = false;
+	if (modfn == "mat")
+	{
+		assert(mod_temp(1, 1) == 99);
+		int nphasepts = mod_temp.Nrows() - 1;
+		nvelpts = mod_temp.Ncols() - 1;
+
+		mod_phase = (mod_temp.SubMatrix(2, nphasepts + 1, 1, 1)).AsColumn();
+		mod_v = (mod_temp.SubMatrix(1, 1, 2, nvelpts + 1)).AsColumn();
+		mod_mat = mod_temp.SubMatrix(2, nphasepts + 1, 2, nvelpts + 1);
+
+		vmax = mod_v(nvelpts);
+		vmin = mod_v(1);
+
+		infervel = args.ReadBool("infervel");
+		if (infervel)
 		{
-			mod_temp = read_ascii_matrix(modmatstring);
-		}
-
-		// shape of the fermi function
-		alpha = convertTo<double>(args.ReadWithDefault("alpha", "55"));
-		beta = convertTo<double>(args.ReadWithDefault("beta", "12"));
-
-		// deal with ARD selection
-		//doard=false;
-		//if (inferart==true && ardoff==false) { doard=true; }
-
-		infervel = false;
-		incvel = false;
-		if (modfn == "mat")
-		{
-			assert(mod_temp(1, 1) == 99);
-			int nphasepts = mod_temp.Nrows() - 1;
-			nvelpts = mod_temp.Ncols() - 1;
-
-			mod_phase = (mod_temp.SubMatrix(2, nphasepts + 1, 1, 1)).AsColumn();
-			mod_v = (mod_temp.SubMatrix(1, 1, 2, nvelpts + 1)).AsColumn();
-			mod_mat = mod_temp.SubMatrix(2, nphasepts + 1, 2, nvelpts + 1);
-
-			vmax = mod_v(nvelpts);
-			vmin = mod_v(1);
-
-			infervel = args.ReadBool("infervel");
-			if (infervel)
-			{
-				incvel = true;
-			}
-			else
-			{
-				incvel = args.ReadBool("incvel");
-			}
-
-		}
-
-		// add information about the parameters to the log
-		// test correctness of specified modulation function
-		if (modfn == "fermi")
-		{
-			LOG << "Inference using Fermi model" << endl;
-			LOG << "alpha=" << alpha << " ,beta=" << beta << endl;
-		}
-		else if (modfn == "mat")
-		{
-			LOG << "Inference using numerical modulation function" << endl;
-			LOG << "File is: " << modmatstring << endl;
+			incvel = true;
 		}
 		else
 		{
-			throw invalid_argument("Unrecognised modulation function");
+			incvel = args.ReadBool("incvel");
 		}
-
 	}
 
+	// add information about the parameters to the log
+	// test correctness of specified modulation function
+	if (modfn == "fermi")
+	{
+		LOG << "Inference using Fermi model" << endl;
+		LOG << "alpha=" << alpha << " ,beta=" << beta << endl;
+	}
+	else if (modfn == "mat")
+	{
+		LOG << "Inference using numerical modulation function" << endl;
+		LOG << "File is: " << modmatstring << endl;
+	}
 	else
-		throw invalid_argument(
-				"Only --scan-params=cmdline is accepted at the moment");
-
-}
-
-vector<string> MultiPhaseASLFwdModel::GetUsage() const
-{
-	vector < string > usage;
-	usage.push_back("\nUsage info for --model=biexp:");
-	return usage;
+	{
+		throw invalid_argument("Unrecognised modulation function");
+	}
 }
 
 void MultiPhaseASLFwdModel::NameParams(vector<string>& names) const

@@ -24,8 +24,9 @@ public:
 	virtual void Initialize(ArgsType& args);
 	virtual void Evaluate(const NEWMAT::ColumnVector& params,
 			NEWMAT::ColumnVector& result) const;
-	virtual vector<string> GetUsage() const;
 	virtual string ModelVersion() const;
+	virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+	virtual std::string GetDescription() const;
 
 	virtual void NameParams(vector<string>& names) const;
 	virtual int NumParams() const

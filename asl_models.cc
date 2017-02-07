@@ -12,12 +12,14 @@
 #include <algorithm>
 
 #include "fwdmodel_asl_rest.h"
+#include "fwdmodel_asl_grase.h"
+#include "fwdmodel_asl_multiphase.h"
 
 extern "C"
 {
 int get_num_models()
 {
-	return 1;
+	return 3;
 }
 
 const char *get_model_name(int index)
@@ -26,6 +28,12 @@ const char *get_model_name(int index)
 	{
 	case 0:
 		return "aslrest";
+		break;
+	case 1:
+		return "buxton";
+		break;
+	case 2:
+		return "asl_multiphase";
 		break;
 	default:
 		return NULL;
@@ -37,6 +45,14 @@ NewInstanceFptr get_new_instance_func(const char *name)
 	if (string(name) == "aslrest")
 	{
 		return ASLFwdModel::NewInstance;
+	}
+	if (string(name) == "buxton")
+	{
+		return GraseFwdModel::NewInstance;
+	}
+	if (string(name) == "asl_multiphase")
+	{
+		return MultiPhaseASLFwdModel::NewInstance;
 	}
 	else
 	{
