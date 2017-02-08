@@ -23,8 +23,6 @@ find_path(FSL_EXT_INCLUDE_DIR libprob/libprob.h
             HINTS $ENV{FSLDIR}/extras/include REQUIRED)
 find_path(BOOST_INCLUDE_DIR boost/shared_ptr.hpp
           HINTS $ENV{FSLDIR}/extras/include/boost $ENV{FSLDIR}/extras/include/ REQUIRED)
-find_library(PROB_LIBRARY NAMES prob libprob
-             HINTS $ENV{FSLDIR}/extras/lib REQUIRED )
 
 Message("-- FSL headers in ${FSL_INCLUDE_DIR} ${NEWMAT_INCLUDE_DIR} ${FSL_EXT_INCLUDE_DIR} ${BOOST_INCLUDE_DIR}")
 Message("-- Fabber headers in ${FABBER_INCLUDE_DIR}/fabber_core")
@@ -103,4 +101,7 @@ INSTALL(TARGETS fabber_${MODELS_NAME} fabber_models_${MODELS_NAME}
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
-        
+       
+# Packaging
+include(CPackConfig.cmake)
+
