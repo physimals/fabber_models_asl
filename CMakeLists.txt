@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 2.7)
 
+if(APPLE)
+  # Force use of libstdc++ on Mac as FSL uses this and we cannot link otherwise
+  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libstdc++")
+  # Get rid of CMake warning
+  set(CMAKE_MACOSX_RPATH ON)
+endif(APPLE)
+
 set(MODELS_NAME asl)
 set(MODELS_SRC fwdmodel_asl_rest.cc fwdmodel_asl_grase.cc fwdmodel_asl_multiphase.cc asl_models.cc)
 
 add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC})
 add_executable(fabber_${MODELS_NAME} ${MODELS_SRC} fabber_client.cc)
-
-if(APPLE)
-  # Force use of libstdc++ on Mac as FSL uses this and we cannot link otherwise
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libstdc++")
-  # Get rid of CMake warning
-  set(CMAKE_MACOSX_RPATH ON)
-endif(APPLE)
 
 find_path(FABBER_INCLUDE_DIR fabber_core/fwdmodel.h
             HINTS $ENV{FSLDIR}/include .. REQUIRED)
@@ -55,7 +55,6 @@ if (UNIX)
   set(LIBS ${LIBS} dl)
 endif(UNIX)
 set(SHLIBS ${LIBS})
-set (CMAKE_SHARED_LINKER_FLAGS  "-z defs")
 
 Message("-- Using Fabber libraries: ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}")
 Message("-- Using libznz: ${ZNZ_LIBRARY}")
