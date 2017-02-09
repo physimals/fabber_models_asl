@@ -17,12 +17,12 @@
 
 extern "C"
 {
-int get_num_models()
+int CALL get_num_models()
 {
 	return 3;
 }
 
-const char *get_model_name(int index)
+const char * CALL get_model_name(int index)
 {
 	switch (index)
 	{
@@ -40,7 +40,7 @@ const char *get_model_name(int index)
 	}
 }
 
-NewInstanceFptr get_new_instance_func(const char *name)
+NewInstanceFptr CALL get_new_instance_func(const char *name)
 {
 	if (string(name) == "aslrest")
 	{
