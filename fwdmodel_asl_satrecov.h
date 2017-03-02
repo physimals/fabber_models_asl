@@ -11,62 +11,60 @@
 #include <string>
 using namespace std;
 
-class SatrecovFwdModel: public FwdModel
+class SatrecovFwdModel : public FwdModel
 {
 public:
-	// Virtual function overrides
-	virtual void Evaluate(const ColumnVector& params,
-			ColumnVector& result) const;
-	static void ModelUsage();
-	virtual string ModelVersion() const;
+    // Virtual function overrides
+    virtual void Evaluate(const ColumnVector &params,
+        ColumnVector &result) const;
+    static void ModelUsage();
+    virtual string ModelVersion() const;
 
-	virtual void DumpParameters(const ColumnVector& vec, const string& indents =
-			"") const;
+    virtual void DumpParameters(const ColumnVector &vec, const string &indents = "") const;
 
-	virtual void NameParams(vector<string>& names) const;
-	virtual int NumParams() const
-	{
-		return (LFAon ? 4 : 3);
-	}
+    virtual void NameParams(vector<string> &names) const;
+    virtual int NumParams() const
+    {
+        return (LFAon ? 4 : 3);
+    }
 
-	virtual ~SatrecovFwdModel()
-	{
-		return;
-	}
+    virtual ~SatrecovFwdModel()
+    {
+        return;
+    }
 
-	virtual void HardcodedInitialDists(MVNDist& prior,
-			MVNDist& posterior) const;
+    virtual void HardcodedInitialDists(MVNDist &prior,
+        MVNDist &posterior) const;
 
-	//virtual void SetupARD(const MVNDist& posterior, MVNDist& prior, double& Fard);
-	//virtual void UpdateARD(const MVNDist& posterior, MVNDist& prior, double& Fard) const;
+    //virtual void SetupARD(const MVNDist& posterior, MVNDist& prior, double& Fard);
+    //virtual void UpdateARD(const MVNDist& posterior, MVNDist& prior, double& Fard) const;
 
-	// Constructor
-	SatrecovFwdModel(ArgsType& args);
+    // Constructor
+    SatrecovFwdModel(ArgsType &args);
 
 protected:
-	// Constants
+    // Constants
 
-	// Lookup the starting indices of the parameters
+    // Lookup the starting indices of the parameters
 
-	// vector indices for the parameters to expereicne ARD
-	vector<int> ard_index;
+    // vector indices for the parameters to expereicne ARD
+    vector<int> ard_index;
 
-	// scan parameters
-	int repeats;
-	int nphases;
-	double t1;
-	double slicedt;
+    // scan parameters
+    int repeats;
+    int nphases;
+    double t1;
+    double slicedt;
 
-	double FAnom;
-	double LFA;
-	double dti;
-	float dg;
+    double FAnom;
+    double LFA;
+    double dti;
+    float dg;
 
-	bool looklocker;
-	bool LFAon;
-	bool fixA;
+    bool looklocker;
+    bool LFAon;
+    bool fixA;
 
-	ColumnVector tis;
-	Real timax;
-
+    ColumnVector tis;
+    Real timax;
 };

@@ -9,19 +9,16 @@
 #include "fabber_core/fabber_core.h"
 
 // ASL models to be included from library
-#include "fwdmodel_asl_multiphase.h"
 #include "fwdmodel_asl_grase.h"
+#include "fwdmodel_asl_multiphase.h"
 #include "fwdmodel_asl_rest.h"
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
+    //add the ASL models from the library - these will autoregister at this point
+    GraseFwdModel::NewInstance();
+    ASLFwdModel::NewInstance();
+    MultiPhaseASLFwdModel::NewInstance();
 
-	//add the ASL models from the library - these will autoregister at this point
-	GraseFwdModel::NewInstance();
-	ASLFwdModel::NewInstance();
-	MultiPhaseASLFwdModel::NewInstance();
-
-	return execute(argc, argv);
-
+    return execute(argc, argv);
 }
-
