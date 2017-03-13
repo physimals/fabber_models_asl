@@ -746,9 +746,9 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     {
         // ASL data - unstracted (raw)
         result.ReSize(2 * tpoints);
+	int ent=0;
         for (int it = 1; it <= tis.Nrows(); it++)
         {
-	  int ent=0;
 	  // data is in blocks of repeated TIs
 	  // loop over the repeats
 	  for (int rpt = 1; rpt <= repeats[it-1]; rpt++)
@@ -763,9 +763,9 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     {
         // normal (differenced) ASL data
         result.ReSize(tpoints);
+	int ent=0;
         for (int it = 1; it <= tis.Nrows(); it++)
         {
-	  int ent=0;
 	  // data is in blocks of repeated TIs
 	  // loop over the repeats
 	  for (int rpt = 1; rpt <= repeats[it-1]; rpt++)
