@@ -13,8 +13,8 @@
 
 #include "fwdmodel_asl_grase.h"
 #include "fwdmodel_asl_multiphase.h"
-#include "fwdmodel_asl_rest.h"
 #include "fwdmodel_asl_quasar.h"
+#include "fwdmodel_asl_rest.h"
 
 extern "C" {
 int CALL get_num_models()

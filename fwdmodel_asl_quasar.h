@@ -36,7 +36,7 @@ public:
                        : 0)
             + 2 + (inferart ? (artdir ? 3 : 4) : 0)
             + (calibon ? 1 : 0);
-   }
+    }
 
     virtual ~QuasarFwdModel()
     {
@@ -136,7 +136,7 @@ protected:
     double lambda;
     double slicedt;
     double pretisat;
-    
+
     float dti; //TI interval
     float FA;  //flip angle
 

@@ -189,7 +189,7 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     //cout << crushdir << endl;
     crushdir.ReSize(4, 3);
     crushdir << 1 << 1 << 1 << -1 << 1 << 1 << 1 << -1 << 1 << -1 << -1
-                << 1;
+             << 1;
 
     crushdir /= sqrt(3); //make unit vectors;
 
