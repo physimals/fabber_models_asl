@@ -232,11 +232,6 @@ void SatrecovFwdModel::ModelUsage()
          << "--lfa=<low_flip_angle_in_degrees> extra phase in data with low FA\n";
 }
 
-void SatrecovFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
-
 void SatrecovFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();

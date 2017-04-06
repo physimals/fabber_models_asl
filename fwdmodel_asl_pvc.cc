@@ -759,11 +759,6 @@ void ASL_PVC_FwdModel::ModelUsage()
          << "--infert1 (to infer on T1 values)\n";
 }
 
-void ASL_PVC_FwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
-
 void ASL_PVC_FwdModel::NameParams(vector<string> &names) const
 {
     names.clear();

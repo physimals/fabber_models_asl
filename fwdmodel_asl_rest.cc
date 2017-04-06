@@ -1447,10 +1447,7 @@ vector<string> ASLFwdModel::GetUsage() const
     ;
     return usage;
 }
-void ASLFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
+
 void ASLFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();

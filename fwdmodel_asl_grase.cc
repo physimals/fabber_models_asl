@@ -639,11 +639,6 @@ vector<string> GraseFwdModel::GetUsage() const
     return usage;
 }
 
-void GraseFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
-
 void GraseFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();

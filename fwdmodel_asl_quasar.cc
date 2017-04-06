@@ -904,11 +904,6 @@ void QuasarFwdModel::ModelUsage()
     cout << "To be added" << endl;
 }
 
-void QuasarFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
-
 void QuasarFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();
