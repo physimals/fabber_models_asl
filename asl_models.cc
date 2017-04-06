@@ -14,11 +14,12 @@
 #include "fwdmodel_asl_grase.h"
 #include "fwdmodel_asl_multiphase.h"
 #include "fwdmodel_asl_rest.h"
+#include "fwdmodel_asl_quasar.h"
 
 extern "C" {
 int CALL get_num_models()
 {
-    return 3;
+    return 4;
 }
 
 const char *CALL get_model_name(int index)
@@ -33,6 +34,9 @@ const char *CALL get_model_name(int index)
         break;
     case 2:
         return "asl_multiphase";
+        break;
+    case 3:
+        return "quasar";
         break;
     default:
         return NULL;
@@ -52,6 +56,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     if (string(name) == "asl_multiphase")
     {
         return MultiPhaseASLFwdModel::NewInstance;
+    }
+    if (string(name) == "quasar")
+    {
+        return QuasarFwdModel::NewInstance;
     }
     else
     {

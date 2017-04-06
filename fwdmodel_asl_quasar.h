@@ -5,22 +5,27 @@
  Copyright (C) 2010 University of Oxford  */
 
 /*  CCOPYRIGHT */
+#pragma ONCE
 
 #include "fabber_core/fwdmodel.h"
-#include "fabber_core/inference.h"
+
 #include <string>
-using namespace std;
+#include <vector>
 
 class QuasarFwdModel : public FwdModel
 {
 public:
-    // Virtual function overrides
-    virtual void Evaluate(const ColumnVector &params,
-        ColumnVector &result) const;
-    static void ModelUsage();
-    virtual string ModelVersion() const;
+    static FwdModel *NewInstance();
 
-    virtual void NameParams(vector<string> &names) const;
+    // Virtual function overrides
+    virtual void Initialize(ArgsType &args);
+    virtual void Evaluate(const NEWMAT::ColumnVector &params,
+        NEWMAT::ColumnVector &result) const;
+    virtual std::string ModelVersion() const;
+    virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+    virtual std::string GetDescription() const;
+
+    virtual void NameParams(std::vector<std::string> &names) const;
     virtual int NumParams() const
     {
         return (infertiss ? 2 : 0) - (singleti ? 1 : 0)
@@ -31,9 +36,7 @@ public:
                        : 0)
             + 2 + (inferart ? (artdir ? 3 : 4) : 0)
             + (calibon ? 1 : 0);
-
-        //return 2 - (singleti?1:0) + (infertau?1:0) + (inferart?2:0) + (infert1?2:0) + (inferinveff?1:0) + (infertrailing?1:0) + (infertaub?1:0);
-    }
+   }
 
     virtual ~QuasarFwdModel()
     {
@@ -48,9 +51,6 @@ public:
         double &Fard);
     virtual void UpdateARD(const MVNDist &posterior, MVNDist &prior,
         double &Fard) const;
-
-    // Constructor
-    QuasarFwdModel(ArgsType &args);
 
 protected:
     // Constants
@@ -78,19 +78,12 @@ protected:
             + (inferart ? 2 : 0) + (infert1 ? 1 : 0);
     }
 
-    //int inveff_index() const { return 2 + (infertau?1:0) + (inferart?2:0) + (infert1?2:0) +(inferinveff?1:0); }
-
-    //int trailing_index() const { return 2 + (infertau?1:0) + (inferart?2:0) + (infert1?2:0) + (infertrailing?1:0); }
-
-    //int taub_index() const { return 2 + (infertau?1:0) + (inferart?2:0) + (infert1?2:0) + (inferinveff?1:0) + (infertrailing?1:0) + (infertaub?1:0);}
-
     int taub_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0)
             + (inferart ? 2 : 0) + (infert1 ? 2 : 0) + (infertaub ? 1 : 0);
     }
 
-    //int R_index() const { return 2 + (infertau?1:0) + (inferart?2:0) + (infert1?2:0) + (infertaub?1:0) + (inferart?1:0);}
     int wm_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0)
@@ -143,7 +136,7 @@ protected:
     double lambda;
     double slicedt;
     double pretisat;
-    //  bool grase; //to indicate data was collected with GRASE-ASL
+    
     float dti; //TI interval
     float FA;  //flip angle
 
@@ -160,7 +153,7 @@ protected:
 
     bool onephase;
 
-    string disptype;
+    std::string disptype;
 
     // ard flags
     bool doard;
@@ -168,38 +161,41 @@ protected:
     bool artard;
     bool wmard;
 
-    ColumnVector tis;
-    Real timax;
-    //ColumnVector crushdir;
-    Matrix crushdir;
+    NEWMAT::ColumnVector tis;
+    double timax;
+    NEWMAT::Matrix crushdir;
 
     //kinetic curve functions
-    ColumnVector kcblood_nodisp(const ColumnVector &tis, float deltblood,
+    NEWMAT::ColumnVector kcblood_nodisp(const NEWMAT::ColumnVector &tis, float deltblood,
         float taub, float T_1b, float deltll, float T_1ll) const;
-    ColumnVector kcblood_gammadisp(const ColumnVector &tis, float deltblood,
+    NEWMAT::ColumnVector kcblood_gammadisp(const NEWMAT::ColumnVector &tis, float deltblood,
         float taub, float T_1b, float s, float p, float deltll,
         float T_1ll) const;
-    ColumnVector kcblood_gvf(const ColumnVector &tis, float deltblood,
+    NEWMAT::ColumnVector kcblood_gvf(const NEWMAT::ColumnVector &tis, float deltblood,
         float taub, float T_1b, float s, float p, float deltll,
         float T_1ll) const;
-    ColumnVector kcblood_gaussdisp(const ColumnVector &tis, float deltblood,
+    NEWMAT::ColumnVector kcblood_gaussdisp(const NEWMAT::ColumnVector &tis, float deltblood,
         float taub, float T_1b, float sig1, float sig2, float deltll,
         float T_1ll) const;
     //Tissue
-    ColumnVector kctissue_nodisp(const ColumnVector &tis, float delttiss,
+    NEWMAT::ColumnVector kctissue_nodisp(const NEWMAT::ColumnVector &tis, float delttiss,
         float tau, float T1_b, float T1_app, float deltll,
         float T_1ll) const;
-    ColumnVector kctissue_gammadisp(const ColumnVector &tis, float delttiss,
+    NEWMAT::ColumnVector kctissue_gammadisp(const NEWMAT::ColumnVector &tis, float delttiss,
         float tau, float T1_b, float T1_app, float s, float p, float deltll,
         float T_1ll) const;
-    ColumnVector kctissue_gvf(const ColumnVector &tis, float delttiss,
+    NEWMAT::ColumnVector kctissue_gvf(const NEWMAT::ColumnVector &tis, float delttiss,
         float tau, float T1_b, float T1_app, float s, float p, float deltll,
         float T_1ll) const;
-    ColumnVector kctissue_gaussdisp(const ColumnVector &tis, float delttiss,
+    NEWMAT::ColumnVector kctissue_gaussdisp(const NEWMAT::ColumnVector &tis, float delttiss,
         float tau, float T_1b, float T_1app, float sig1, float sig2,
         float deltll, float T_1ll) const;
 
     //useful functions
     float icgf(float a, float x) const;
     float gvf(float t, float s, float p) const;
+
+private:
+    /** Auto-register with forward model factory. */
+    static FactoryRegistration<FwdModelFactory, QuasarFwdModel> registration;
 };
