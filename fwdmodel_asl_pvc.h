@@ -22,8 +22,6 @@ public:
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
     virtual std::string GetDescription() const;
 
-    virtual void DumpParameters(const ColumnVector &vec, const string &indents = "") const;
-
     virtual void NameParams(vector<string> &names) const;
     virtual int NumParams() const
     {

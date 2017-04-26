@@ -27,12 +27,9 @@ public:
     virtual void Initialize(ArgsType &args);
     virtual void Evaluate(const ColumnVector &params,
         ColumnVector &result) const;
-    virtual std::vector<std::string> GetUsage() const;
     virtual std::string ModelVersion() const;
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
     virtual std::string GetDescription() const;
-
-    virtual void DumpParameters(const ColumnVector &vec, const string &indents = "") const;
 
     virtual void NameParams(vector<string> &names) const;
     virtual int NumParams() const

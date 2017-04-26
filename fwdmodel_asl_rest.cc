@@ -1425,32 +1425,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     else
         throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");
 }
-vector<string> ASLFwdModel::GetUsage() const
-{
-    vector<string> usage;
-    usage.push_back("Required parameters:");
-    usage.push_back("--repeats=<no. repeats in data>");
-    usage.push_back("--ti1=<first_inversion_time_in_seconds>");
-    usage.push_back("--ti2=<second_inversion_time>, etc...");
-    usage.push_back("Optional arguments:");
-    usage.push_back("--casl CASL (or pCASL) preparation rather than PASL");
-    usage.push_back("--calib (data has been provided in calibrated units)");
-    usage.push_back("--delt=<BAT_of_tisse> (default 0.7s)");
-    usage.push_back("--tau=<temporal_bolus_length> (default 10s if --infertau not set)");
-    usage.push_back("--t1=<T1_of_tissue> (default 1.3)");
-    usage.push_back("--t1b=<T1_of_blood> (default 1.65)");
-    usage.push_back("--incbat/--inferbat (to include the / infer on  bolus arrival time)");
-    usage.push_back("--inctau/--infertau ((to include the / infer on  bolus duration)");
-    usage.push_back("--incart/--inferart ((to include the / infer on  arterial compartment)");
-    usage.push_back("--inct1/--infert1 (to include the / infer on T1 values)");
-    usage.push_back("--incstattiss/--inferstattiss (to include the / infer on  static tissue )");
-    ;
-    return usage;
-}
-void ASLFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
+
 void ASLFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();

@@ -10,7 +10,7 @@
 #define __FABBER_ASL_GRASE_FWDMODEL_H 1
 
 #include "fabber_core/fwdmodel.h"
-#include "fabber_core/inference.h"
+
 #include <string>
 
 using namespace std;
@@ -24,13 +24,9 @@ public:
     virtual void Initialize(ArgsType &args);
     virtual void Evaluate(const NEWMAT::ColumnVector &params,
         NEWMAT::ColumnVector &result) const;
-    virtual vector<string> GetUsage() const;
     virtual string ModelVersion() const;
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
     virtual std::string GetDescription() const;
-
-    virtual void DumpParameters(const NEWMAT::ColumnVector &vec,
-        const string &indents = "") const;
 
     virtual void NameParams(vector<string> &names) const;
     virtual int NumParams() const

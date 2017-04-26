@@ -8,13 +8,16 @@
 
 #include "fwdmodel_asl_grase.h"
 
+#include "fabber_core/inference.h"
+
 #include "miscmaths/miscprob.h"
-#include "newimage/newimageall.h"
 #include <iostream>
 #include <newmatio.h>
 #include <stdexcept>
-using namespace NEWIMAGE;
-#include "fabber_core/easylog.h"
+
+using namespace std;
+using namespace NEWMAT;
+using namespace MISCMATHS;
 
 FactoryRegistration<FwdModelFactory, GraseFwdModel> GraseFwdModel::registration(
     "buxton");
@@ -611,37 +614,6 @@ void GraseFwdModel::Evaluate(const ColumnVector &params,
 FwdModel *GraseFwdModel::NewInstance()
 {
     return new GraseFwdModel();
-}
-
-vector<string> GraseFwdModel::GetUsage() const
-{
-    vector<string> usage;
-    usage.push_back("\nUsage info for --model=buxton:");
-    usage.push_back("Required parameters:");
-    usage.push_back("--repeats=<no. repeats in data>");
-    usage.push_back("--ti1=<first_inversion_time_in_seconds>");
-    usage.push_back("--ti2=<second_inversion_time>, etc...");
-    usage.push_back("Optional arguments:");
-    usage.push_back("--casl use CASL (or pCASL) preparation rather than PASL");
-    usage.push_back(
-        "--grase *DEPRECEATAED* (data collected using GRASE-ASL: same as --pretissat=0.1)");
-    usage.push_back(
-        "--pretisat=<presat_time> (Define that blood is saturated a specific time before TI image acquired)");
-    usage.push_back("--calib (data has been provided in calibrated units)");
-    usage.push_back(
-        "--tau=<bolus duration> (default 10s if --infertau not set)");
-    usage.push_back("--t1=<T1_of_tissue> (default 1.3)");
-    usage.push_back("--t1b=<T1_of_blood> (default 1.65)");
-    usage.push_back("--infertau (to infer on bolus length)");
-    usage.push_back("--inferart (to infer on arterial compartment)");
-    usage.push_back("--infert1 (to infer on T1 values)");
-
-    return usage;
-}
-
-void GraseFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
 }
 
 void GraseFwdModel::NameParams(vector<string> &names) const

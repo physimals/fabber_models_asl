@@ -8,13 +8,25 @@
 
 #include "fwdmodel_asl_quasar.h"
 
-#include "miscmaths/miscprob.h"
-#include "newimage/newimageall.h"
+#include <fabber_core/inference.h>
+
+#include <miscmaths/miscprob.h>
+
 #include <iostream>
 #include <newmatio.h>
 #include <stdexcept>
-using namespace NEWIMAGE;
-#include "fabber_core/easylog.h"
+
+using namespace std;
+using namespace NEWMAT;
+using namespace MISCMATHS;
+
+FactoryRegistration<FwdModelFactory, QuasarFwdModel> QuasarFwdModel::registration(
+    "quasar");
+
+FwdModel *QuasarFwdModel::NewInstance()
+{
+    return new QuasarFwdModel();
+}
 
 string QuasarFwdModel::ModelVersion() const
 {
@@ -26,6 +38,294 @@ string QuasarFwdModel::ModelVersion() const
     version += string(" Last commit ") + GIT_DATE;
 #endif
     return version;
+}
+
+static OptionSpec OPTIONS[] = {
+    { "repeats", OPT_INT, "Number of repeats in data", OPT_REQ, "" },
+    { "disp", OPT_STR, "AIF dispersion type", OPT_NONREQ, "gamma" },
+    { "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
+    { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
+    { "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
+    { "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
+    { "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
+    { "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
+    { "inferwm", OPT_BOOL, "Infer WM parameters", OPT_NONREQ, "" },
+    { "tau", OPT_FLOAT, "Single tau value", OPT_NONREQ, "" },
+    { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
+    { "ardoff", OPT_BOOL, "Turn off ARD", OPT_NONREQ, "" },
+    { "tauboff", OPT_BOOL, "Force the inference of arterial bolus off", OPT_NONREQ, "" },
+    { "usepve", OPT_BOOL, "Use PVE", OPT_NONREQ, "" },
+    { "artdir", OPT_BOOL, "Infer direction of arterial blood", OPT_NONREQ, "" },
+    { "usecalib", OPT_BOOL, "use calibration images (provided as image priors)", OPT_NONREQ, "" },
+    { "tissoff", OPT_BOOL, "Turn off tissue CPT", OPT_NONREQ, "" },
+    { "onephase", OPT_BOOL, "Special - a single phase of data (if we have already processed the phases)", OPT_NONREQ, "" },
+    { "tissardon", OPT_BOOL, "Tissue ARD on", OPT_NONREQ, "" },
+    { "artardoff", OPT_BOOL, "Arterial ARD on", OPT_NONREQ, "" },
+    { "wmardoff", OPT_BOOL, "WM ARD on", OPT_NONREQ, "" },
+    { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
+    { "fa", OPT_FLOAT, "Flip angle in degrees", OPT_NONREQ, "30" },
+    { "" },
+};
+
+void QuasarFwdModel::GetOptions(vector<OptionSpec> &opts) const
+{
+    for (int i = 0; OPTIONS[i].name != ""; i++)
+    {
+        opts.push_back(OPTIONS[i]);
+    }
+}
+
+std::string QuasarFwdModel::GetDescription() const
+{
+    return "QUASAR ASL model";
+}
+
+void QuasarFwdModel::Initialize(ArgsType &args)
+{
+    // specify command line parameters here
+    //dispersion model
+    disptype = args.ReadWithDefault("disp", "gamma");
+
+    repeats = convertTo<int>(args.Read("repeats")); // number of repeats in data
+    t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
+    t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
+    t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
+    lambda = convertTo<double>(args.ReadWithDefault("lambda", "0.9")); //NOTE that this parameter is not used!!
+
+    infertau = args.ReadBool("infertau"); // infer on bolus length?
+    infert1 = args.ReadBool("infert1");   //infer on T1 values?
+    inferart = args.ReadBool("inferart"); //infer on arterial compartment?
+    inferwm = args.ReadBool("inferwm");
+
+    seqtau = convertTo<double>(args.ReadWithDefault("tau", "1000"));     //bolus length as set by sequence (default of 1000 is effectively infinite
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+
+    bool ardoff = false;
+    ardoff = args.ReadBool("ardoff");
+    bool tauboff = false;
+    tauboff = args.ReadBool("tauboff"); //forces the inference of arterial bolus off
+
+    usepve = args.ReadBool("usepve");
+
+    artdir = args.ReadBool("artdir"); //infer direction of arterial blood
+
+    calibon = args.ReadBool("usecalib"); //use calibration images (provided as image priors)
+
+    // combination options
+    infertaub = false;
+    if (inferart && infertau && !tauboff)
+        infertaub = true;
+
+    //special - turn off tissue cpt
+    infertiss = true;
+    bool tissoff = args.ReadBool("tissoff");
+    if (tissoff)
+        infertiss = false;
+
+    //special - a single phase of data (if we have already processed the phases)
+    onephase = false;
+    onephase = args.ReadBool("onephase");
+
+    // deal with ARD selection
+    doard = false;
+    tissard = false;
+    artard = true;
+    wmard = true; //default ARD flags
+    //if (inferart==true && ardoff==false) { doard=true;}
+    //if (inferwm==true && ardoff==false) {doard=true; }
+    //special, individual ARD switches
+    bool tissardon = args.ReadBool("tissardon");
+    if (tissardon)
+        tissard = true;
+    bool artardoff = args.ReadBool("artardoff");
+    if (artardoff)
+        artard = false;
+    bool wmardoff = args.ReadBool("wmardoff");
+    if (wmardoff)
+        wmard = false;
+
+    // ** ardoff overrides all other ARD options
+    if ((tissard || artard || wmard) && !ardoff)
+        doard = true;
+
+    /* if (infertrailing) {
+        if (!infertau) {
+        // do not permit trailing edge inference without inferring on bolus length
+        throw Invalid_option("--infertrailing has been set without setting --infertau");
+        }
+        else if (inferinveff)
+        //do not permit trailing edge inference and inversion efficiency inference (they are mututally exclusive)
+        throw Invalid_option("--infertrailing and --inferinveff may not both be set");
+        }*/
+
+    // Deal with tis
+    tis.ReSize(1); //will add extra values onto end as needed
+    tis(1) = atof(args.Read("ti1").c_str());
+
+    while (true) //get the rest of the tis
+    {
+        int N = tis.Nrows() + 1;
+        string tiString = args.ReadWithDefault("ti" + stringify(N),
+            "stop!");
+        if (tiString == "stop!")
+            break; //we have run out of tis
+
+        // append the new ti onto the end of the list
+        ColumnVector tmp(1);
+        tmp = convertTo<double>(tiString);
+        tis &= tmp; //vertical concatenation
+    }
+    timax = tis.Maximum(); //dtermine the final TI
+    //determine the TI interval (assume it is even throughout)
+    dti = tis(2) - tis(1);
+
+    float fadeg = convertTo<double>(args.ReadWithDefault("fa", "30"));
+    FA = fadeg * M_PI / 180; //convert FA to radians
+
+    //setup crusher directions
+    //crushdir.ReSize(4);
+    //crushdir << 45.0 << -45.0 << 135.0 << -135.0; //in degees
+    //crushdir = crushdir * M_PI/180;
+    //cout << crushdir << endl;
+    crushdir.ReSize(4, 3);
+    crushdir << 1 << 1 << 1 << -1 << 1 << 1 << 1 << -1 << 1 << -1 << -1
+             << 1;
+
+    crushdir /= sqrt(3); //make unit vectors;
+
+    singleti = false; //normally we do multi TI ASL
+    /*if (tis.Nrows()==1) {
+        //only one TI therefore only infer on CBF and ignore other inference options
+        LOG << "--Single inversion time mode--" << endl;
+        LOG << "Only a sinlge inversion time has been supplied," << endl;
+        LOG << "Therefore only tissue perfusion will be inferred." << endl;
+        LOG << "-----" << endl;
+        singleti = true;
+        // force other inference options to be false
+        infertau = false; infert1 = false; inferart = false; //inferinveff = false;
+        }*/
+
+    // add information about the parameters to the log
+    LOG << "Inference using development model" << endl;
+    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
+        << ", t1b = " << t1b;
+    LOG << ", bolus length (tau) = " << seqtau << endl;
+    if (infertau)
+    {
+        LOG << "Infering on bolus length " << endl;
+    }
+    if (doard)
+    {
+        LOG << "ARD subsystem is enabled" << endl;
+    }
+    if (infertiss)
+    {
+        LOG << "Infertting on tissue component " << endl;
+    }
+    if (doard && tissard)
+    {
+        LOG << "ARD has been set on the tissue component " << endl;
+    }
+    if (inferart)
+    {
+        LOG << "Infering on artertial compartment " << endl;
+    }
+    if (doard && artard)
+    {
+        LOG << "ARD has been set on arterial compartment " << endl;
+    }
+    if (inferwm)
+    {
+        LOG << "Inferring on white matter component" << endl;
+        if (doard && wmard)
+        {
+            LOG << "ARD has been set on wm component" << endl;
+        }
+    }
+    if (infert1)
+    {
+        LOG << "Infering on T1 values " << endl;
+    }
+    LOG << "TIs: ";
+    for (int i = 1; i <= tis.Nrows(); i++)
+        LOG << tis(i) << " ";
+    LOG << endl;
+}
+
+void QuasarFwdModel::NameParams(vector<string> &names) const
+{
+    names.clear();
+
+    if (infertiss)
+    {
+        names.push_back("ftiss");
+        //if (!singleti)
+        names.push_back("delttiss");
+    }
+    if (infertau && infertiss)
+    {
+        names.push_back("tautiss");
+    }
+    if (inferart)
+    {
+        names.push_back("fblood");
+        names.push_back("deltblood");
+    }
+    if (infert1)
+    {
+        names.push_back("T_1");
+        names.push_back("T_1b");
+    }
+    if (infertaub)
+    {
+        names.push_back("taublood");
+    }
+    /*if (inferart) {
+	 names.push_back("R");
+	 }*/
+
+    if (inferwm)
+    {
+        names.push_back("fwm");
+        names.push_back("deltwm");
+
+        if (infertau)
+            names.push_back("tauwm");
+        if (infert1)
+            names.push_back("T_1wm");
+
+        if (usepve)
+        {
+            names.push_back("p_gm");
+            names.push_back("p_wm");
+        }
+    }
+    names.push_back("sp_log");
+    names.push_back("s_log");
+
+    if (inferart)
+    {
+        if (artdir)
+        {
+            names.push_back("thblood");
+            names.push_back("phiblood");
+            names.push_back("bvblood");
+            //names.push_back("crusheff");
+        }
+        else
+        {
+            names.push_back("fbloodc1");
+            names.push_back("fbloodc2");
+            names.push_back("fbloodc3");
+            names.push_back("fbloodc4");
+            //names.push_back("fbloodc5");
+        }
+    }
+
+    if (calibon)
+    {
+        names.push_back("g");
+    }
 }
 
 void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior,
@@ -716,273 +1016,6 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params,
     //cout << result.t();
 
     return;
-}
-
-QuasarFwdModel::QuasarFwdModel(ArgsType &args)
-{
-    string scanParams = args.ReadWithDefault("scan-params", "cmdline");
-
-    if (scanParams == "cmdline")
-    {
-        // specify command line parameters here
-        //dispersion model
-        disptype = args.ReadWithDefault("disp", "gamma");
-
-        repeats = convertTo<int>(args.Read("repeats")); // number of repeats in data
-        t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
-        t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
-        t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
-        lambda = convertTo<double>(args.ReadWithDefault("lambda", "0.9")); //NOTE that this parameter is not used!!
-
-        infertau = args.ReadBool("infertau"); // infer on bolus length?
-        infert1 = args.ReadBool("infert1");   //infer on T1 values?
-        inferart = args.ReadBool("inferart"); //infer on arterial compartment?
-        inferwm = args.ReadBool("inferwm");
-
-        seqtau = convertTo<double>(args.ReadWithDefault("tau", "1000"));     //bolus length as set by sequence (default of 1000 is effectively infinite
-        slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
-
-        bool ardoff = false;
-        ardoff = args.ReadBool("ardoff");
-        bool tauboff = false;
-        tauboff = args.ReadBool("tauboff"); //forces the inference of arterial bolus off
-
-        usepve = args.ReadBool("usepve");
-
-        artdir = args.ReadBool("artdir"); //infer direction of arterial blood
-
-        calibon = args.ReadBool("usecalib"); //use calibration images (provided as image priors)
-
-        // combination options
-        infertaub = false;
-        if (inferart && infertau && !tauboff)
-            infertaub = true;
-
-        //special - turn off tissue cpt
-        infertiss = true;
-        bool tissoff = args.ReadBool("tissoff");
-        if (tissoff)
-            infertiss = false;
-
-        //special - a single phase of data (if we have already processed the phases)
-        onephase = false;
-        onephase = args.ReadBool("onephase");
-
-        // deal with ARD selection
-        doard = false;
-        tissard = false;
-        artard = true;
-        wmard = true; //default ARD flags
-        //if (inferart==true && ardoff==false) { doard=true;}
-        //if (inferwm==true && ardoff==false) {doard=true; }
-        //special, individual ARD switches
-        bool tissardon = args.ReadBool("tissardon");
-        if (tissardon)
-            tissard = true;
-        bool artardoff = args.ReadBool("artardoff");
-        if (artardoff)
-            artard = false;
-        bool wmardoff = args.ReadBool("wmardoff");
-        if (wmardoff)
-            wmard = false;
-
-        // ** ardoff overrides all other ARD options
-        if ((tissard || artard || wmard) && !ardoff)
-            doard = true;
-
-        /* if (infertrailing) {
-		 if (!infertau) {
-		 // do not permit trailing edge inference without inferring on bolus length
-		 throw Invalid_option("--infertrailing has been set without setting --infertau");
-		 }
-		 else if (inferinveff)
-		 //do not permit trailing edge inference and inversion efficiency inference (they are mututally exclusive)
-		 throw Invalid_option("--infertrailing and --inferinveff may not both be set");
-		 }*/
-
-        // Deal with tis
-        tis.ReSize(1); //will add extra values onto end as needed
-        tis(1) = atof(args.Read("ti1").c_str());
-
-        while (true) //get the rest of the tis
-        {
-            int N = tis.Nrows() + 1;
-            string tiString = args.ReadWithDefault("ti" + stringify(N),
-                "stop!");
-            if (tiString == "stop!")
-                break; //we have run out of tis
-
-            // append the new ti onto the end of the list
-            ColumnVector tmp(1);
-            tmp = convertTo<double>(tiString);
-            tis &= tmp; //vertical concatenation
-        }
-        timax = tis.Maximum(); //dtermine the final TI
-        //determine the TI interval (assume it is even throughout)
-        dti = tis(2) - tis(1);
-
-        float fadeg = convertTo<double>(args.ReadWithDefault("fa", "30"));
-        FA = fadeg * M_PI / 180; //convert FA to radians
-
-        //setup crusher directions
-        //crushdir.ReSize(4);
-        //crushdir << 45.0 << -45.0 << 135.0 << -135.0; //in degees
-        //crushdir = crushdir * M_PI/180;
-        //cout << crushdir << endl;
-        crushdir.ReSize(4, 3);
-        crushdir << 1 << 1 << 1 << -1 << 1 << 1 << 1 << -1 << 1 << -1 << -1
-                 << 1;
-
-        crushdir /= sqrt(3); //make unit vectors;
-
-        singleti = false; //normally we do multi TI ASL
-        /*if (tis.Nrows()==1) {
-		 //only one TI therefore only infer on CBF and ignore other inference options
-		 LOG << "--Single inversion time mode--" << endl;
-		 LOG << "Only a sinlge inversion time has been supplied," << endl;
-		 LOG << "Therefore only tissue perfusion will be inferred." << endl;
-		 LOG << "-----" << endl;
-		 singleti = true;
-		 // force other inference options to be false
-		 infertau = false; infert1 = false; inferart = false; //inferinveff = false;
-		 }*/
-
-        // add information about the parameters to the log
-        LOG << "Inference using development model" << endl;
-        LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
-            << ", t1b = " << t1b;
-        LOG << ", bolus length (tau) = " << seqtau << endl;
-        if (infertau)
-        {
-            LOG << "Infering on bolus length " << endl;
-        }
-        if (doard)
-        {
-            LOG << "ARD subsystem is enabled" << endl;
-        }
-        if (infertiss)
-        {
-            LOG << "Infertting on tissue component " << endl;
-        }
-        if (doard && tissard)
-        {
-            LOG << "ARD has been set on the tissue component " << endl;
-        }
-        if (inferart)
-        {
-            LOG << "Infering on artertial compartment " << endl;
-        }
-        if (doard && artard)
-        {
-            LOG << "ARD has been set on arterial compartment " << endl;
-        }
-        if (inferwm)
-        {
-            LOG << "Inferring on white matter component" << endl;
-            if (doard && wmard)
-            {
-                LOG << "ARD has been set on wm component" << endl;
-            }
-        }
-        if (infert1)
-        {
-            LOG << "Infering on T1 values " << endl;
-        }
-        LOG << "TIs: ";
-        for (int i = 1; i <= tis.Nrows(); i++)
-            LOG << tis(i) << " ";
-        LOG << endl;
-    }
-
-    else
-        throw invalid_argument(
-            "Only --scan-params=cmdline is accepted at the moment");
-}
-
-void QuasarFwdModel::ModelUsage()
-{
-    cout << "To be added" << endl;
-}
-
-void QuasarFwdModel::DumpParameters(const ColumnVector &vec,
-    const string &indent) const
-{
-}
-
-void QuasarFwdModel::NameParams(vector<string> &names) const
-{
-    names.clear();
-
-    if (infertiss)
-    {
-        names.push_back("ftiss");
-        //if (!singleti)
-        names.push_back("delttiss");
-    }
-    if (infertau && infertiss)
-    {
-        names.push_back("tautiss");
-    }
-    if (inferart)
-    {
-        names.push_back("fblood");
-        names.push_back("deltblood");
-    }
-    if (infert1)
-    {
-        names.push_back("T_1");
-        names.push_back("T_1b");
-    }
-    if (infertaub)
-    {
-        names.push_back("taublood");
-    }
-    /*if (inferart) {
-	 names.push_back("R");
-	 }*/
-
-    if (inferwm)
-    {
-        names.push_back("fwm");
-        names.push_back("deltwm");
-
-        if (infertau)
-            names.push_back("tauwm");
-        if (infert1)
-            names.push_back("T_1wm");
-
-        if (usepve)
-        {
-            names.push_back("p_gm");
-            names.push_back("p_wm");
-        }
-    }
-    names.push_back("sp_log");
-    names.push_back("s_log");
-
-    if (inferart)
-    {
-        if (artdir)
-        {
-            names.push_back("thblood");
-            names.push_back("phiblood");
-            names.push_back("bvblood");
-            //names.push_back("crusheff");
-        }
-        else
-        {
-            names.push_back("fbloodc1");
-            names.push_back("fbloodc2");
-            names.push_back("fbloodc3");
-            names.push_back("fbloodc4");
-            //names.push_back("fbloodc5");
-        }
-    }
-
-    if (calibon)
-    {
-        names.push_back("g");
-    }
 }
 
 void QuasarFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior,
