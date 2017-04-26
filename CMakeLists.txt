@@ -44,7 +44,7 @@ find_library(NIFTIIO_LIBRARY NAMES niftiio libniftiio
 find_library(ZNZ_LIBRARY NAMES znz libznz
              HINTS $ENV{FSLDIR}/lib REQUIRED )
 find_library(Z_LIBRARY NAMES z libz zlib zlibd 
-               HINTS $ENV{FSLDIR}/lib REQUIRED )
+             HINTS $ENV{FSLDIR}/lib REQUIRED NO_DEFAULT_PATH)
 find_library(PROB_LIBRARY NAMES prob libprob
              HINTS $ENV{FSLDIR}/extras/lib REQUIRED )
 
