@@ -8,17 +8,20 @@
 
 #include "fabber_core/fwdmodel.h"
 #include "fabber_core/inference.h"
+
+#include <vector>
 #include <string>
-using namespace std;
 
 class SatrecovFwdModel : public FwdModel
 {
 public:
+    static FwdModel *NewInstance();
+    
     // Virtual function overrides
-    virtual void Evaluate(const ColumnVector &params,
-        ColumnVector &result) const;
-    static void ModelUsage();
-    virtual string ModelVersion() const;
+    virtual void Initialize(ArgsType &args);
+    virtual std::string ModelVersion() const;
+    virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+    virtual std::string GetDescription() const;
 
     virtual void NameParams(vector<string> &names) const;
     virtual int NumParams() const
@@ -26,19 +29,8 @@ public:
         return (LFAon ? 4 : 3);
     }
 
-    virtual ~SatrecovFwdModel()
-    {
-        return;
-    }
-
-    virtual void HardcodedInitialDists(MVNDist &prior,
-        MVNDist &posterior) const;
-
-    //virtual void SetupARD(const MVNDist& posterior, MVNDist& prior, double& Fard);
-    //virtual void UpdateARD(const MVNDist& posterior, MVNDist& prior, double& Fard) const;
-
-    // Constructor
-    SatrecovFwdModel(ArgsType &args);
+    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
+    virtual void Evaluate(const NEWMAT::ColumnVector &params,  NEWMAT::ColumnVector &result) const;
 
 protected:
     // Constants
@@ -46,7 +38,7 @@ protected:
     // Lookup the starting indices of the parameters
 
     // vector indices for the parameters to expereicne ARD
-    vector<int> ard_index;
+    std::vector<int> ard_index;
 
     // scan parameters
     int repeats;
@@ -63,6 +55,10 @@ protected:
     bool LFAon;
     bool fixA;
 
-    ColumnVector tis;
-    Real timax;
+    NEWMAT::ColumnVector tis;
+    NEWMAT::Real timax;
+    
+private:
+    /** Auto-register with forward model factory. */
+    static FactoryRegistration<FwdModelFactory, SatrecovFwdModel> registration;
 };

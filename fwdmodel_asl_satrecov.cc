@@ -8,13 +8,46 @@
 
 #include "fwdmodel_asl_satrecov.h"
 
+#include "fabber_core/fwdmodel.h"
+
 #include "miscmaths/miscprob.h"
 #include "newimage/newimageall.h"
+
+#include <string>
+#include <vector>
 #include <iostream>
 #include <newmatio.h>
 #include <stdexcept>
-using namespace NEWIMAGE;
-#include "fabber_core/easylog.h"
+
+using namespace std;
+
+FactoryRegistration<FwdModelFactory, SatrecovFwdModel>
+    SatrecovFwdModel::registration("satrecov");
+    
+FwdModel *SatrecovFwdModel::NewInstance()
+{
+    return new SatrecovFwdModel();
+}
+
+static OptionSpec OPTIONS[] = {
+    { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
+    { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
+    { "phases", OPT_INT, "Number of phases", OPT_NONREQ, "1" },
+    { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
+    { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous", OPT_NONREQ, "" },
+    { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
+    { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
+    { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
+    { "" },
+};
+
+void SatrecovFwdModel::GetOptions(vector<OptionSpec> &opts) const
+{
+    for (int i = 0; OPTIONS[i].name != ""; i++)
+    {
+        opts.push_back(OPTIONS[i]);
+    }
+}
 
 string SatrecovFwdModel::ModelVersion() const
 {
@@ -26,6 +59,74 @@ string SatrecovFwdModel::ModelVersion() const
     version += string(" Last commit ") + GIT_DATE;
 #endif
     return version;
+}
+
+string SatrecovFwdModel::GetDescription() const
+{
+    return "Saturation recovery ASL model";
+}
+
+void SatrecovFwdModel::Initialize(ArgsType &args)
+{
+    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
+    t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
+    nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+
+    fixA = args.ReadBool("fixa"); //to fix the A parameter where it will be ambiguous
+
+    // with a look locker readout
+    FAnom = convertTo<double>(args.ReadWithDefault("FA", "0"));
+    looklocker = false;
+    if (FAnom > 0.1)
+        looklocker = true;
+    cout << "Looklocker" << looklocker << endl;
+    FAnom = FAnom * M_PI / 180; //convert to radians
+    LFA = convertTo<double>(args.ReadWithDefault("LFA", "0"));
+    LFA = LFA * M_PI / 180; //convert to radians
+    LFAon = false;
+    if (LFA > 0)
+        LFAon = true;
+
+    dg = 0.023;
+
+    // Deal with tis
+    tis.ReSize(1); //will add extra values onto end as needed
+    tis(1) = atof(args.Read("ti1").c_str());
+
+    while (true) //get the rest of the tis
+    {
+        int N = tis.Nrows() + 1;
+        string tiString = args.ReadWithDefault("ti" + stringify(N),
+            "stop!");
+        if (tiString == "stop!")
+            break; //we have run out of tis
+
+        // append the new ti onto the end of the list
+        ColumnVector tmp(1);
+        tmp = convertTo<double>(tiString);
+        tis &= tmp; //vertical concatenation
+    }
+    timax = tis.Maximum(); //dtermine the final TI
+    dti = tis(2) - tis(1); //assuming even sampling!! - this only applies to LL acquisitions
+
+    // need to set the voxel coordinates to a deafult of 0 (for the times we call the model before we start handling data)
+    coord_x = 0;
+    coord_y = 0;
+    coord_z = 0;
+}
+
+void SatrecovFwdModel::NameParams(vector<string> &names) const
+{
+    names.clear();
+
+    names.push_back("M0t");
+    names.push_back("T1t");
+    names.push_back("A");
+    if (LFAon)
+    {
+        names.push_back("g");
+    }
 }
 
 void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior,
@@ -156,91 +257,4 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params,
     }
 
     return;
-}
-
-SatrecovFwdModel::SatrecovFwdModel(ArgsType &args)
-{
-    string scanParams = args.ReadWithDefault("scan-params", "cmdline");
-
-    if (scanParams == "cmdline")
-    {
-        // specify command line parameters here
-        repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
-        t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
-        nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
-        slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
-
-        fixA = args.ReadBool("fixa"); //to fix the A parameter where it will be ambiguous
-
-        // with a look locker readout
-        FAnom = convertTo<double>(args.ReadWithDefault("FA", "0"));
-        looklocker = false;
-        if (FAnom > 0.1)
-            looklocker = true;
-        cout << "Looklocker" << looklocker << endl;
-        FAnom = FAnom * M_PI / 180; //convert to radians
-        LFA = convertTo<double>(args.ReadWithDefault("LFA", "0"));
-        LFA = LFA * M_PI / 180; //convert to radians
-        LFAon = false;
-        if (LFA > 0)
-            LFAon = true;
-
-        dg = 0.023;
-
-        // Deal with tis
-        tis.ReSize(1); //will add extra values onto end as needed
-        tis(1) = atof(args.Read("ti1").c_str());
-
-        while (true) //get the rest of the tis
-        {
-            int N = tis.Nrows() + 1;
-            string tiString = args.ReadWithDefault("ti" + stringify(N),
-                "stop!");
-            if (tiString == "stop!")
-                break; //we have run out of tis
-
-            // append the new ti onto the end of the list
-            ColumnVector tmp(1);
-            tmp = convertTo<double>(tiString);
-            tis &= tmp; //vertical concatenation
-        }
-        timax = tis.Maximum(); //dtermine the final TI
-        dti = tis(2) - tis(1); //assuming even sampling!! - this only applies to LL acquisitions
-
-        // need to set the voxel coordinates to a deafult of 0 (for the times we call the model before we start handling data)
-        coord_x = 0;
-        coord_y = 0;
-        coord_z = 0;
-    }
-
-    else
-        throw invalid_argument(
-            "Only --scan-params=cmdline is accepted at the moment");
-}
-
-void SatrecovFwdModel::ModelUsage()
-{
-    cout << "\nUsage info for --model=:\n"
-         << "Required parameters:\n"
-         << "--ti{n}=<nth_inversion_time_in_seconds>\n"
-         << "Optional arguments:\n"
-         << "--repeats=<no. repeats in data>  {default:1}\n"
-         << "--phases=<no. of phases in data> {default:1}\n"
-         << "--t1=<T1_of_tissue_prior_mean> {default 1.3}\n"
-         << "--looklocker Data was aquired using Look Locker readout\n"
-         << "--fa=<flip_angle_in_degrees> for LL readout\n"
-         << "--lfa=<low_flip_angle_in_degrees> extra phase in data with low FA\n";
-}
-
-void SatrecovFwdModel::NameParams(vector<string> &names) const
-{
-    names.clear();
-
-    names.push_back("M0t");
-    names.push_back("T1t");
-    names.push_back("A");
-    if (LFAon)
-    {
-        names.push_back("g");
-    }
 }
