@@ -31,6 +31,10 @@ static OptionSpec OPTIONS[] = {
     { "incvel", OPT_BOOL, "Include vel parameter", OPT_NONREQ, "" },
     { "infervel", OPT_BOOL, "Infer value of vel parameter",
         OPT_NONREQ, "" },
+    { "nph", OPT_INT, "Number of evenly-spaced phases between 0 and 360",
+        OPT_NONREQ, "8" },
+    { "ph<n>", OPT_FLOAT, "Individually-specified phase angles in degrees",
+        OPT_NONREQ, "" },
     { "" },
 };
 
