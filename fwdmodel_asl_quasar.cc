@@ -1,8 +1,8 @@
 /*  fwdmodel_asl_quasar.cc -resting stat ASL model for QUASAR acquisition
 
- Michael Chappell, IBME & FMRIB Image Analysis Group
+    Michael Chappell, IBME & FMRIB Image Analysis Group
 
- Copyright (C) 2010 University of Oxford  */
+    Copyright (C) 2010 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
@@ -276,8 +276,8 @@ void QuasarFwdModel::NameParams(vector<string> &names) const
         names.push_back("taublood");
     }
     /*if (inferart) {
-     names.push_back("R");
-     }*/
+    names.push_back("R");
+    }*/
 
     if (inferwm)
     {
@@ -365,7 +365,7 @@ void QuasarFwdModel::HardcodedInitialDists(
         prior.means(aidx) = 0;
         precisions(aidx, aidx) = 1e-12;
 
-        prior.means(aidx + 1) = 0.1;
+        prior.means(aidx + 1) = 0.5;
         precisions(aidx + 1, aidx + 1) = 1;
     }
 
@@ -381,15 +381,16 @@ void QuasarFwdModel::HardcodedInitialDists(
     }
 
     /* if (inferart) {
-     prior.means(R_index()) = log(10);
-     precisions(R_index(),R_index()) = 1;
-     }*/
+      prior.means(R_index()) = log(10);
+      precisions(R_index(),R_index()) = 1;
+      }*/
 
+    // White matter
     if (inferwm)
     {
         int wmi = wm_index();
         prior.means(wmi) = 0;
-        prior.means(wmi + 1) = 1.2;
+        prior.means(wmi + 1) = 1;
         precisions(wmi, wmi) = 1e-12;
         precisions(wmi + 1, wmi + 1) = 1;
 
@@ -667,9 +668,9 @@ void QuasarFwdModel::Evaluate(
     }
 
     /*if (inferart) {
-     RR = exp( paramcpy(R_index()) );
-     if (RR<1) RR=1;
-     }*/
+    RR = exp( paramcpy(R_index()) );
+    if (RR<1) RR=1;
+    }*/
 
     if (inferwm)
     {
@@ -885,19 +886,19 @@ void QuasarFwdModel::Evaluate(
     }
 
     /* KC debugging
-     T_1 = 1.3;
-     T_1app = 1/( 1/T_1 + 0.01/lambdagm);
-     cout << T_1app << "  " << endl;
-     T_1b = 1.6; tau=1; delttiss=0.7; s=100, p=0.05;
-     kctissue=kctissue_nodisp(tis,delttiss,tau,T_1b,T_1app);
-     cout << kctissue.t() << endl;
-     kctissue=kctissue_gammadisp(tis,delttiss,tau,T_1b,T_1app,s,p);
-     cout << kctissue.t() << endl;
-     kctissue=kctissue_gvf(tis,delttiss,T_1b,T_1app,s,p);
-     cout << kctissue.t() << endl;
+    T_1 = 1.3;
+    T_1app = 1/( 1/T_1 + 0.01/lambdagm);
+    cout << T_1app << "  " << endl;
+    T_1b = 1.6; tau=1; delttiss=0.7; s=100, p=0.05;
+    kctissue=kctissue_nodisp(tis,delttiss,tau,T_1b,T_1app);
+    cout << kctissue.t() << endl;
+    kctissue=kctissue_gammadisp(tis,delttiss,tau,T_1b,T_1app,s,p);
+    cout << kctissue.t() << endl;
+    kctissue=kctissue_gvf(tis,delttiss,T_1b,T_1app,s,p);
+    cout << kctissue.t() << endl;
 
-     assert(1==0);
-     */
+    assert(1==0);
+    */
 
     // Nan catching
     bool cont = true;
@@ -1110,20 +1111,17 @@ void QuasarFwdModel::UpdateARD(
 
 // --- Kinetic curve functions ---
 // Arterial
-
 ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
     float deltblood, float taub, float T_1bin, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
     float T_1b;
-
     // Non dispersed arterial curve (pASL)
     float ti = 0.0;
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
@@ -1151,10 +1149,8 @@ ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
                                  // out period equation
         }
     }
-
     return kcblood;
 }
-
 ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
     float deltblood, float taub, float T_1bin, float s, float p, float deltll,
     float T_1ll) const
@@ -1163,19 +1159,15 @@ ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
     kcblood = 0.0;
     float T_1b;
     // Gamma dispersed arterial curve (pASL)
-
     float k = 1 + p * s;
     float ti = 0.0;
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
-
         if (ti < deltblood)
         {
             kcblood(it) = 0.0;
@@ -1196,7 +1188,6 @@ ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
     }
     return kcblood;
 }
-
 ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
     float deltblood, float taub, float T_1bin, float s, float p, float deltll,
     float T_1ll) const
@@ -1206,7 +1197,6 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
     float T_1b;
     if (s < 1)
         s = 1; // dont allow this to become too extreme
-
     // gamma variate arterial curve
     // NOTES: this model is only suitable for pASL
     //        no explicit taub (see below). However, it does scale the area
@@ -1214,16 +1204,13 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
     //                                      (since it affects the original
     //                                      ammount of labeled blood).
     float ti = 0.0;
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
-
         if (ti < deltblood)
         {
             kcblood(it) = 0.0;
@@ -1242,7 +1229,6 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
     }
     return kcblood * taub;
 }
-
 ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
     float deltblood, float taub, float T_1bin, float sig1, float sig2,
     float deltll, float T_1ll) const
@@ -1254,16 +1240,13 @@ ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
     // after Hrabe & Lewis, MRM, 2004
     float ti = 0.0;
     float sqrt2 = sqrt(2);
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
-
         kcblood(it)
             = 0.5 * exp(-ti / T_1b)
             * (MISCMATHS::erf((ti - deltblood) / (sqrt2 * sig1))
@@ -1271,7 +1254,6 @@ ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
     }
     return kcblood;
 }
-
 // Tissue
 ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
     float delttiss, float tau, float T_1bin, float T_1app, float deltll,
@@ -1281,23 +1263,18 @@ ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
     kctissue = 0.0;
     float ti = 0.0;
     float T_1b;
-
     // Tissue kinetic curve no dispersion (pASL)
     // Buxton (1998) model
-
     float R;
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
         float F = 2 * exp(-ti / T_1app);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
         R = 1 / T_1app - 1 / T_1b;
-
         if (ti < delttiss)
         {
             kctissue(it) = 0;
@@ -1305,16 +1282,19 @@ ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
         else if (ti >= delttiss && ti <= (delttiss + tau))
         {
             kctissue(it) = F / R * ((exp(R * ti) - exp(R * delttiss)));
+            // kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp(
+            // (-1) * R * ti );
         }
         else //(ti > delttiss + tau)
         {
             kctissue(it)
                 = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
+            // kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))
+            // ) * exp( (-1) * R * ti );
         }
     }
     return kctissue;
 }
-
 ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
     float delttiss, float tau, float T_1bin, float T_1app, float s, float p,
     float deltll, float T_1ll) const
@@ -1327,18 +1307,14 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
     float C;
     float k = 1 + p * s;
     float T_1b;
-
     // cout << T_1app << " " << A << " " << B << " "<< C << " " << endl ;
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
-
         A = T_1app - T_1b;
         B = A + s * T_1app * T_1b;
         if (B < 1e-12)
@@ -1348,7 +1324,6 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
         if (s - 1 / T_1app + 1 / T_1b <= 0)
             C = 1e-12; // really shouldn't happen, but combination of parameters
                        // may arise in artefactual voxels?
-
         if (ti < delttiss)
         {
             kctissue(it) = 0;
@@ -1390,7 +1365,6 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
     // cout << kctissue.t() << endl;
     return kctissue;
 }
-
 ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
     float delttiss, float tau, float T_1bin, float T_1app, float s, float p,
     float deltll, float T_1ll) const
@@ -1399,26 +1373,21 @@ ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
     kctissue = 0.0;
     float ti = 0.0;
     float T_1b;
-
     float k = 1 + p * s;
     float A;
     float B;
     float C;
     float sps = pow(s, k);
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
-
         A = T_1app - T_1b;
         B = A + s * T_1app * T_1b;
         C = pow(s - 1 / T_1app + 1 / T_1b, p * s);
-
         if (ti < delttiss)
         {
             kctissue(it) = 0.0;
@@ -1440,7 +1409,6 @@ ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
     }
     return kctissue * tau;
 }
-
 ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
     float delttiss, float tau, float T_1bin, float T_1app, float sig1,
     float sig2, float deltll, float T_1ll) const
@@ -1451,24 +1419,19 @@ ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
     float T_1b;
     // Tissue kinetic curve gaussian dispersion (pASL)
     // Hrabe & Lewis, MRM, 2004
-
     float R;
     float sqrt2 = sqrt(2);
-
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
-
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
         R = 1 / T_1app - 1 / T_1b;
-
         float F = 2 * exp(-ti / T_1app);
         float u1 = (ti - delttiss) / (sqrt2 * sig1);
         float u2 = (ti - delttiss - tau) / (sqrt2 * sig2);
-
         kctissue(it)
             = F / (2 * R)
             * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2)) * exp(R * ti)
@@ -1479,22 +1442,18 @@ ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
     }
     return kctissue;
 }
-
 // --- useful general functions ---
 float QuasarFwdModel::icgf(float a, float x) const
 {
     // incomplete gamma function with a=k, based on the incomplete gamma
     // integral
-
     return MISCMATHS::gamma(a) * igamc(a, x);
 }
-
 float QuasarFwdModel::gvf(float t, float s, float p) const
 {
     // The Gamma Variate Function (correctly normalised for area under curve)
     // Form of Rausch 2000
     // NB this is basically a gamma pdf
-
     if (t < 0)
         return 0.0;
     else
