@@ -18,7 +18,7 @@ using namespace NEWMAT;
 using namespace MISCMATHS;
 
 FactoryRegistration<FwdModelFactory, TurboQuasarFwdModel> TurboQuasarFwdModel::registration(
-    "turbo_quasar");
+    "turboquasar");
 
 FwdModel *TurboQuasarFwdModel::NewInstance()
 {
@@ -60,6 +60,8 @@ static OptionSpec OPTIONS[] = {
     { "artardoff", OPT_BOOL, "Arterial ARD on", OPT_NONREQ, "" },
     { "wmardoff", OPT_BOOL, "WM ARD on", OPT_NONREQ, "" },
     { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
+    { "bolus_<n>", OPT_FLOAT, "Whether the bolus is on or off. E.g --bolus_1=1 --bolus_2=0. n<=7", OPT_NONREQ, "" },
+    { "slice_shift", OPT_FLOAT, "Slice shifting factor (default: 1)", OPT_NONREQ, "" },
     { "fa", OPT_FLOAT, "Flip angle in degrees", OPT_NONREQ, "30" },
     { "" },
 };

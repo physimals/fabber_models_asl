@@ -21,8 +21,7 @@
 extern "C" {
 int CALL get_num_models()
 {
-    //return 5;
-    return 4;
+    return 5;
 }
 
 const char *CALL get_model_name(int index)
@@ -42,7 +41,7 @@ const char *CALL get_model_name(int index)
         return "quasar";
         break;
     case 4:
-        return "turbo_quasar";
+        return "turboquasar";
         break;
     default:
         return NULL;
@@ -67,7 +66,7 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     {
         return QuasarFwdModel::NewInstance;
     }
-    if (string(name) == "turbo_quasar")
+    if (string(name) == "turboquasar")
     {
         return TurboQuasarFwdModel::NewInstance;
     }
