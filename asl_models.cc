@@ -16,9 +16,14 @@
 #include "fwdmodel_asl_quasar.h"
 #include "fwdmodel_asl_rest.h"
 #include "fwdmodel_asl_satrecov.h"
+#include "fwdmodel_asl_turboquasar.h"
 
 extern "C" {
-int CALL get_num_models() { return 4; }
+int CALL get_num_models()
+{
+    return 5;
+}
+
 const char *CALL get_model_name(int index)
 {
     switch (index)
@@ -34,6 +39,9 @@ const char *CALL get_model_name(int index)
         break;
     case 3:
         return "quasar";
+        break;
+    case 4:
+        return "turboquasar";
         break;
     default:
         return NULL;
@@ -57,6 +65,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     if (string(name) == "quasar")
     {
         return QuasarFwdModel::NewInstance;
+    }
+    if (string(name) == "turboquasar")
+    {
+        return TurboQuasarFwdModel::NewInstance;
     }
     else
     {
