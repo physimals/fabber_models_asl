@@ -39,17 +39,14 @@ namespace OXASL
 class AIFModel
 {
 public:
-    //evaluate the model
+    // evaluate the model
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const = 0;
-    //report the number of dispersion parameters
+    // report the number of dispersion parameters
     virtual int NumDisp() const = 0;
     // return default priors for the parameters
-    virtual ColumnVector Priors() const
-    {
-        return priors;
-    }
+    virtual ColumnVector Priors() const { return priors; }
     virtual string Name() const = 0;
     virtual void SetPriorMean(int paramn, double value)
     {
@@ -57,24 +54,19 @@ public:
     }
 
 protected:
-    ColumnVector priors; //list of prior means and precisions - all means first then precisions
+    ColumnVector priors; // list of prior means and precisions - all means first
+                         // then precisions
 };
 
-//Specific AIF models
+// Specific AIF models
 class AIFModel_nodisp : public AIFModel
 {
-    //AIFModel_nodisp() {}
+    // AIFModel_nodisp() {}
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const;
-    virtual int NumDisp() const
-    {
-        return 0;
-    }
-    virtual string Name() const
-    {
-        return "None";
-    }
+    virtual int NumDisp() const { return 0; }
+    virtual string Name() const { return "None"; }
 };
 
 class AIFModel_gammadisp : public AIFModel
@@ -84,19 +76,13 @@ public:
     {
         priors.ReSize(4);
         priors << 2 << -0.3 << 1 << 1;
-    } //old prec.s were 10 and 10
-      // corresponds to mean s~0.7 and p~0.1
+    } // old prec.s were 10 and 10
+    // corresponds to mean s~0.7 and p~0.1
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const;
-    virtual int NumDisp() const
-    {
-        return 2;
-    }
-    virtual string Name() const
-    {
-        return "Gamma dispersion kernel";
-    }
+    virtual int NumDisp() const { return 2; }
+    virtual string Name() const { return "Gamma dispersion kernel"; }
 };
 
 class AIFModel_gvf : public AIFModel
@@ -111,14 +97,8 @@ public:
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const;
-    virtual int NumDisp() const
-    {
-        return 2;
-    }
-    virtual string Name() const
-    {
-        return "GVF";
-    }
+    virtual int NumDisp() const { return 2; }
+    virtual string Name() const { return "GVF"; }
 };
 
 class AIFModel_gaussdisp : public AIFModel
@@ -132,14 +112,8 @@ public:
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const;
-    virtual int NumDisp() const
-    {
-        return 1;
-    }
-    virtual string Name() const
-    {
-        return "Gauss dispersion kernel";
-    }
+    virtual int NumDisp() const { return 1; }
+    virtual string Name() const { return "Gauss dispersion kernel"; }
 };
 
 class AIFModel_spatialgaussdisp : public AIFModel
@@ -153,14 +127,8 @@ public:
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const;
-    virtual int NumDisp() const
-    {
-        return 1;
-    }
-    virtual string Name() const
-    {
-        return "Spatial gauss dispersion kernel";
-    }
+    virtual int NumDisp() const { return 1; }
+    virtual string Name() const { return "Spatial gauss dispersion kernel"; }
 };
 
 class AIFModel_spatialgaussdisp_alternate : public AIFModel
@@ -174,33 +142,28 @@ public:
     virtual double kcblood(const double ti, const double deltblood,
         const double taub, const double T_1b, bool casl,
         const ColumnVector dispparam) const;
-    virtual int NumDisp() const
-    {
-        return 1;
-    }
+    virtual int NumDisp() const { return 1; }
     virtual string Name() const
     {
         return "Spatial gauss dispersion kernel (alternate)";
     }
 };
 
-//  double kcblood_gallichan(const double ti, const double deltblood, const double taub, const double T_1b, const double xdivVm, bool casl);
+//  double kcblood_gallichan(const double ti, const double deltblood, const
+//  double taub, const double T_1b, const double xdivVm, bool casl);
 
 // -------------
-//generic residue function model class
+// generic residue function model class
 class ResidModel
 {
 public:
     virtual double resid(const double ti, const double fcalib, const double T_1,
         const double T_1b, const double lambda,
         const ColumnVector residparam) const = 0;
-    //report the number of residue function parameters
+    // report the number of residue function parameters
     virtual int NumResid() const = 0;
     // return the default priors for the parameters
-    virtual ColumnVector Priors() const
-    {
-        return residpriors;
-    }
+    virtual ColumnVector Priors() const { return residpriors; }
     virtual string Name() const = 0;
     virtual void SetPriorMean(int paramn, double value)
     {
@@ -211,7 +174,7 @@ protected:
     ColumnVector residpriors;
 };
 
-//specific residue function models
+// specific residue function models
 class ResidModel_wellmix : public ResidModel
 {
 public:
@@ -219,14 +182,8 @@ public:
         const double T_1b, const double lambda,
         const ColumnVector residparam) const;
 
-    virtual int NumResid() const
-    {
-        return 0;
-    }
-    virtual string Name() const
-    {
-        return "Well mixed";
-    }
+    virtual int NumResid() const { return 0; }
+    virtual string Name() const { return "Well mixed"; }
 };
 
 class ResidModel_simple : public ResidModel
@@ -236,14 +193,8 @@ public:
         const double T_1b, const double lambda,
         const ColumnVector residparam) const;
 
-    virtual int NumResid() const
-    {
-        return 0;
-    }
-    virtual string Name() const
-    {
-        return "Simple";
-    }
+    virtual int NumResid() const { return 0; }
+    virtual string Name() const { return "Simple"; }
 };
 
 class ResidModel_imperm : public ResidModel
@@ -258,14 +209,8 @@ public:
         const double T_1b, const double lambda,
         const ColumnVector residparam) const;
 
-    virtual int NumResid() const
-    {
-        return 1;
-    }
-    virtual string Name() const
-    {
-        return "Impermeable";
-    }
+    virtual int NumResid() const { return 1; }
+    virtual string Name() const { return "Impermeable"; }
 };
 
 class ResidModel_twocpt : public ResidModel
@@ -280,10 +225,7 @@ public:
         const double T_1b, const double lambda,
         const ColumnVector residparam) const;
 
-    virtual int NumResid() const
-    {
-        return 1;
-    }
+    virtual int NumResid() const { return 1; }
     virtual string Name() const
     {
         return "Two comparment (no backflow, no venous output)";
@@ -302,10 +244,7 @@ public:
         const double T_1b, const double lambda,
         const ColumnVector residparam) const;
 
-    virtual int NumResid() const
-    {
-        return 3;
-    }
+    virtual int NumResid() const { return 3; }
     virtual string Name() const
     {
         return "Single Pass Approximation (2 compartment, no backflow)";
@@ -313,29 +252,22 @@ public:
 };
 
 // ------------
-//generic tissue model class
+// generic tissue model class
 class TissueModel
 {
 public:
-    //evalute the model
+    // evalute the model
     virtual double kctissue(const double ti, const double fcalib,
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam,
-        const ColumnVector residparam) const = 0;
+        const ColumnVector dispparam, const ColumnVector residparam) const = 0;
     // report the number of dipersion parameters
     virtual int NumDisp() const = 0;
     // report the number of residue function parameters (beyond the normal ones)
     virtual int NumResid() const = 0;
     // return default priors for the parameters
-    virtual ColumnVector DispPriors() const
-    {
-        return disppriors;
-    }
-    virtual ColumnVector ResidPriors() const
-    {
-        return residpriors;
-    }
+    virtual ColumnVector DispPriors() const { return disppriors; }
+    virtual ColumnVector ResidPriors() const { return residpriors; }
     virtual string Name() const = 0;
     virtual void SetDispPriorMean(int paramn, double value)
     {
@@ -347,11 +279,12 @@ public:
     }
 
 protected:
-    ColumnVector disppriors; //list of prior means and precisions - all means first then precisions
+    ColumnVector disppriors; // list of prior means and precisions - all means
+                             // first then precisions
     ColumnVector residpriors;
 };
 
-//specific tissue models
+// specific tissue models
 
 class TissueModel_nodisp_simple : public TissueModel
 {
@@ -359,18 +292,9 @@ class TissueModel_nodisp_simple : public TissueModel
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return 0;
-    }
-    virtual int NumResid() const
-    {
-        return 0;
-    }
-    virtual string Name() const
-    {
-        return "No dispersion | Simple";
-    }
+    virtual int NumDisp() const { return 0; }
+    virtual int NumResid() const { return 0; }
+    virtual string Name() const { return "No dispersion | Simple"; }
 };
 
 class TissueModel_nodisp_wellmix : public TissueModel
@@ -380,18 +304,9 @@ public:
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return 0;
-    }
-    virtual int NumResid() const
-    {
-        return 0;
-    }
-    virtual string Name() const
-    {
-        return "No dispersion | Well mixed";
-    }
+    virtual int NumDisp() const { return 0; }
+    virtual int NumResid() const { return 0; }
+    virtual string Name() const { return "No dispersion | Well mixed"; }
 };
 
 class TissueModel_nodisp_imperm : public TissueModel
@@ -406,18 +321,9 @@ public:
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return 0;
-    }
-    virtual int NumResid() const
-    {
-        return 1;
-    }
-    virtual string Name() const
-    {
-        return "No dispersion | Impermeable";
-    }
+    virtual int NumDisp() const { return 0; }
+    virtual int NumResid() const { return 1; }
+    virtual string Name() const { return "No dispersion | Impermeable"; }
 };
 
 class TissueModel_nodisp_2cpt : public TissueModel
@@ -432,17 +338,12 @@ public:
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return 0;
-    }
-    virtual int NumResid() const
-    {
-        return 1;
-    }
+    virtual int NumDisp() const { return 0; }
+    virtual int NumResid() const { return 1; }
     virtual string Name() const
     {
-        return "No dispersion | Two compartmentr (no backflow, no venous output)";
+        return "No dispersion | Two compartmentr (no backflow, no venous "
+               "output)";
     }
 };
 
@@ -458,17 +359,12 @@ public:
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return 0;
-    }
-    virtual int NumResid() const
-    {
-        return 3;
-    }
+    virtual int NumDisp() const { return 0; }
+    virtual int NumResid() const { return 3; }
     virtual string Name() const
     {
-        return "No dispersion | Single Pass Approximation (2 compartment no backflow)";
+        return "No dispersion | Single Pass Approximation (2 compartment no "
+               "backflow)";
     }
 
 private:
@@ -492,22 +388,19 @@ public:
         const double delttiss, const double tau, const double T_1b,
         const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return 2;
-    }
-    virtual int NumResid() const
-    {
-        return 0;
-    }
+    virtual int NumDisp() const { return 2; }
+    virtual int NumResid() const { return 0; }
     virtual string Name() const
     {
         return "Gamma kernel dispersion | Well mixed";
     }
 };
 
-//double kctissue_gvf(const double ti, const double delttiss,const double tau, const double T_1b, const double T_1app, const double s, const double p);
-//double kctissue_gaussdisp(const double ti, const double delttiss, const double tau, const double T_1b, const double T_1app, const double sig1, const double sig2);
+// double kctissue_gvf(const double ti, const double delttiss,const double tau,
+// const double T_1b, const double T_1app, const double s, const double p);
+// double kctissue_gaussdisp(const double ti, const double delttiss, const
+// double tau, const double T_1b, const double T_1app, const double sig1, const
+// double sig2);
 
 //  a general tissue model that does numerical convolution
 class TissueModel_aif_residue : public TissueModel
@@ -524,14 +417,8 @@ public:
         const double delttiss, const double tau, const double T_1b,
         const double T_1app, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
-    virtual int NumDisp() const
-    {
-        return aifmodel->NumDisp();
-    }
-    virtual int NumResid() const
-    {
-        return residmodel->NumResid();
-    }
+    virtual int NumDisp() const { return aifmodel->NumDisp(); }
+    virtual int NumResid() const { return residmodel->NumResid(); }
     virtual string Name() const
     {
         string name;

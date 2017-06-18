@@ -13,32 +13,30 @@
 #include "miscmaths/miscprob.h"
 #include "newimage/newimageall.h"
 
-#include <string>
-#include <vector>
 #include <iostream>
 #include <newmatio.h>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 using namespace std;
 
 FactoryRegistration<FwdModelFactory, SatrecovFwdModel>
     SatrecovFwdModel::registration("satrecov");
-    
-FwdModel *SatrecovFwdModel::NewInstance()
-{
-    return new SatrecovFwdModel();
-}
 
+FwdModel *SatrecovFwdModel::NewInstance() { return new SatrecovFwdModel(); }
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
     { "phases", OPT_INT, "Number of phases", OPT_NONREQ, "1" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
-    { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous", OPT_NONREQ, "" },
-    { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
-    { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
-    { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
-    { "" },
+    { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous",
+        OPT_NONREQ, "" },
+    { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout",
+        OPT_NONREQ, "0" },
+    { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout",
+        OPT_NONREQ, "0" },
+    { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" }, { "" },
 };
 
 void SatrecovFwdModel::GetOptions(vector<OptionSpec> &opts) const
@@ -68,12 +66,15 @@ string SatrecovFwdModel::GetDescription() const
 
 void SatrecovFwdModel::Initialize(ArgsType &args)
 {
-    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
+    repeats = convertTo<int>(
+        args.ReadWithDefault("repeats", "1")); // number of repeats in data
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
-    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    slicedt = convertTo<double>(
+        args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
-    fixA = args.ReadBool("fixa"); //to fix the A parameter where it will be ambiguous
+    fixA = args.ReadBool(
+        "fixa"); // to fix the A parameter where it will be ambiguous
 
     // with a look locker readout
     FAnom = convertTo<double>(args.ReadWithDefault("FA", "0"));
@@ -81,9 +82,9 @@ void SatrecovFwdModel::Initialize(ArgsType &args)
     if (FAnom > 0.1)
         looklocker = true;
     cout << "Looklocker" << looklocker << endl;
-    FAnom = FAnom * M_PI / 180; //convert to radians
+    FAnom = FAnom * M_PI / 180; // convert to radians
     LFA = convertTo<double>(args.ReadWithDefault("LFA", "0"));
-    LFA = LFA * M_PI / 180; //convert to radians
+    LFA = LFA * M_PI / 180; // convert to radians
     LFAon = false;
     if (LFA > 0)
         LFAon = true;
@@ -91,26 +92,27 @@ void SatrecovFwdModel::Initialize(ArgsType &args)
     dg = 0.023;
 
     // Deal with tis
-    tis.ReSize(1); //will add extra values onto end as needed
+    tis.ReSize(1); // will add extra values onto end as needed
     tis(1) = atof(args.Read("ti1").c_str());
 
-    while (true) //get the rest of the tis
+    while (true) // get the rest of the tis
     {
         int N = tis.Nrows() + 1;
-        string tiString = args.ReadWithDefault("ti" + stringify(N),
-            "stop!");
+        string tiString = args.ReadWithDefault("ti" + stringify(N), "stop!");
         if (tiString == "stop!")
-            break; //we have run out of tis
+            break; // we have run out of tis
 
         // append the new ti onto the end of the list
         ColumnVector tmp(1);
         tmp = convertTo<double>(tiString);
-        tis &= tmp; //vertical concatenation
+        tis &= tmp; // vertical concatenation
     }
-    timax = tis.Maximum(); //dtermine the final TI
-    dti = tis(2) - tis(1); //assuming even sampling!! - this only applies to LL acquisitions
+    timax = tis.Maximum(); // dtermine the final TI
+    dti = tis(2) - tis(1); // assuming even sampling!! - this only applies to LL
+                           // acquisitions
 
-    // need to set the voxel coordinates to a deafult of 0 (for the times we call the model before we start handling data)
+    // need to set the voxel coordinates to a deafult of 0 (for the times we
+    // call the model before we start handling data)
     coord_x = 0;
     coord_y = 0;
     coord_z = 0;
@@ -129,8 +131,8 @@ void SatrecovFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior,
-    MVNDist &posterior) const
+void SatrecovFwdModel::HardcodedInitialDists(
+    MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -139,7 +141,7 @@ void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior,
     prior.means(1) = 0;
 
     prior.means(2) = t1;
-    precisions(2, 2) = 10; //1e-12;
+    precisions(2, 2) = 10; // 1e-12;
 
     prior.means(3) = 1;
     if (fixA)
@@ -163,15 +165,16 @@ void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior,
     // Set initial posterior
     posterior = prior;
 
-    // For parameters with uniformative prior chosoe more sensible inital posterior
+    // For parameters with uniformative prior chosoe more sensible inital
+    // posterior
     posterior.means(1) = 10;
     precisions(1, 1) = 0.1;
 
     posterior.SetPrecisions(precisions);
 }
 
-void SatrecovFwdModel::Evaluate(const ColumnVector &params,
-    ColumnVector &result) const
+void SatrecovFwdModel::Evaluate(
+    const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -202,8 +205,8 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params,
     else
         g = 1.0;
 
-    //if (g<0.5) g=0.5;
-    //if (g>1.5) g=1.5;
+    // if (g<0.5) g=0.5;
+    // if (g>1.5) g=1.5;
 
     FA = (g + dg) * FAnom;
     lFA = (g + dg) * LFA;
@@ -213,13 +216,14 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params,
 
     if (looklocker)
     {
-        T1tp = 1 / (1 / T1t - log(cos(FA)) / dti); //FA is in radians
+        T1tp = 1 / (1 / T1t - log(cos(FA)) / dti); // FA is in radians
         M0tp = M0t * (1 - exp(-dti / T1t)) / (1 - cos(FA) * exp(-dti / T1t));
-        // note that we do not have sin(FA) here - we actually estiamte the M0 at the flip angle used for the readout!
+        // note that we do not have sin(FA) here - we actually estiamte the M0
+        // at the flip angle used for the readout!
     }
 
     // loop over tis
-    //float ti;
+    // float ti;
     if (LFAon)
         result.ReSize(tis.Nrows() * (nphases + 1) * repeats);
     else
@@ -234,8 +238,11 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params,
         {
             for (int rpt = 1; rpt <= repeats; rpt++)
             {
-                ti = tis(it) + slicedt * coord_z; //account here for an increase in delay between slices
-                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt) = M0tp * (1 - A * exp(-ti / T1tp));
+                ti = tis(it) + slicedt * coord_z; // account here for an
+                                                  // increase in delay between
+                                                  // slices
+                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
+                    = M0tp * (1 - A * exp(-ti / T1tp));
             }
         }
     }
@@ -248,10 +255,14 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params,
         {
             for (int rpt = 1; rpt <= repeats; rpt++)
             {
-                ti = tis(it) + slicedt * coord_z; //account here for an increase in delay between slices
-                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt) = M0tp * sin(lFA) / sin(FA)
+                ti = tis(it) + slicedt * coord_z; // account here for an
+                                                  // increase in delay between
+                                                  // slices
+                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
+                    = M0tp * sin(lFA) / sin(FA)
                     * (1 - A * exp(-tis(it) / T1tp));
-                //note the sin(LFA)/sin(FA) term since the M0 we estimate is actually MOt*sin(FA)
+                // note the sin(LFA)/sin(FA) term since the M0 we estimate is
+                // actually MOt*sin(FA)
             }
         }
     }
