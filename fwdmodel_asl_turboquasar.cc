@@ -9,6 +9,7 @@
 #include "fwdmodel_asl_turboquasar.h"
 
 #include <fabber_core/inference.h>
+#include <fabber_core/tools.h>
 
 #include <miscmaths/miscprob.h>
 #include <newmatio.h>
@@ -16,6 +17,7 @@
 using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
+using fabber::gammaln;
 
 FactoryRegistration<FwdModelFactory, TurboQuasarFwdModel> TurboQuasarFwdModel::registration(
     "turboquasar");
