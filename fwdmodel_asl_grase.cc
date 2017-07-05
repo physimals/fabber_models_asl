@@ -10,6 +10,7 @@
 #include "fwdmodel_asl_grase.h"
 
 #include "fabber_core/inference.h"
+#include "fabber_core/tools.h"
 
 #include "miscmaths/miscprob.h"
 #include <iostream>
@@ -19,6 +20,7 @@
 using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
+using fabber::gammaln;
 
 FactoryRegistration<FwdModelFactory, GraseFwdModel> GraseFwdModel::registration(
     "buxton");
