@@ -17,7 +17,6 @@
 using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
-using fabber::gammaln;
 
 FactoryRegistration<FwdModelFactory, TurboQuasarFwdModel> TurboQuasarFwdModel::registration(
     "turboquasar");

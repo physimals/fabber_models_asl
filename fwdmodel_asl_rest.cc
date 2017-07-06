@@ -8,7 +8,6 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 #include "fabber_core/tools.h"
-using fabber::gammaln;
 
 FactoryRegistration<FwdModelFactory, ASLFwdModel> ASLFwdModel::registration(
     "aslrest");
@@ -944,7 +943,6 @@ void ASLFwdModel::Initialize(ArgsType &args)
         doard = false;
         if (inferart == true && ardoff == false)
         {
-            cerr << "Using ARD for blood: " << (flow_index() + artidx) << endl;
             ardindices.push_back(flow_index() + artidx);
         }
         // scan parameters

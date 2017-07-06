@@ -20,7 +20,6 @@
 using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
-using fabber::gammaln;
 
 FactoryRegistration<FwdModelFactory, GraseFwdModel> GraseFwdModel::registration(
     "buxton");
