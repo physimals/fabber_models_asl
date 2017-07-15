@@ -15,7 +15,8 @@
 
 int main(int argc, char **argv)
 {
-    //add the ASL models from the library - these will autoregister at this point
+    // add the ASL models from the library - these will autoregister at this
+    // point
     GraseFwdModel::NewInstance();
     ASLFwdModel::NewInstance();
     MultiPhaseASLFwdModel::NewInstance();

@@ -19,8 +19,8 @@ public:
 
     // Virtual function overrides
     virtual void Initialize(ArgsType &args);
-    virtual void Evaluate(const NEWMAT::ColumnVector &params,
-        NEWMAT::ColumnVector &result) const;
+    virtual void Evaluate(
+        const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
     virtual std::string ModelVersion() const;
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
     virtual std::string GetDescription() const;
@@ -34,23 +34,18 @@ public:
             + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 1 : 0)
                              + (usepve ? 2 : 0))
                        : 0)
-            + 2 + (inferart ? (artdir ? 3 : 4) : 0)
-            + (calibon ? 1 : 0);
+            + 2 + (inferart ? (artdir ? 3 : 4) : 0) + (calibon ? 1 : 0);
     }
 
-    virtual ~QuasarFwdModel()
-    {
-        return;
-    }
-
-    virtual void HardcodedInitialDists(MVNDist &prior,
-        MVNDist &posterior) const;
+    virtual ~QuasarFwdModel() { return; }
+    virtual void HardcodedInitialDists(
+        MVNDist &prior, MVNDist &posterior) const;
 
     using FwdModel::SetupARD;
-    virtual void SetupARD(const MVNDist &posterior, MVNDist &prior,
-        double &Fard);
-    virtual void UpdateARD(const MVNDist &posterior, MVNDist &prior,
-        double &Fard) const;
+    virtual void SetupARD(
+        const MVNDist &posterior, MVNDist &prior, double &Fard);
+    virtual void UpdateARD(
+        const MVNDist &posterior, MVNDist &prior, double &Fard) const;
 
 protected:
     // Constants
@@ -59,7 +54,7 @@ protected:
     int tiss_index() const
     {
         return (infertiss ? 1 : 0);
-    } //main tissue parameters: ftiss and delttiss alway come first
+    } // main tissue parameters: ftiss and delttiss alway come first
 
     int tau_index() const
     {
@@ -128,7 +123,7 @@ protected:
     vector<int> ard_index;
 
     // scan parameters
-    double seqtau; //bolus length as set by the sequence
+    double seqtau; // bolus length as set by the sequence
     int repeats;
     double t1;
     double t1b;
@@ -137,11 +132,11 @@ protected:
     double slicedt;
     double pretisat;
 
-    float dti; //TI interval
-    float FA;  //flip angle
+    float dti; // TI interval
+    float FA;  // flip angle
 
     bool infertiss;
-    bool singleti; //specifies that only tissue perfusion should be inferred
+    bool singleti; // specifies that only tissue perfusion should be inferred
     bool infertau;
     bool infertaub;
     bool inferart;
@@ -165,33 +160,34 @@ protected:
     double timax;
     NEWMAT::Matrix crushdir;
 
-    //kinetic curve functions
-    NEWMAT::ColumnVector kcblood_nodisp(const NEWMAT::ColumnVector &tis, float deltblood,
-        float taub, float T_1b, float deltll, float T_1ll) const;
-    NEWMAT::ColumnVector kcblood_gammadisp(const NEWMAT::ColumnVector &tis, float deltblood,
-        float taub, float T_1b, float s, float p, float deltll,
+    // kinetic curve functions
+    NEWMAT::ColumnVector kcblood_nodisp(const NEWMAT::ColumnVector &tis,
+        float deltblood, float taub, float T_1b, float deltll,
         float T_1ll) const;
-    NEWMAT::ColumnVector kcblood_gvf(const NEWMAT::ColumnVector &tis, float deltblood,
-        float taub, float T_1b, float s, float p, float deltll,
+    NEWMAT::ColumnVector kcblood_gammadisp(const NEWMAT::ColumnVector &tis,
+        float deltblood, float taub, float T_1b, float s, float p, float deltll,
         float T_1ll) const;
-    NEWMAT::ColumnVector kcblood_gaussdisp(const NEWMAT::ColumnVector &tis, float deltblood,
-        float taub, float T_1b, float sig1, float sig2, float deltll,
+    NEWMAT::ColumnVector kcblood_gvf(const NEWMAT::ColumnVector &tis,
+        float deltblood, float taub, float T_1b, float s, float p, float deltll,
         float T_1ll) const;
-    //Tissue
-    NEWMAT::ColumnVector kctissue_nodisp(const NEWMAT::ColumnVector &tis, float delttiss,
-        float tau, float T1_b, float T1_app, float deltll,
-        float T_1ll) const;
-    NEWMAT::ColumnVector kctissue_gammadisp(const NEWMAT::ColumnVector &tis, float delttiss,
-        float tau, float T1_b, float T1_app, float s, float p, float deltll,
-        float T_1ll) const;
-    NEWMAT::ColumnVector kctissue_gvf(const NEWMAT::ColumnVector &tis, float delttiss,
-        float tau, float T1_b, float T1_app, float s, float p, float deltll,
-        float T_1ll) const;
-    NEWMAT::ColumnVector kctissue_gaussdisp(const NEWMAT::ColumnVector &tis, float delttiss,
-        float tau, float T_1b, float T_1app, float sig1, float sig2,
+    NEWMAT::ColumnVector kcblood_gaussdisp(const NEWMAT::ColumnVector &tis,
+        float deltblood, float taub, float T_1b, float sig1, float sig2,
         float deltll, float T_1ll) const;
+    // Tissue
+    NEWMAT::ColumnVector kctissue_nodisp(const NEWMAT::ColumnVector &tis,
+        float delttiss, float tau, float T1_b, float T1_app, float deltll,
+        float T_1ll) const;
+    NEWMAT::ColumnVector kctissue_gammadisp(const NEWMAT::ColumnVector &tis,
+        float delttiss, float tau, float T1_b, float T1_app, float s, float p,
+        float deltll, float T_1ll) const;
+    NEWMAT::ColumnVector kctissue_gvf(const NEWMAT::ColumnVector &tis,
+        float delttiss, float tau, float T1_b, float T1_app, float s, float p,
+        float deltll, float T_1ll) const;
+    NEWMAT::ColumnVector kctissue_gaussdisp(const NEWMAT::ColumnVector &tis,
+        float delttiss, float tau, float T_1b, float T_1app, float sig1,
+        float sig2, float deltll, float T_1ll) const;
 
-    //useful functions
+    // useful functions
     float icgf(float a, float x) const;
     float gvf(float t, float s, float p) const;
 

@@ -9,14 +9,14 @@
 #include "fabber_core/fwdmodel.h"
 #include "fabber_core/inference.h"
 
-#include <vector>
 #include <string>
+#include <vector>
 
 class SatrecovFwdModel : public FwdModel
 {
 public:
     static FwdModel *NewInstance();
-    
+
     // Virtual function overrides
     virtual void Initialize(ArgsType &args);
     virtual std::string ModelVersion() const;
@@ -24,13 +24,11 @@ public:
     virtual std::string GetDescription() const;
 
     virtual void NameParams(vector<string> &names) const;
-    virtual int NumParams() const
-    {
-        return (LFAon ? 4 : 3);
-    }
-
-    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
-    virtual void Evaluate(const NEWMAT::ColumnVector &params,  NEWMAT::ColumnVector &result) const;
+    virtual int NumParams() const { return (LFAon ? 4 : 3); }
+    virtual void HardcodedInitialDists(
+        MVNDist &prior, MVNDist &posterior) const;
+    virtual void Evaluate(
+        const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
 
 protected:
     // Constants
@@ -57,7 +55,7 @@ protected:
 
     NEWMAT::ColumnVector tis;
     NEWMAT::Real timax;
-    
+
 private:
     /** Auto-register with forward model factory. */
     static FactoryRegistration<FwdModelFactory, SatrecovFwdModel> registration;
