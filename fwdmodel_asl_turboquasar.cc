@@ -1132,21 +1132,19 @@ void TurboQuasarFwdModel::UpdateARD(
 
 // --- Kinetic curve functions ---
 //Arterial
-
 ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood, float taub, float T_1bin, float deltll, float T_1ll, int n_bolus, float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
-    float T_1b;
-    float bolus_time_passed;
-    float current_arrival_time;
-
     // Non dispersed arterial curve (pASL)
     float ti = 0.0;
     float current_value;
-
-    int n_bolus_arrived = 0;
-    float current_bolus_duration = 0;
+    float T_1b;
+    
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
+    float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus)
     {
