@@ -10,6 +10,7 @@
 #include "fwdmodel_asl_grase.h"
 
 #include "fabber_core/inference.h"
+#include "fabber_core/tools.h"
 
 #include "miscmaths/miscprob.h"
 #include <iostream>

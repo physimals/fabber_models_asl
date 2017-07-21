@@ -7,6 +7,8 @@
 #include <stdexcept>
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
+#include "fabber_core/tools.h"
+
 FactoryRegistration<FwdModelFactory, ASLFwdModel> ASLFwdModel::registration(
     "aslrest");
 string ASLFwdModel::ModelVersion() const

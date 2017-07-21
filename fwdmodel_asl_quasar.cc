@@ -9,6 +9,7 @@
 #include "fwdmodel_asl_quasar.h"
 
 #include <fabber_core/inference.h>
+#include "fabber_core/tools.h"
 
 #include <miscmaths/miscprob.h>
 
@@ -154,6 +155,14 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     // ** ardoff overrides all other ARD options
     if ((tissard || artard || wmard) && !ardoff)
         doard = true;
+
+    // sort out ARD indices
+    if (doard && tissard)
+            ardindices.push_back(tiss_index());
+    if (doard && artard)
+            ardindices.push_back(art_index());
+    if (doard && wmard)
+            ardindices.push_back(wm_index());
 
     // Deal with tis
     tis.ReSize(1); // will add extra values onto end as needed
