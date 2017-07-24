@@ -843,6 +843,11 @@ void ASLFwdModel::Evaluate(
         }
     }
 
+    if (result.Nrows() != data.Nrows()) {
+//        string reason = 
+        throw InvalidOptionValue("num volumes", stringify(data.Nrows()), "Expected " + stringify(result.Nrows()) + " volumes - check the number of repeats/TIs");
+    }
+
     // cout << result.t();
 
     return;
@@ -959,7 +964,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
                                 // setup (zero implies single band)
         casl = args.ReadBool(
             "casl"); // set if the data is CASL or PASL (default)
-        // seqtau = convertTo<double>(args.ReadWithDefault("tau","1000"));
+        seqtau = convertTo<double>(args.ReadWithDefault("tau","1000"));
         // //bolus length as set by sequence (default of 1000 is effectively
         // infinite
         setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
@@ -1198,21 +1203,15 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 {
                     // unlikely to happen, but permits the user to supply PLDs
                     // for a pASL acquisition
-                    tis = ti_list;
+                    tis = pld_list;
                 }
             }
         }
         timax = tis.Maximum(); // dtermine the final TI
-        // bolus durations
+        // bolus durations - note that seqtau has already been read above, if present
         multitau = false;
-        seqtau = 1000; // default is a single 'infinite' value
         string tau_temp = args.ReadWithDefault("tau", "none");
-        if (tau_temp != "none")
-        {
-            // a single bolus duration
-            seqtau = convertTo<double>(tau_temp);
-        }
-        else
+        if (tau_temp == "none")
         {
             tau_temp = args.ReadWithDefault("tau1", "none");
             if (tau_temp != "none")
