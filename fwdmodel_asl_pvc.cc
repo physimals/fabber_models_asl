@@ -22,11 +22,9 @@ static OptionSpec OPTIONS[] = {
     { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.5" },
     { "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
     { "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9" },
-    { "ti<n>", OPT_FLOAT, "List of TI values. At least one required",
-        OPT_NONREQ, "" },
+    { "ti<n>", OPT_FLOAT, "List of TI values. At least one required", OPT_NONREQ, "" },
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
-    { "pretisat", OPT_FLOAT,
-        "Deal with saturation of the bolus a fixed time pre TI measurement",
+    { "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement",
         OPT_NONREQ, "0.0" },
     { "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
@@ -34,25 +32,18 @@ static OptionSpec OPTIONS[] = {
     { "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
     { "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
     { "inferwm", OPT_BOOL, "Infer white matter parameters", OPT_NONREQ, "" },
-    { "tau", OPT_FLOAT, "Bolus duration. Default is effectively infinite",
-        OPT_NONREQ, "1000" },
+    { "tau", OPT_FLOAT, "Bolus duration. Default is effectively infinite", OPT_NONREQ, "1000" },
     { "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
     { "ardoff", OPT_BOOL, "Disable ARD", OPT_NONREQ, "" },
-    { "tauboff", OPT_BOOL, "Forces the inference of arterial bolus off",
-        OPT_NONREQ, "" },
-    { "tissoff", OPT_BOOL, "Forces the inference of tissue parameters off",
-        OPT_NONREQ, "" },
+    { "tauboff", OPT_BOOL, "Forces the inference of arterial bolus off", OPT_NONREQ, "" },
+    { "tissoff", OPT_BOOL, "Forces the inference of tissue parameters off", OPT_NONREQ, "" },
     { "usepve", OPT_BOOL, "Use PVE correction", OPT_NONREQ, "" },
-    { "tissardon", OPT_BOOL, "Enable ARD for tissue parameters", OPT_NONREQ,
-        "" },
-    { "artardon", OPT_BOOL, "Enable ARD for arterial parameters", OPT_NONREQ,
-        "" },
+    { "tissardon", OPT_BOOL, "Enable ARD for tissue parameters", OPT_NONREQ, "" },
+    { "artardon", OPT_BOOL, "Enable ARD for arterial parameters", OPT_NONREQ, "" },
     { "wmardon", OPT_BOOL, "Enable ARD for WM parameters", OPT_NONREQ, "" },
-    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ,
-        "0.316" },
+    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
 
-    { "calib", OPT_BOOL, "Data has already been subjected to calibration",
-        OPT_NONREQ, "" },
+    { "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
 
     { "" },
 };
@@ -64,13 +55,13 @@ ASL_PVC_FwdModel::Initialize(ArgsType &args)
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.5"));
     t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
-    lambda = convertTo<double>(args.ReadWithDefault(
-        "lambda", "0.9")); // NOT used - here for compatibility
+    lambda = convertTo<double>(
+        args.ReadWithDefault("lambda", "0.9")); // NOT used - here for compatibility
 
-    pretisat = convertTo<double>(
-        args.ReadWithDefault("pretisat", "0")); // deal with saturation of the
-                                                // bolus a fixed time pre TI
-                                                // measurement
+    pretisat
+        = convertTo<double>(args.ReadWithDefault("pretisat", "0")); // deal with saturation of the
+                                                                    // bolus a fixed time pre TI
+                                                                    // measurement
     grase = args.ReadBool("grase"); // DEPRECEATED data has come from the
                                     // GRASE-ASL sequence - therefore apply
                                     // pretisat of 0.1s
@@ -78,8 +69,7 @@ ASL_PVC_FwdModel::Initialize(ArgsType &args)
         pretisat = 0.1;
 
     casl = args.ReadBool("casl"); // set if the data is CASL or PASL (default)
-    slicedt = convertTo<double>(
-        args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
     infertau = args.ReadBool("infertau"); // infer on bolus length?
     infert1 = args.ReadBool("infert1");   // infer on T1 values?
@@ -89,17 +79,16 @@ ASL_PVC_FwdModel::Initialize(ArgsType &args)
     // in inversion efficiency?
     // infertrailing = args.ReadBool("infertrailing"); //infers a trailing edge
     // bolus slope using new model
-    seqtau = convertTo<double>(
-        args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
-                                              // (default of 1000 is effectively
-                                              // infinite
+    seqtau
+        = convertTo<double>(args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
+                                                                  // (default of 1000 is effectively
+                                                                  // infinite
     setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
 
     bool ardoff = false;
     ardoff = args.ReadBool("ardoff");
     bool tauboff = false;
-    tauboff = args.ReadBool(
-        "tauboff"); // forces the inference of arterial bolus off
+    tauboff = args.ReadBool("tauboff"); // forces the inference of arterial bolus off
 
     usepve = args.ReadBool("usepve");
 
@@ -189,12 +178,10 @@ ASL_PVC_FwdModel::Initialize(ArgsType &args)
     // add information about the parameters to the log
     LOG << "Inference using development model" << endl;
     if (pretisat > 0)
-        LOG << "Saturation of" << pretisat << "s before TI has been specified"
-            << endl;
+        LOG << "Saturation of" << pretisat << "s before TI has been specified" << endl;
     if (grase)
         LOG << "Using pre TI saturation of 0.1 for GRASE-ASL sequence" << endl;
-    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
-        << ", t1b = " << t1b;
+    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1 << ", t1b = " << t1b;
     LOG << ", bolus length (tau) = " << seqtau << endl;
     if (infertau)
     {
@@ -250,11 +237,7 @@ void ASL_PVC_FwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-string ASL_PVC_FwdModel::GetDescription() const
-{
-    return "ASL multiphase model";
-}
-
+string ASL_PVC_FwdModel::GetDescription() const { return "ASL multiphase model"; }
 string ASL_PVC_FwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_pvc.cc";
@@ -267,8 +250,7 @@ string ASL_PVC_FwdModel::ModelVersion() const
     return version;
 }
 
-void ASL_PVC_FwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+void ASL_PVC_FwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -398,8 +380,7 @@ void ASL_PVC_FwdModel::HardcodedInitialDists(
     posterior.SetPrecisions(precisions);
 }
 
-void ASL_PVC_FwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void ASL_PVC_FwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -639,20 +620,18 @@ void ASL_PVC_FwdModel::Evaluate(
         else if (ti >= delttiss && ti <= (delttiss + tau))
         {
             if (casl)
-                kctissue = F * T_1app * exp(-delttiss / T_1b)
-                    * (1 - exp(-(ti - delttiss) / T_1app));
+                kctissue
+                    = F * T_1app * exp(-delttiss / T_1b) * (1 - exp(-(ti - delttiss) / T_1app));
             else
                 kctissue = F / R * ((exp(R * ti) - exp(R * delttiss)));
         }
         else //(ti > delttiss + tau)
         {
             if (casl)
-                kctissue = F * T_1app * exp(-delttiss / T_1b)
-                    * exp(-(ti - tau - delttiss) / T_1app)
+                kctissue = F * T_1app * exp(-delttiss / T_1b) * exp(-(ti - tau - delttiss) / T_1app)
                     * (1 - exp(-tau / T_1app));
             else
-                kctissue
-                    = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
+                kctissue = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
         }
 
         // (2) arterial contribution
@@ -711,35 +690,31 @@ void ASL_PVC_FwdModel::Evaluate(
         else if (ti >= deltwm && ti <= (deltwm + tauwm))
         {
             if (casl)
-                kcwm = Fwm * T_1appwm * exp(-deltwm / T_1b)
-                    * (1 - exp(-(ti - deltwm) / T_1appwm));
+                kcwm = Fwm * T_1appwm * exp(-deltwm / T_1b) * (1 - exp(-(ti - deltwm) / T_1appwm));
             else
                 kcwm = Fwm / Rwm * ((exp(Rwm * ti) - exp(Rwm * deltwm)));
         }
         else //(ti > delttiss + tau)
         {
             if (casl)
-                kcwm = Fwm * T_1appwm * exp(-deltwm / T_1b)
-                    * exp(-(ti - tauwm - deltwm) / T_1appwm)
+                kcwm = Fwm * T_1appwm * exp(-deltwm / T_1b) * exp(-(ti - tauwm - deltwm) / T_1appwm)
                     * (1 - exp(-tauwm / T_1appwm));
             else
-                kcwm = Fwm / Rwm
-                    * ((exp(Rwm * (deltwm + tauwm)) - exp(Rwm * deltwm)));
+                kcwm = Fwm / Rwm * ((exp(Rwm * (deltwm + tauwm)) - exp(Rwm * deltwm)));
         }
 
         if (isnan(kctissue))
         {
             kctissue = 0;
-            LOG << "Warning NaN in tissue curve at TI:" << ti
-                << " with f:" << ftiss << " delt:" << delttiss << " tau:" << tau
-                << " T1:" << T_1 << " T1b:" << T_1b << endl;
+            LOG << "Warning NaN in tissue curve at TI:" << ti << " with f:" << ftiss
+                << " delt:" << delttiss << " tau:" << tau << " T1:" << T_1 << " T1b:" << T_1b
+                << endl;
         }
         if (isnan(kcwm))
         {
             kcwm = 0;
-            LOG << "Warning NaN in WM curve at TI:" << ti << " with f:" << fwm
-                << " delt:" << deltwm << " tau:" << tauwm << " T1wm:" << T_1wm
-                << " T1b:" << T_1b << endl;
+            LOG << "Warning NaN in WM curve at TI:" << ti << " with f:" << fwm << " delt:" << deltwm
+                << " tau:" << tauwm << " T1wm:" << T_1wm << " T1b:" << T_1b << endl;
         }
         //}
 
@@ -747,8 +722,7 @@ void ASL_PVC_FwdModel::Evaluate(
         // loop over the repeats
         for (int rpt = 1; rpt <= repeats; rpt++)
         {
-            result((it - 1) * repeats + rpt)
-                = pv_gm * kctissue + kcblood + pv_wm * kcwm;
+            result((it - 1) * repeats + rpt) = pv_gm * kctissue + kcblood + pv_wm * kcwm;
         }
     }
     // cout << result.t();
@@ -758,23 +732,22 @@ void ASL_PVC_FwdModel::Evaluate(
 
 void ASL_PVC_FwdModel::ModelUsage()
 {
-    cout
-        << "\nUsage info for --model=grase:\n"
-        << "Required parameters:\n"
-        << "--repeats=<no. repeats in data>\n"
-        << "--ti1=<first_inversion_time_in_seconds>\n"
-        << "--ti2=<second_inversion_time>, etc...\n"
-        << "Optional arguments:\n"
-        << "--grase *DEPRECEATAED* (data collected using GRASE-ASL: same as "
-           "--pretissat=0.1)"
-        << "--pretisat=<presat_time> (Define that blood is saturated a "
-           "specific time before TI image acquired)"
-        << "--tau=<temporal_bolus_length> (default 10s if --infertau not set)\n"
-        << "--t1=<T1_of_tissue> (default 1.3)\n"
-        << "--t1b=<T1_of_blood> (default 1.5)\n"
-        << "--infertau (to infer on bolus length)\n"
-        << "--inferart (to infer on arterial compartment)\n"
-        << "--infert1 (to infer on T1 values)\n";
+    cout << "\nUsage info for --model=grase:\n"
+         << "Required parameters:\n"
+         << "--repeats=<no. repeats in data>\n"
+         << "--ti1=<first_inversion_time_in_seconds>\n"
+         << "--ti2=<second_inversion_time>, etc...\n"
+         << "Optional arguments:\n"
+         << "--grase *DEPRECEATAED* (data collected using GRASE-ASL: same as "
+            "--pretissat=0.1)"
+         << "--pretisat=<presat_time> (Define that blood is saturated a "
+            "specific time before TI image acquired)"
+         << "--tau=<temporal_bolus_length> (default 10s if --infertau not set)\n"
+         << "--t1=<T1_of_tissue> (default 1.3)\n"
+         << "--t1b=<T1_of_blood> (default 1.5)\n"
+         << "--infertau (to infer on bolus length)\n"
+         << "--inferart (to infer on arterial compartment)\n"
+         << "--infert1 (to infer on T1 values)\n";
 }
 
 void ASL_PVC_FwdModel::NameParams(vector<string> &names) const
@@ -833,8 +806,7 @@ void ASL_PVC_FwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void ASL_PVC_FwdModel::SetupARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
+void ASL_PVC_FwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
 {
     if (doard)
     {
@@ -857,8 +829,7 @@ void ASL_PVC_FwdModel::SetupARD(
             SymmetricMatrix PriorPrec;
             PriorPrec = thetaPrior.GetPrecisions();
 
-            PriorPrec(ardindex, ardindex)
-                = 1e-12; // set prior to be initally non-informative
+            PriorPrec(ardindex, ardindex) = 1e-12; // set prior to be initally non-informative
 
             thetaPrior.SetPrecisions(PriorPrec);
 
@@ -866,8 +837,8 @@ void ASL_PVC_FwdModel::SetupARD(
 
             // set the Free energy contribution from ARD term
             SymmetricMatrix PostCov = theta.GetCovariance();
-            double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                               + PostCov(ardindex, ardindex));
+            double b
+                = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
             Fard += -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
                 - 0.5 * log(b); // taking c as 0.5 - which it will be!
         }
@@ -875,8 +846,7 @@ void ASL_PVC_FwdModel::SetupARD(
     return;
 }
 
-void ASL_PVC_FwdModel::UpdateARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void ASL_PVC_FwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     if (doard)
         Fard = 0;
@@ -893,14 +863,13 @@ void ASL_PVC_FwdModel::UpdateARD(
             PostCov = theta.GetCovariance();
 
             PriorCov(ardindex, ardindex)
-                = theta.means(ardindex) * theta.means(ardindex)
-                + PostCov(ardindex, ardindex);
+                = theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex);
 
             thetaPrior.SetCovariance(PriorCov);
 
             // Calculate the extra terms for the free energy
-            double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                               + PostCov(ardindex, ardindex));
+            double b
+                = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
             Fard += -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
                 - 0.5 * log(b); // taking c as 0.5 - which it will be!
         }

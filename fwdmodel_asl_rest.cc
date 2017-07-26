@@ -9,8 +9,7 @@ using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 #include "fabber_core/tools.h"
 
-FactoryRegistration<FwdModelFactory, ASLFwdModel> ASLFwdModel::registration(
-    "aslrest");
+FactoryRegistration<FwdModelFactory, ASLFwdModel> ASLFwdModel::registration("aslrest");
 string ASLFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_rest.cc";
@@ -24,74 +23,56 @@ string ASLFwdModel::ModelVersion() const
 }
 static OptionSpec OPTIONS[] = {
     { "disp", OPT_STR, "AIF dispersion type", OPT_NONREQ, "none" },
-    { "exch", OPT_STR, "Type of exchange in tissue compartment", OPT_NONREQ,
-        "mix" },
-    { "forceconv", OPT_BOOL,
-        "Force numerical convolution for evaluation of model", OPT_NONREQ, "" },
+    { "exch", OPT_STR, "Type of exchange in tissue compartment", OPT_NONREQ, "mix" },
+    { "forceconv", OPT_BOOL, "Force numerical convolution for evaluation of model", OPT_NONREQ,
+        "" },
     { "inctiss", OPT_BOOL, "Include tissue parameters", OPT_NONREQ, "" },
     { "infertiss", OPT_BOOL, "Infer tissue parameters", OPT_NONREQ, "" },
     { "incart", OPT_BOOL, "Include arterial parameters", OPT_NONREQ, "" },
     { "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
     { "incwm", OPT_BOOL, "Include white matter parameters", OPT_NONREQ, "" },
-    { "incbat", OPT_BOOL, "Include bolus arrival time parameter", OPT_NONREQ,
-        "" },
-    { "inferbat", OPT_BOOL, "Infer bolus arrival time parameter", OPT_NONREQ,
-        "" },
+    { "incbat", OPT_BOOL, "Include bolus arrival time parameter", OPT_NONREQ, "" },
+    { "inferbat", OPT_BOOL, "Infer bolus arrival time parameter", OPT_NONREQ, "" },
     { "incpc", OPT_BOOL, "Include pre-capillary parameters", OPT_NONREQ, "" },
     { "inferpc", OPT_BOOL, "Infer pre-capillary parameters", OPT_NONREQ, "" },
     { "inctau", OPT_BOOL, "Include bolus duration parameter", OPT_NONREQ, "" },
     { "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
-    { "septau", OPT_BOOL, "Separate values of tau for each component",
-        OPT_NONREQ, "" },
+    { "septau", OPT_BOOL, "Separate values of tau for each component", OPT_NONREQ, "" },
     { "inct1", OPT_BOOL, "Include T1 parameter", OPT_NONREQ, "" },
     { "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
-    { "inferdisp", OPT_BOOL,
-        "Infer dispersion parameters (if present in model)", OPT_NONREQ, "" },
-    { "sepdisp", OPT_BOOL,
-        "Separate tissue dispersion parameters for each component", OPT_NONREQ,
+    { "inferdisp", OPT_BOOL, "Infer dispersion parameters (if present in model)", OPT_NONREQ, "" },
+    { "sepdisp", OPT_BOOL, "Separate tissue dispersion parameters for each component", OPT_NONREQ,
         "" },
-    { "inferexch", OPT_BOOL, "Infer exchange parameters (if present in model)",
-        OPT_NONREQ, "" },
+    { "inferexch", OPT_BOOL, "Infer exchange parameters (if present in model)", OPT_NONREQ, "" },
     { "incpve", OPT_BOOL, "Include PVE parameters", OPT_NONREQ, "" },
     { "pvcorr", OPT_BOOL, "Partial volume correction", OPT_NONREQ, "" },
-    { "incstattiss", OPT_BOOL, "Include static tissue parameters", OPT_NONREQ,
-        "" },
-    { "inferstattiss", OPT_BOOL, "Infer static tissue parameters", OPT_NONREQ,
-        "" },
+    { "incstattiss", OPT_BOOL, "Include static tissue parameters", OPT_NONREQ, "" },
+    { "inferstattiss", OPT_BOOL, "Infer static tissue parameters", OPT_NONREQ, "" },
     { "ardoff", OPT_BOOL, "Turn off ARD", OPT_NONREQ, "" },
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
-    { "pretisat", OPT_FLOAT,
-        "Deal with saturation of the bolus a fixed time pre TI measurement",
+    { "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement",
         OPT_NONREQ, "0.0" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice (s)", OPT_NONREQ, "0.0" },
     { "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
     { "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
-    { "batwm", OPT_FLOAT, "Bolus arrival time (white matter)", OPT_NONREQ,
-        "bat+0.3" },
-    { "batart", OPT_FLOAT, "Bolus arrival time (arterial)", OPT_NONREQ,
-        "bat-0.3" },
-    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ,
-        "0.316" },
-    { "--iaf", OPT_STR, "Data information - is this option name an error?",
-        OPT_NONREQ, "diff" },
-    { "calib", OPT_BOOL, "Data has already been subjected to calibration",
-        OPT_NONREQ, "" },
+    { "batwm", OPT_FLOAT, "Bolus arrival time (white matter)", OPT_NONREQ, "bat+0.3" },
+    { "batart", OPT_FLOAT, "Bolus arrival time (arterial)", OPT_NONREQ, "bat-0.3" },
+    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
+    { "iaf", OPT_STR, "Data information", OPT_NONREQ, "diff" },
+    { "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
     { "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
     { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
     { "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
-    { "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ,
-        "0.9 (0.98 with WM component)" },
+    { "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9 (0.98 with WM component)" },
     { "ti", OPT_FLOAT, "Single TI value (s)", OPT_NONREQ, "" },
     { "ti<n>", OPT_FLOAT, "List of TI values (s)", OPT_NONREQ, "" },
     { "pld", OPT_FLOAT, "Single PLD value (s)", OPT_NONREQ, "" },
     { "pld<n>", OPT_FLOAT, "List of PLD values (s)", OPT_NONREQ, "" },
-    { "hadamard", OPT_INT, "Number of Hadamard encoding lines", OPT_NONREQ,
-        "0" },
+    { "hadamard", OPT_INT, "Number of Hadamard encoding lines", OPT_NONREQ, "0" },
     { "fullhad", OPT_BOOL, "Activate full Hadamard matrix", OPT_NONREQ, "" },
     { "tau", OPT_FLOAT, "Single tau value", OPT_NONREQ, "" },
     { "tau<n>", OPT_FLOAT, "List of tau values", OPT_NONREQ, "" },
-    { "crush<n>", OPT_STR, "List of vascular crushing specifications values",
-        OPT_NONREQ, "" },
+    { "crush<n>", OPT_STR, "List of vascular crushing specifications values", OPT_NONREQ, "" },
     { "FA", OPT_FLOAT, "Look-Locker correction", OPT_NONREQ, "" },
     { "facorr", OPT_BOOL, "Do FA correction", OPT_NONREQ, "" }, { "" },
 };
@@ -102,18 +83,13 @@ void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
         opts.push_back(OPTIONS[i]);
     }
 }
-std::string ASLFwdModel::GetDescription() const
-{
-    return "Resting state ASL model";
-}
-
-void ASLFwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+std::string ASLFwdModel::GetDescription() const { return "Resting state ASL model"; }
+void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
     // Set priors
     SymmetricMatrix precisions = IdentityMatrix(NumParams())
-        * 1e12; // by default all paramerers are included as fully informative
+        * 1e12;      // by default all paramerers are included as fully informative
     prior.means = 0; // set a default zero value - this should get overwritten
                      // if a non-zero mean is not applicable
     // Flow
@@ -156,8 +132,7 @@ void ASLFwdModel::HardcodedInitialDists(
             prior.means(bat_index() + artidx) = setdeltart;
             if (inferart & inferbat)
             {
-                precisions(bat_index() + artidx, bat_index() + artidx)
-                    = deltartprec;
+                precisions(bat_index() + artidx, bat_index() + artidx) = deltartprec;
             }
         }
     }
@@ -281,8 +256,7 @@ void ASLFwdModel::HardcodedInitialDists(
                 {
                     for (int i = 1; i <= ndisp; i++)
                     {
-                        precisions(disp_index() + i - 1, disp_index() + i - 1)
-                            = dispprec(i);
+                        precisions(disp_index() + i - 1, disp_index() + i - 1) = dispprec(i);
                     }
                 }
             }
@@ -298,8 +272,7 @@ void ASLFwdModel::HardcodedInitialDists(
                 dispprec = disppriors.Rows(ndisp + 1, 2 * ndisp);
                 for (int i = 1; i <= ndisp; i++)
                 {
-                    prior.means(disp_index() + ndisp * wmidx + i - 1)
-                        = dispmean(i);
+                    prior.means(disp_index() + ndisp * wmidx + i - 1) = dispmean(i);
                 }
                 if (inferdisp)
                 {
@@ -323,8 +296,7 @@ void ASLFwdModel::HardcodedInitialDists(
 
                 for (int i = 1; i <= ndisp; i++)
                 {
-                    prior.means(disp_index() + ndisp * artidx + i - 1)
-                        = dispmean(i);
+                    prior.means(disp_index() + ndisp * artidx + i - 1) = dispmean(i);
                 }
                 if (inferdisp)
                 {
@@ -360,8 +332,7 @@ void ASLFwdModel::HardcodedInitialDists(
             {
                 for (int i = 1; i <= ndisp; i++)
                 {
-                    precisions(disp_index() + i - 1, disp_index() + i - 1)
-                        = dispprec(i);
+                    precisions(disp_index() + i - 1, disp_index() + i - 1) = dispprec(i);
                 }
             }
         }
@@ -387,14 +358,13 @@ void ASLFwdModel::HardcodedInitialDists(
         {
             for (int i = 1; i <= nresid; i++)
             {
-                precisions(resid_index() + i - 1, resid_index() + i - 1)
-                    = residprec(i);
+                precisions(resid_index() + i - 1, resid_index() + i - 1) = residprec(i);
             }
         }
     }
     if (incfacorr)
     {
-        prior.means(facorr_index()) = 1; // should be overwritten by an image
+        prior.means(facorr_index()) = 1;                  // should be overwritten by an image
         precisions(facorr_index(), facorr_index()) = 100; // small uncertainty
     }
     // Static tissue contribution to the signal (e.g. non-subtracted data)
@@ -466,8 +436,7 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
         }
     }
 }
-void ASLFwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -617,8 +586,7 @@ void ASLFwdModel::Evaluate(
             int end = disp_index();
             if (inctiss)
             {
-                disptiss = params.Rows(
-                    disp_index(), disp_index() - 1 + tiss_model->NumDisp());
+                disptiss = params.Rows(disp_index(), disp_index() - 1 + tiss_model->NumDisp());
                 end = disp_index() + tiss_model->NumDisp();
             }
             if (incwm)
@@ -633,8 +601,7 @@ void ASLFwdModel::Evaluate(
         }
         else
         {
-            disptiss = params.Rows(
-                disp_index(), disp_index() - 1 + tiss_model->NumDisp());
+            disptiss = params.Rows(disp_index(), disp_index() - 1 + tiss_model->NumDisp());
             dispwm = disptiss;
             dispart = disptiss;
         }
@@ -644,8 +611,7 @@ void ASLFwdModel::Evaluate(
     {
         // tissue and white matter have same residue function parameters (at
         // present)
-        residtiss = params.Rows(
-            resid_index(), resid_index() - 1 + tiss_model->NumResid());
+        residtiss = params.Rows(resid_index(), resid_index() - 1 + tiss_model->NumResid());
         residwm = residtiss;
     }
     // flip angle correction
@@ -706,11 +672,9 @@ void ASLFwdModel::Evaluate(
     // Calcualte the Kinetic Model contirbutions at each TI
     // loop over tis
     double ti;
-    ColumnVector statcont(
-        tis.Nrows()); // this stores the static tissue contribution at each TI
+    ColumnVector statcont(tis.Nrows()); // this stores the static tissue contribution at each TI
     statcont = 0.0;
-    ColumnVector kctotal(
-        tis.Nrows()); // this stores the total kinetic signal contribution
+    ColumnVector kctotal(tis.Nrows()); // this stores the total kinetic signal contribution
     kctotal = 0.0;
 
     for (int it = 1; it <= tis.Nrows(); it++)
@@ -745,8 +709,7 @@ void ASLFwdModel::Evaluate(
 
         // crushers
         double artweight = 1.0;
-        artweight
-            = 1.0 - crush(it); // arterial weight is opposte of crsuh extent
+        artweight = 1.0 - crush(it); // arterial weight is opposte of crsuh extent
         /*
     if (artdir) {
       artweight = Sinc( 2 * bloodbv *
@@ -757,18 +720,17 @@ void ASLFwdModel::Evaluate(
         // Tissue
         if (inctiss)
             kctissue = pvgm * ftiss
-                * tiss_model->kctissue(ti, f_calib, delttiss, tautiss, T_1b,
-                      T_1, lambda, casl, disptiss, residtiss);
+                * tiss_model->kctissue(
+                      ti, f_calib, delttiss, tautiss, T_1b, T_1, lambda, casl, disptiss, residtiss);
         // White matter
         if (incwm)
             kcwm = pvwm * fwm
-                * tiss_model->kctissue(ti, f_calibwm, deltwm, tauwm, T_1b,
-                      T_1wm, lamwm, casl, dispwm, residwm);
+                * tiss_model->kctissue(
+                      ti, f_calibwm, deltwm, tauwm, T_1b, T_1wm, lamwm, casl, dispwm, residwm);
         // Arterial
         if (incart)
             kcblood = artweight * fblood
-                * art_model->kcblood(
-                      ti, deltblood, taublood, T_1b, casl, dispart);
+                * art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
 
         if (incpc)
         {
@@ -777,12 +739,12 @@ void ASLFwdModel::Evaluate(
             // transit time
             if (inctiss)
                 kcpc = pvgm * ftiss
-                    * pc_model->kctissue(ti, f_calib, delttiss - taupctiss,
-                          tautiss, T_1b, T_1, lambda, casl, disptiss, pcvec);
+                    * pc_model->kctissue(ti, f_calib, delttiss - taupctiss, tautiss, T_1b, T_1,
+                          lambda, casl, disptiss, pcvec);
             if (incwm)
                 kcpcwm = pvwm * fwm
-                    * pc_model->kctissue(ti, f_calibwm, deltwm - taupcwm, tauwm,
-                          T_1b, T_1, lamwm, casl, dispwm, pcvecwm);
+                    * pc_model->kctissue(ti, f_calibwm, deltwm - taupcwm, tauwm, T_1b, T_1, lamwm,
+                          casl, dispwm, pcvecwm);
         }
         // if (isnan(kctissue)) { kctissue=0; LOG << "Warning NaN in tissue
         // curve at TI:" << ti << " with f:" << ftiss << " delt:" << delttiss <<
@@ -801,9 +763,8 @@ void ASLFwdModel::Evaluate(
     {
         // Hadamard encoded ASL data
         ColumnVector signal;
-        signal = HadEncMatrix
-            * kctotal; // collect the KC contirbutions from each block of label
-        signal = statcont - signal; // inlcude static tissue signal
+        signal = HadEncMatrix * kctotal; // collect the KC contirbutions from each block of label
+        signal = statcont - signal;      // inlcude static tissue signal
         // loop over repeats - we assume we always get blocks of each set of
         // encodings
         result = signal;
@@ -822,9 +783,8 @@ void ASLFwdModel::Evaluate(
             // loop over the repeats
             for (int rpt = 1; rpt <= repeats; rpt++)
             {
-                result((it - 1) * repeats + 2 * rpt - 1)
-                    = statcont(it) + kctotal(it);                    // TAG
-                result((it - 1) * repeats + 2 * rpt) = statcont(it); // CONTROL
+                result((it - 1) * repeats + 2 * rpt - 1) = statcont(it) + kctotal(it); // TAG
+                result((it - 1) * repeats + 2 * rpt) = statcont(it);                   // CONTROL
             }
         }
     }
@@ -843,9 +803,11 @@ void ASLFwdModel::Evaluate(
         }
     }
 
-    if (result.Nrows() != data.Nrows()) {
-//        string reason = 
-        throw InvalidOptionValue("num volumes", stringify(data.Nrows()), "Expected " + stringify(result.Nrows()) + " volumes - check the number of repeats/TIs");
+    if (result.Nrows() != data.Nrows())
+    {
+        //        string reason =
+        throw InvalidOptionValue("num volumes", stringify(data.Nrows()),
+            "Expected " + stringify(result.Nrows()) + " volumes - check the number of repeats/TIs");
     }
 
     // cout << result.t();
@@ -862,13 +824,12 @@ void ASLFwdModel::Initialize(ArgsType &args)
     {
         // specify command line parameters here
         // model choices
-        disptype = args.ReadWithDefault(
-            "disp", "none"); // set the AIF dispersion type
-        exchtype = args.ReadWithDefault(
-            "exch", "mix"); // set the type of exchange in tissue compartment
-        forceconv = args.ReadBool("forceconv"); // force numerical convolution
-                                                // for the evaluation of the
-                                                // model
+        disptype = args.ReadWithDefault("disp", "none"); // set the AIF dispersion type
+        exchtype
+            = args.ReadWithDefault("exch", "mix"); // set the type of exchange in tissue compartment
+        forceconv = args.ReadBool("forceconv");    // force numerical convolution
+                                                   // for the evaluation of the
+                                                   // model
         // inference/inclusion
         // -components
         inctiss = args.ReadBool("inctiss");
@@ -878,8 +839,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         if (inferart)
             incart = true;
         incwm = args.ReadBool("incwm");
-        inferwm
-            = false; // we only infer WM if we are doing PV correction (below)
+        inferwm = false; // we only infer WM if we are doing PV correction (below)
         if (!inctiss & !incart)
         {
             throw invalid_argument("Error: neither tissue nor arterial "
@@ -951,28 +911,25 @@ void ASLFwdModel::Initialize(ArgsType &args)
             ardindices.push_back(flow_index() + artidx);
         }
         // scan parameters
-        repeats = convertTo<int>(
-            args.ReadWithDefault("repeats", "1")); // number of repeats in data
-        pretisat = convertTo<double>(
-            args.ReadWithDefault("pretisat", "0")); // deal with saturation of
-                                                    // the bolus a fixed time
-                                                    // pre TI measurement
-        slicedt = convertTo<double>(
-            args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
-        sliceband = convertTo<int>(args.ReadWithDefault(
-            "sliceband", "0")); // number of slices in a band in a multi-band
-                                // setup (zero implies single band)
-        casl = args.ReadBool(
-            "casl"); // set if the data is CASL or PASL (default)
-        seqtau = convertTo<double>(args.ReadWithDefault("tau","1000"));
+        repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
+        pretisat
+            = convertTo<double>(args.ReadWithDefault("pretisat", "0")); // deal with saturation of
+                                                                        // the bolus a fixed time
+                                                                        // pre TI measurement
+        slicedt
+            = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+        sliceband = convertTo<int>(
+            args.ReadWithDefault("sliceband", "0")); // number of slices in a band in a multi-band
+                                                     // setup (zero implies single band)
+        casl = args.ReadBool("casl");                // set if the data is CASL or PASL (default)
+        seqtau = convertTo<double>(args.ReadWithDefault("tau", "1000"));
         // //bolus length as set by sequence (default of 1000 is effectively
         // infinite
         setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
         string deltwm = args.ReadWithDefault("batwm", "null");
         if (deltwm == "null")
         {
-            setdeltwm
-                = setdelt + 0.3; // by default choose delt WM longer then GM
+            setdeltwm = setdelt + 0.3; // by default choose delt WM longer then GM
         }
         else
         {
@@ -981,8 +938,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         string deltart = args.ReadWithDefault("batart", "null");
         if (deltart == "null")
         {
-            setdeltart
-                = setdelt - 0.3; // by default choose delt blood shorter then GM
+            setdeltart = setdelt - 0.3; // by default choose delt blood shorter then GM
         }
         else
         {
@@ -1006,7 +962,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         // data information
         raw = false;
         tagfirst = true;
-        string iaf = args.ReadWithDefault("--iaf", "diff");
+        string iaf = args.ReadWithDefault("iaf", "diff");
         if ((iaf == "tc") | (iaf == "ct"))
         {
             // data is in raw form
@@ -1015,11 +971,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 tagfirst = false;
         }
         // analysis options/settings
-        calib = args.ReadBool(
-            "calib"); // data has already been subjected to calibration
+        calib = args.ReadBool("calib"); // data has already been subjected to calibration
         // T1 values
-        string default_t1
-            = "1.3"; // T1 for generic tissue (i.e. mixed GM and WM)
+        string default_t1 = "1.3"; // T1 for generic tissue (i.e. mixed GM and WM)
         if (incwm)
             default_t1 = "1.3"; // possibly a different default for T1 of tissue
                                 // if this represents GM only
@@ -1027,14 +981,12 @@ void ASLFwdModel::Initialize(ArgsType &args)
         t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
         t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
         // other model parameters
-        string default_lambda
-            = "0.9"; // lambda for generic tissue (mixed GM and WM)
+        string default_lambda = "0.9"; // lambda for generic tissue (mixed GM and WM)
         if (incwm)
             default_lambda = "0.98"; // different default for labda if we have a
                                      // WM component (since then the 'tissue' is
                                      // a GM component)
-        lambda
-            = convertTo<double>(args.ReadWithDefault("lambda", default_lambda));
+        lambda = convertTo<double>(args.ReadWithDefault("lambda", default_lambda));
         lamwm = 0.82;
         // Read in timing parameters (TIs / PLDs)
         bool ti_set = false;
@@ -1062,8 +1014,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 while (true) // get the rest of the tis
                 {
                     int N = ti_list.Nrows() + 1;
-                    ti_temp
-                        = args.ReadWithDefault("ti" + stringify(N), "stop!");
+                    ti_temp = args.ReadWithDefault("ti" + stringify(N), "stop!");
                     if (ti_temp == "stop!")
                         break; // we have run out of tis
 
@@ -1095,8 +1046,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 while (true) // get the rest of the tis
                 {
                     int N = pld_list.Nrows() + 1;
-                    pld_temp
-                        = args.ReadWithDefault("pld" + stringify(N), "stop!");
+                    pld_temp = args.ReadWithDefault("pld" + stringify(N), "stop!");
                     if (pld_temp == "stop!")
                         break; // we have run out of tis
 
@@ -1107,27 +1057,12 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 }
             }
         }
-        /* making this section redundant - MAC 10/3/14
-      // Read in the TIs
-      tis.ReSize(1); //will add extra values onto end as needed
-      tis(1) = atof(args.Read("ti1","0").c_str());
 
-      while (true) //get the rest of the tis
-    {
-      int N = tis.Nrows()+1;
-      string tiString = args.ReadWithDefault("ti"+stringify(N), "stop!");
-      if (tiString == "stop!") break; //we have run out of tis
-
-      // append the new ti onto the end of the list
-      ColumnVector tmp(1);
-      tmp = convertTo<double>(tiString);
-      tis &= tmp; //vertical concatenation
-      */
         // Hadamard time encoding
         string hadamardin = args.ReadWithDefault(
-            "hadamard", "none"); // if nothing is stated, no Hadamard encoding
-                                 // is assumed. If it is set to an integer N, N
-                                 // encoding lines are assumed.
+            "hadamard", "none");                 // if nothing is stated, no Hadamard encoding
+                                                 // is assumed. If it is set to an integer N, N
+                                                 // encoding lines are assumed.
         bool FullHad = args.ReadBool("fullhad"); // in some cases the full
                                                  // Hadamard matrix is needed,
                                                  // i.e. all N rows (and not
@@ -1141,8 +1076,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         else
         {
             hadamard = true;
-            HadamardSize = convertTo<int>(
-                hadamardin); // This gives the number of encoding lines
+            HadamardSize = convertTo<int>(hadamardin); // This gives the number of encoding lines
             if (((HadamardSize % 2) != 0) & (HadamardSize != 12))
             {
                 // check that we have a sensible hadamard scheme
@@ -1152,15 +1086,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
                                        "encodings equal to 12");
             }
             if (FullHad)
-                NumberOfSubBoli
-                    = HadamardSize; // This gives the number of subboli
+                NumberOfSubBoli = HadamardSize; // This gives the number of subboli
             else
                 NumberOfSubBoli = HadamardSize - 1;
             HadEncMatrix = HadamardMatrix(HadamardSize);
             // we will usually ingore the first column (all control), unless we
             // are doign FullHad
-            HadEncMatrix = HadEncMatrix.SubMatrix(1, HadamardSize,
-                HadamardSize - (NumberOfSubBoli - 1), HadamardSize);
+            HadEncMatrix = HadEncMatrix.SubMatrix(
+                1, HadamardSize, HadamardSize - (NumberOfSubBoli - 1), HadamardSize);
         }
         // Populate the inflow time (TI) vector
         if (hadamard)
@@ -1168,8 +1101,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             // set TIs up for hadamard data
             if (pld_list.Nrows() == 0)
             {
-                throw invalid_argument(
-                    "For Hadamard time encoding please specify a PLD (--pld=)");
+                throw invalid_argument("For Hadamard time encoding please specify a PLD (--pld=)");
             }
             else if (pld_list.Nrows() > 1)
             {
@@ -1208,7 +1140,8 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
         }
         timax = tis.Maximum(); // dtermine the final TI
-        // bolus durations - note that seqtau has already been read above, if present
+        // bolus durations - note that seqtau has already been read above, if
+        // present
         multitau = false;
         string tau_temp = args.ReadWithDefault("tau", "none");
         if (tau_temp == "none")
@@ -1223,10 +1156,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 {
                     if (inctau)
                     {
-                        throw invalid_argument(
-                            "Inference/Inclusion of (variable) bolus duration "
-                            "is not compatible with multiple bolus durations "
-                            "use a single value (--tau=)");
+                        throw invalid_argument("Inference/Inclusion of (variable) bolus duration "
+                                               "is not compatible with multiple bolus durations "
+                                               "use a single value (--tau=)");
                     }
                     if (septau)
                     {
@@ -1237,8 +1169,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
                     }
                     multitau = true;
                     int N = taus.Nrows() + 1;
-                    tau_temp
-                        = args.ReadWithDefault("tau" + stringify(N), "stop!");
+                    tau_temp = args.ReadWithDefault("tau" + stringify(N), "stop!");
                     if (tau_temp == "stop!")
                         break; // we have run out of tis
 
@@ -1265,8 +1196,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         crush = 0.0; // default is no crusher
         crushdir.ReSize(tis.Nrows(), 3);
         crushdir = 0.0;
-        crushdir.Column(3)
-            = 1.0; // default (which should remain ignored normally) is z-only
+        crushdir.Column(3) = 1.0; // default (which should remain ignored normally) is z-only
         if (crush_temp != "notsupplied")
         {
             // we need to assemble crusher information
@@ -1275,8 +1205,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             {
                 if (N > 1)
                 {
-                    crush_temp
-                        = args.ReadWithDefault("crush" + stringify(N), "stop!");
+                    crush_temp = args.ReadWithDefault("crush" + stringify(N), "stop!");
                     if (crush_temp == "stop!")
                         break; // we have run out of crusher specifications
                 }
@@ -1434,8 +1363,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
             else
             {
-                tiss_model
-                    = new TissueModel_aif_residue(art_model, resid_model);
+                tiss_model = new TissueModel_aif_residue(art_model, resid_model);
             }
         }
         // include dispersion parameters if the model has them
@@ -1453,8 +1381,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         // dispersion model - load priors from command line
         for (int i = 1; i <= art_model->NumDisp(); i++)
         {
-            string priormean = args.ReadWithDefault(
-                "disp_prior_mean_" + stringify(i), "null");
+            string priormean = args.ReadWithDefault("disp_prior_mean_" + stringify(i), "null");
             if (priormean != "null")
             {
                 art_model->SetPriorMean(i, convertTo<double>(priormean));
@@ -1512,8 +1439,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         if (inferdisp)
             LOG << "Dispersion" << endl;
         if (sepdisp)
-            LOG << "  Separate dispersion parameters for each component"
-                << endl;
+            LOG << "  Separate dispersion parameters for each component" << endl;
         if (inferexch)
             LOG << "Restricted exchange" << endl;
         if (pvcorr)
@@ -1537,15 +1463,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
         if (incart)
             LOG << "Arterial model:" << art_model->Name() << endl;
         if (art_model->NumDisp() > 0)
-            LOG << "Dispersion parameter priors (means then precisions): "
-                << art_model->Priors() << endl;
+            LOG << "Dispersion parameter priors (means then precisions): " << art_model->Priors()
+                << endl;
         if (incpc)
             LOG << "Pre-capillary model:" << pc_model->Name() << endl;
         LOG << "------" << endl;
         // scan parameters
         if (pretisat > 0)
-            LOG << "Saturation of " << pretisat
-                << " s before TI has been specified" << endl;
+            LOG << "Saturation of " << pretisat << " s before TI has been specified" << endl;
         if (calib)
             LOG << "Input data is in physioligcal units, using estimated CBF "
                    "in T_1app calculation"
@@ -1561,8 +1486,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             LOG << "Hadamard time encoding:" << endl;
             if (FullHad)
                 LOG << "  Full nxn-Hadamard matrix is used." << endl;
-            LOG << "  Number of Hadamard encoded images: " << HadamardSize
-                << endl;
+            LOG << "  Number of Hadamard encoded images: " << HadamardSize << endl;
             LOG << "  Number of Hadamard subboli: " << NumberOfSubBoli << endl;
             LOG << "  Subbolus length: " << seqtau << endl;
             LOG << "  Post labeling delay (PLD): " << pld_list(1) << endl;
@@ -1578,8 +1502,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         LOG << endl;
     }
     else
-        throw invalid_argument(
-            "Only --scan-params=cmdline is accepted at the moment");
+        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");
 }
 
 void ASLFwdModel::NameParams(vector<string> &names) const
@@ -1694,13 +1617,12 @@ Matrix ASLFwdModel::HadamardMatrix(const int size) const
     if (size == 12)
     {
         // special case
-        Real b[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1,
-            1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0,
-            0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1,
-            0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1,
-            0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0,
-            1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1,
-            0, 0, 0, 1, 1, 1, 0, 1, 1 };
+        Real b[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1,
+            1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1,
+            0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0,
+            0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1,
+            1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0,
+            1, 1 };
         matrix.ReSize(12, 12);
         matrix << b;
     }
@@ -1722,8 +1644,7 @@ Matrix ASLFwdModel::HadamardMatrix(const int size) const
     }
     return matrix;
 }
-void ASLFwdModel::SetupARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void ASLFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     int ardindex = ard_index();
     if (doard)
@@ -1731,22 +1652,20 @@ void ASLFwdModel::SetupARD(
         SymmetricMatrix PriorPrec;
         PriorPrec = thetaPrior.GetPrecisions();
 
-        PriorPrec(ardindex, ardindex)
-            = 1e-12; // set prior to be initally non-informative
+        PriorPrec(ardindex, ardindex) = 1e-12; // set prior to be initally non-informative
 
         thetaPrior.SetPrecisions(PriorPrec);
         thetaPrior.means(ardindex) = 0;
         // set the Free energy contribution from ARD term
         SymmetricMatrix PostCov = theta.GetCovariance();
-        double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                           + PostCov(ardindex, ardindex));
+        double b
+            = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
         Fard = -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
             - 0.5 * log(b); // taking c as 0.5 - which it will be!
     }
     return;
 }
-void ASLFwdModel::UpdateARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void ASLFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     int ardindex = ard_index();
     if (doard)
@@ -1756,13 +1675,12 @@ void ASLFwdModel::UpdateARD(
         PriorCov = thetaPrior.GetCovariance();
         PostCov = theta.GetCovariance();
         PriorCov(ardindex, ardindex)
-            = theta.means(ardindex) * theta.means(ardindex)
-            + PostCov(ardindex, ardindex);
+            = theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex);
 
         thetaPrior.SetCovariance(PriorCov);
         // Calculate the extra terms for the free energy
-        double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                           + PostCov(ardindex, ardindex));
+        double b
+            = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
         Fard = -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
             - 0.5 * log(b); // taking c as 0.5 - which it will be!
     }

@@ -21,35 +21,27 @@ using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
 
-FactoryRegistration<FwdModelFactory, GraseFwdModel> GraseFwdModel::registration(
-    "buxton");
+FactoryRegistration<FwdModelFactory, GraseFwdModel> GraseFwdModel::registration("buxton");
 
 static OptionSpec OPTIONS[] = {
     { "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
     { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
     { "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9" },
-    { "ti<n>", OPT_FLOAT, "List of TI values. At least one required",
-        OPT_NONREQ, "" },
+    { "ti<n>", OPT_FLOAT, "List of TI values. At least one required", OPT_NONREQ, "" },
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
-    { "pretisat", OPT_FLOAT,
-        "Deal with saturation of the bolus a fixed time pre TI measurement",
+    { "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement",
         OPT_NONREQ, "0.0" },
-    { "tau", OPT_FLOAT, "Bolus duration. Default is effectively infinite",
-        OPT_NONREQ, "1000" },
+    { "tau", OPT_FLOAT, "Bolus duration. Default is effectively infinite", OPT_NONREQ, "1000" },
     { "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
     { "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
     { "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
     { "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
     { "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
-    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ,
-        "0.316" },
+    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
-    { "calib", OPT_BOOL, "Data has already been subjected to calibration",
-        OPT_NONREQ, "" },
+    { "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
     { "ardoff", OPT_BOOL, "Disable ARD", OPT_NONREQ, "" },
-    { "tauboff", OPT_BOOL, "Forces the inference of arterial bolus off",
-        OPT_NONREQ, "" },
-    { "" },
+    { "tauboff", OPT_BOOL, "Forces the inference of arterial bolus off", OPT_NONREQ, "" }, { "" },
 };
 
 void GraseFwdModel::GetOptions(vector<OptionSpec> &opts) const
@@ -62,16 +54,15 @@ void GraseFwdModel::GetOptions(vector<OptionSpec> &opts) const
 
 void GraseFwdModel::Initialize(ArgsType &args)
 {
-    repeats = convertTo<int>(
-        args.ReadWithDefault("repeats", "1")); // number of repeats in data
+    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
     lambda = convertTo<double>(args.ReadWithDefault("lambda", "0.9"));
 
-    pretisat = convertTo<double>(
-        args.ReadWithDefault("pretisat", "0")); // deal with saturation of the
-                                                // bolus a fixed time pre TI
-                                                // measurement
+    pretisat
+        = convertTo<double>(args.ReadWithDefault("pretisat", "0")); // deal with saturation of the
+                                                                    // bolus a fixed time pre TI
+                                                                    // measurement
     grase = args.ReadBool("grase"); // DEPRECEATED data has come from the
                                     // GRASE-ASL sequence - therefore apply
                                     // pretisat of 0.1s
@@ -79,8 +70,7 @@ void GraseFwdModel::Initialize(ArgsType &args)
         pretisat = 0.1;
 
     casl = args.ReadBool("casl"); // set if the data is CASL or PASL (default)
-    slicedt = convertTo<double>(
-        args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
     calib = args.ReadBool("calib");
     infertau = args.ReadBool("infertau"); // infer on bolus length?
@@ -90,10 +80,10 @@ void GraseFwdModel::Initialize(ArgsType &args)
     // in inversion efficiency?
     // infertrailing = args.ReadBool("infertrailing"); //infers a trailing edge
     // bolus slope using new model
-    seqtau = convertTo<double>(
-        args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
-                                              // (default of 1000 is effectively
-                                              // infinite
+    seqtau
+        = convertTo<double>(args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
+                                                                  // (default of 1000 is effectively
+                                                                  // infinite
     setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
     double deltsd; // std dev for delt prior
     deltsd = convertTo<double>(args.ReadWithDefault("batsd", "0.316"));
@@ -102,8 +92,7 @@ void GraseFwdModel::Initialize(ArgsType &args)
     bool ardoff = false;
     ardoff = args.ReadBool("ardoff");
     bool tauboff = false;
-    tauboff = args.ReadBool(
-        "tauboff"); // forces the inference of arterial bolus off
+    tauboff = args.ReadBool("tauboff"); // forces the inference of arterial bolus off
 
     // combination options
     infertaub = false;
@@ -155,20 +144,20 @@ void GraseFwdModel::Initialize(ArgsType &args)
     coord_z = 0;
 
     singleti = false; // normally we do multi TI ASL
-    /* This option is currently disabled since it is not compatible with basil
-     if (tis.Nrows()==1) {
-     //only one TI therefore only infer on CBF and ignore other inference
-     options
-     LOG << "--Single inversion time mode--" << endl;
-     LOG << "Only a sinlge inversion time has been supplied," << endl;
-     LOG << "Therefore only tissue perfusion will be inferred." << endl;
-     LOG << "-----" << endl;
-     singleti = true;
-     // force other inference options to be false
-     //infertau = false; infert1 = false; inferart = false; //inferinveff =
-     false;
-     }
-     */
+                      /* This option is currently disabled since it is not compatible with basil
+                       if (tis.Nrows()==1) {
+                       //only one TI therefore only infer on CBF and ignore other inference
+                       options
+                       LOG << "--Single inversion time mode--" << endl;
+                       LOG << "Only a sinlge inversion time has been supplied," << endl;
+                       LOG << "Therefore only tissue perfusion will be inferred." << endl;
+                       LOG << "-----" << endl;
+                       singleti = true;
+                       // force other inference options to be false
+                       //infertau = false; infert1 = false; inferart = false; //inferinveff =
+                       false;
+                       }
+                       */
 
     // add information about the parameters to the log
     LOG << "Inference using Buxton Kinetic Curve model" << endl;
@@ -177,16 +166,14 @@ void GraseFwdModel::Initialize(ArgsType &args)
     if (casl)
         LOG << "Data being analysed using CASL inversion profile" << endl;
     if (pretisat > 0)
-        LOG << "Saturation of" << pretisat << "s before TI has been specified"
-            << endl;
+        LOG << "Saturation of" << pretisat << "s before TI has been specified" << endl;
     if (grase)
         LOG << "Using pre TI saturation of 0.1 for GRASE-ASL sequence" << endl;
     if (calib)
         LOG << "Input data is in physioligcal units, using estimated CBF in "
                "T_1app calculation"
             << endl;
-    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
-        << ", t1b = " << t1b;
+    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1 << ", t1b = " << t1b;
     LOG << ", bolus length (tau) = " << seqtau << endl;
     if (infertau)
     {
@@ -231,8 +218,7 @@ string GraseFwdModel::ModelVersion() const
     return version;
 }
 
-void GraseFwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+void GraseFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -305,8 +291,7 @@ void GraseFwdModel::HardcodedInitialDists(
     posterior.SetPrecisions(precisions);
 }
 
-void GraseFwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void GraseFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -576,20 +561,18 @@ void GraseFwdModel::Evaluate(
         else if (ti >= delttiss && ti <= (delttiss + tau))
         {
             if (casl)
-                kctissue = F * T_1app * exp(-delttiss / T_1b)
-                    * (1 - exp(-(ti - delttiss) / T_1app));
+                kctissue
+                    = F * T_1app * exp(-delttiss / T_1b) * (1 - exp(-(ti - delttiss) / T_1app));
             else
                 kctissue = F / R * ((exp(R * ti) - exp(R * delttiss)));
         }
         else //(ti > delttiss + tau)
         {
             if (casl)
-                kctissue = F * T_1app * exp(-delttiss / T_1b)
-                    * exp(-(ti - tau - delttiss) / T_1app)
+                kctissue = F * T_1app * exp(-delttiss / T_1b) * exp(-(ti - tau - delttiss) / T_1app)
                     * (1 - exp(-tau / T_1app));
             else
-                kctissue
-                    = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
+                kctissue = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
         }
 
         // --[arterial contribution]------
@@ -626,9 +609,9 @@ void GraseFwdModel::Evaluate(
         if (isnan(kctissue))
         {
             kctissue = 0;
-            LOG << "Warning NaN in tissue curve at TI:" << ti
-                << " with f:" << ftiss << " delt:" << delttiss << " tau:" << tau
-                << " T1:" << T_1 << " T1b:" << T_1b << endl;
+            LOG << "Warning NaN in tissue curve at TI:" << ti << " with f:" << ftiss
+                << " delt:" << delttiss << " tau:" << tau << " T1:" << T_1 << " T1b:" << T_1b
+                << endl;
         }
         //}
 
@@ -677,8 +660,7 @@ void GraseFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void GraseFwdModel::SetupARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void GraseFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     int ardindex = ard_index();
 
@@ -687,8 +669,7 @@ void GraseFwdModel::SetupARD(
         SymmetricMatrix PriorPrec;
         PriorPrec = thetaPrior.GetPrecisions();
 
-        PriorPrec(ardindex, ardindex)
-            = 1e-12; // set prior to be initally non-informative
+        PriorPrec(ardindex, ardindex) = 1e-12; // set prior to be initally non-informative
 
         thetaPrior.SetPrecisions(PriorPrec);
 
@@ -696,8 +677,8 @@ void GraseFwdModel::SetupARD(
 
         // set the Free energy contribution from ARD term
         SymmetricMatrix PostCov = theta.GetCovariance();
-        double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                           + PostCov(ardindex, ardindex));
+        double b
+            = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
         Fard = -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
             - 0.5 * log(b); // taking c as 0.5 - which it will be!
     }
@@ -705,8 +686,7 @@ void GraseFwdModel::SetupARD(
     return;
 }
 
-void GraseFwdModel::UpdateARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void GraseFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     int ardindex = ard_index();
 
@@ -718,14 +698,13 @@ void GraseFwdModel::UpdateARD(
         PostCov = theta.GetCovariance();
 
         PriorCov(ardindex, ardindex)
-            = theta.means(ardindex) * theta.means(ardindex)
-            + PostCov(ardindex, ardindex);
+            = theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex);
 
         thetaPrior.SetCovariance(PriorCov);
 
         // Calculate the extra terms for the free energy
-        double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                           + PostCov(ardindex, ardindex));
+        double b
+            = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
         Fard = -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
             - 0.5 * log(b); // taking c as 0.5 - which it will be!
     }

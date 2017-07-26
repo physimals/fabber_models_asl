@@ -21,8 +21,7 @@
 
 using namespace std;
 
-FactoryRegistration<FwdModelFactory, SatrecovFwdModel>
-    SatrecovFwdModel::registration("satrecov");
+FactoryRegistration<FwdModelFactory, SatrecovFwdModel> SatrecovFwdModel::registration("satrecov");
 
 FwdModel *SatrecovFwdModel::NewInstance() { return new SatrecovFwdModel(); }
 static OptionSpec OPTIONS[] = {
@@ -30,12 +29,9 @@ static OptionSpec OPTIONS[] = {
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
     { "phases", OPT_INT, "Number of phases", OPT_NONREQ, "1" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
-    { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous",
-        OPT_NONREQ, "" },
-    { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout",
-        OPT_NONREQ, "0" },
-    { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout",
-        OPT_NONREQ, "0" },
+    { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous", OPT_NONREQ, "" },
+    { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
+    { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
     { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" }, { "" },
 };
 
@@ -59,22 +55,15 @@ string SatrecovFwdModel::ModelVersion() const
     return version;
 }
 
-string SatrecovFwdModel::GetDescription() const
-{
-    return "Saturation recovery ASL model";
-}
-
+string SatrecovFwdModel::GetDescription() const { return "Saturation recovery ASL model"; }
 void SatrecovFwdModel::Initialize(ArgsType &args)
 {
-    repeats = convertTo<int>(
-        args.ReadWithDefault("repeats", "1")); // number of repeats in data
+    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
-    slicedt = convertTo<double>(
-        args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
-    fixA = args.ReadBool(
-        "fixa"); // to fix the A parameter where it will be ambiguous
+    fixA = args.ReadBool("fixa"); // to fix the A parameter where it will be ambiguous
 
     // with a look locker readout
     FAnom = convertTo<double>(args.ReadWithDefault("FA", "0"));
@@ -131,8 +120,7 @@ void SatrecovFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void SatrecovFwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -173,8 +161,7 @@ void SatrecovFwdModel::HardcodedInitialDists(
     posterior.SetPrecisions(precisions);
 }
 
-void SatrecovFwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void SatrecovFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -259,8 +246,7 @@ void SatrecovFwdModel::Evaluate(
                                                   // increase in delay between
                                                   // slices
                 result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
-                    = M0tp * sin(lFA) / sin(FA)
-                    * (1 - A * exp(-tis(it) / T1tp));
+                    = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(-tis(it) / T1tp));
                 // note the sin(LFA)/sin(FA) term since the M0 we estimate is
                 // actually MOt*sin(FA)
             }

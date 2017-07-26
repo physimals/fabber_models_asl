@@ -16,24 +16,19 @@
 using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 
-FactoryRegistration<FwdModelFactory, MultiPhaseASLFwdModel>
-    MultiPhaseASLFwdModel::registration("asl_multiphase");
+FactoryRegistration<FwdModelFactory, MultiPhaseASLFwdModel> MultiPhaseASLFwdModel::registration(
+    "asl_multiphase");
 
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
     { "modfn", OPT_STR, "Modulation function", OPT_NONREQ, "fermi" },
-    { "modmat", OPT_MATRIX,
-        "Modulation function matrix file, used if modfn=mat", OPT_NONREQ, "" },
-    { "alpha", OPT_FLOAT, "Shape of the modulation function - alpha",
-        OPT_NONREQ, "66" },
-    { "beta", OPT_FLOAT, "Shape of the modulation function - beta", OPT_NONREQ,
-        "12" },
+    { "modmat", OPT_MATRIX, "Modulation function matrix file, used if modfn=mat", OPT_NONREQ, "" },
+    { "alpha", OPT_FLOAT, "Shape of the modulation function - alpha", OPT_NONREQ, "66" },
+    { "beta", OPT_FLOAT, "Shape of the modulation function - beta", OPT_NONREQ, "12" },
     { "incvel", OPT_BOOL, "Include vel parameter", OPT_NONREQ, "" },
     { "infervel", OPT_BOOL, "Infer value of vel parameter", OPT_NONREQ, "" },
-    { "nph", OPT_INT, "Number of evenly-spaced phases between 0 and 360",
-        OPT_NONREQ, "8" },
-    { "ph<n>", OPT_FLOAT, "Individually-specified phase angles in degrees",
-        OPT_NONREQ, "" },
+    { "nph", OPT_INT, "Number of evenly-spaced phases between 0 and 360", OPT_NONREQ, "8" },
+    { "ph<n>", OPT_FLOAT, "Individually-specified phase angles in degrees", OPT_NONREQ, "" },
     { "" },
 };
 
@@ -45,11 +40,7 @@ void MultiPhaseASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-string MultiPhaseASLFwdModel::GetDescription() const
-{
-    return "ASL multiphase model";
-}
-
+string MultiPhaseASLFwdModel::GetDescription() const { return "ASL multiphase model"; }
 string MultiPhaseASLFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_multiphase.cc";
@@ -62,8 +53,7 @@ string MultiPhaseASLFwdModel::ModelVersion() const
     return version;
 }
 
-void MultiPhaseASLFwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+void MultiPhaseASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -139,8 +129,7 @@ void MultiPhaseASLFwdModel::InitParams(MVNDist &posterior) const
     }
 }
 
-void MultiPhaseASLFwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -211,16 +200,11 @@ void MultiPhaseASLFwdModel::Evaluate(
     return;
 }
 
-FwdModel *MultiPhaseASLFwdModel::NewInstance()
-{
-    return new MultiPhaseASLFwdModel();
-}
-
+FwdModel *MultiPhaseASLFwdModel::NewInstance() { return new MultiPhaseASLFwdModel(); }
 void MultiPhaseASLFwdModel::Initialize(ArgsType &args)
 {
     // specify command line parameters here
-    repeats = convertTo<int>(
-        args.ReadWithDefault("repeats", "1")); // number of repeats in data
+    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
 
     // phases
     string ph_temp;
@@ -247,8 +231,7 @@ void MultiPhaseASLFwdModel::Initialize(ArgsType &args)
     else
     {
         // phases have not been specified on command line  - use defaults
-        nph = convertTo<int>(
-            args.ReadWithDefault("nph", "8")); // number of phases
+        nph = convertTo<int>(args.ReadWithDefault("nph", "8")); // number of phases
         for (int i = 1; i <= nph; i++)
         {
             // evenly spaced phases
@@ -375,9 +358,7 @@ double MultiPhaseASLFwdModel::mod_fn(const double inphase, const double v) const
         double mod_l = interp(mod_phase, usecolumn, phase);
         ColumnVector usecolumn2 = mod_mat.Column(ind);
         double mod_u = interp(mod_phase, usecolumn2, phase);
-        ans = mod_l
-            + (v - mod_v(ind - 1)) / (mod_v(ind) - mod_v(ind - 1))
-                * (mod_u - mod_l);
+        ans = mod_l + (v - mod_v(ind - 1)) / (mod_v(ind) - mod_v(ind - 1)) * (mod_u - mod_l);
     }
 
     return ans;
