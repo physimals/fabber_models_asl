@@ -1,32 +1,31 @@
-/*  fwdmodel_asl_quasar.cc -resting stat ASL model for QUASAR acquisition
+/*  fwdmodel_asl_turboquasar.cc -resting stat ASL model for TURBO QUASAR
+   acquisition
 
-    Michael Chappell, IBME & FMRIB Image Analysis Group
+    Moss Zhao and Michael Chappell, IBME & FMRIB Image Analysis Group
 
     Copyright (C) 2010 University of Oxford  */
 
 /*  CCOPYRIGHT */
 
-#include "fwdmodel_asl_quasar.h"
+#include "fwdmodel_asl_turboquasar.h"
 
-#include "fabber_core/tools.h"
 #include <fabber_core/inference.h>
+#include <fabber_core/tools.h>
 
 #include <miscmaths/miscprob.h>
-
-#include <iostream>
 #include <newmatio.h>
-#include <stdexcept>
 
 using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
 
-FactoryRegistration<FwdModelFactory, QuasarFwdModel> QuasarFwdModel::registration("quasar");
+FactoryRegistration<FwdModelFactory, TurboQuasarFwdModel> TurboQuasarFwdModel::registration(
+    "turboquasar");
 
-FwdModel *QuasarFwdModel::NewInstance() { return new QuasarFwdModel(); }
-string QuasarFwdModel::ModelVersion() const
+FwdModel *TurboQuasarFwdModel::NewInstance() { return new TurboQuasarFwdModel(); }
+string TurboQuasarFwdModel::ModelVersion() const
 {
-    string version = "fwdmodel_asl_quasar.cc";
+    string version = "fwdmodel_asl_turboquasar.cc";
 #ifdef GIT_SHA1
     version += string(" Revision ") + GIT_SHA1;
 #endif
@@ -61,10 +60,13 @@ static OptionSpec OPTIONS[] = {
     { "artardoff", OPT_BOOL, "Arterial ARD on", OPT_NONREQ, "" },
     { "wmardoff", OPT_BOOL, "WM ARD on", OPT_NONREQ, "" },
     { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
+    { "bolus_<n>", OPT_FLOAT, "Whether the bolus is on or off. E.g --bolus_1=1 --bolus_2=0. n<=7",
+        OPT_NONREQ, "" },
+    { "slice_shift", OPT_FLOAT, "Slice shifting factor (default: 1)", OPT_NONREQ, "" },
     { "fa", OPT_FLOAT, "Flip angle in degrees", OPT_NONREQ, "30" }, { "" },
 };
 
-void QuasarFwdModel::GetOptions(vector<OptionSpec> &opts) const
+void TurboQuasarFwdModel::GetOptions(vector<OptionSpec> &opts) const
 {
     for (int i = 0; OPTIONS[i].name != ""; i++)
     {
@@ -72,9 +74,20 @@ void QuasarFwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-std::string QuasarFwdModel::GetDescription() const { return "QUASAR ASL model"; }
-void QuasarFwdModel::Initialize(ArgsType &args)
+std::string TurboQuasarFwdModel::GetDescription() const { return "TURBO_QUASAR ASL model"; }
+void TurboQuasarFwdModel::Initialize(ArgsType &args)
 {
+    // simulation mode, put everything in fixed manner
+    simulation = false;
+    simulation = args.ReadBool("simulation_mode");
+    if (simulation)
+    {
+        // Warning message
+        cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded "
+                "values!!!!!"
+             << endl;
+    }
+
     // specify command line parameters here
     // dispersion model
     disptype = args.ReadWithDefault("disp", "gamma");
@@ -85,6 +98,17 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
     lambda = convertTo<double>(
         args.ReadWithDefault("lambda", "0.9")); // NOTE that this parameter is not used!!
+    // n_bolus = convertTo<int>(args.Read("n_bolus")); // total number of
+    // boluses in turbo QUASAR
+    // delta_bolus = convertTo<double>(args.ReadWithDefault("delta_bolus",
+    // "0.6")); // time duration between each successive bolus
+    slice_shifting_factor
+        = convertTo<int>(args.ReadWithDefault("slice_shift", "1")); // slice shifting factor,
+                                                                    // default is 1 meaning no
+                                                                    // increaing sampling rate
+    // delta_ti_gap_factor = convertTo<int>(args.ReadWithDefault("bolus_skip",
+    // "1")); // Number of boluses to skip, default is 1 meaning one bolus
+    // duration is skipped between each successive bolus
 
     infertau = args.ReadBool("infertau"); // infer on bolus length?
     infert1 = args.ReadBool("infert1");   // infer on T1 values?
@@ -146,19 +170,25 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     if ((tissard || artard || wmard) && !ardoff)
         doard = true;
 
-    // sort out ARD indices
-    if (doard && tissard)
-        ardindices.push_back(tiss_index());
-    if (doard && artard)
-        ardindices.push_back(art_index());
-    if (doard && wmard)
-        ardindices.push_back(wm_index());
+    /* if (infertrailing) {
+  if (!infertau) {
+    // do not permit trailing edge inference without inferring on bolus length
+    throw Invalid_option("--infertrailing has been set without setting
+  --infertau");
+  }
+  else if (inferinveff)
+    //do not permit trailing edge inference and inversion efficiency inference
+  (they are mututally exclusive)
+    throw Invalid_option("--infertrailing and --inferinveff may not both be
+  set");
+    }*/
 
     // Deal with tis
     tis.ReSize(1); // will add extra values onto end as needed
     tis(1) = atof(args.Read("ti1").c_str());
 
-    while (true) // get the rest of the tis
+    // get the rest of the tis
+    while (true)
     {
         int N = tis.Nrows() + 1;
         string tiString = args.ReadWithDefault("ti" + stringify(N), "stop!");
@@ -170,12 +200,45 @@ void QuasarFwdModel::Initialize(ArgsType &args)
         tmp = convertTo<double>(tiString);
         tis &= tmp; // vertical concatenation
     }
+
     timax = tis.Maximum(); // dtermine the final TI
     // determine the TI interval (assume it is even throughout)
-    dti = tis(2) - tis(1);
+    dti = (tis(2) - tis(1)) * slice_shifting_factor;
+
+    // Bolus duration parameters
+    // determine delta bolus (time between each successive bolus)
+    // delta_bolus = delta_ti_gap_factor * dti;
+    delta_bolus = dti;
+    // Deal with bolus duration vectors (which one is labelled, which one is
+    // skipped)
+    // Technique similar with TIs
+    bolus_order.ReSize(1);
+    bolus_order(1) = atof(args.Read("bolus_1").c_str()); // Get the first bolus
+    // Get the rest of bolus
+    while (true)
+    {
+        int next_bolus_index = bolus_order.Nrows() + 1;
+        string next_bolus_string
+            = args.ReadWithDefault("bolus_" + stringify(next_bolus_index), "stop!");
+
+        // Reached end of bolus order, then stop reading
+        if (next_bolus_string == "stop!")
+        {
+            break;
+        }
+
+        // Add the new string to end of bolus_order list
+        ColumnVector tmp(1);
+        tmp = convertTo<int>(next_bolus_string);
+        bolus_order &= tmp;
+    }
+    n_bolus = bolus_order.Nrows();
+
+    // Lowest limit of bolus duration. Default value is 0.4s
+    tau_lowest = convertTo<double>(args.ReadWithDefault("tau_lowest", "0.4"));
 
     float fadeg = convertTo<double>(args.ReadWithDefault("fa", "30"));
-    FA = fadeg * M_PI / 180; // convert FA to radians
+    FA = fadeg * M_PI / 180;
 
     // setup crusher directions
     // crushdir.ReSize(4);
@@ -188,20 +251,22 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     crushdir /= sqrt(3); // make unit vectors;
 
     singleti = false; // normally we do multi TI ASL
-    /*if (tis.Nrows()==1) {
-    //only one TI therefore only infer on CBF and ignore other inference options
-    LOG << "--Single inversion time mode--" << endl;
-    LOG << "Only a sinlge inversion time has been supplied," << endl;
-    LOG << "Therefore only tissue perfusion will be inferred." << endl;
-    LOG << "-----" << endl;
-    singleti = true;
-    // force other inference options to be false
-    infertau = false; infert1 = false; inferart = false; //inferinveff = false;
-    }*/
+                      /*if (tis.Nrows()==1) {
+                    //only one TI therefore only infer on CBF and ignore other inference options
+                    LOG << "--Single inversion time mode--" << endl;
+                    LOG << "Only a sinlge inversion time has been supplied," << endl;
+                    LOG << "Therefore only tissue perfusion will be inferred." << endl;
+                    LOG << "-----" << endl;
+                    singleti = true;
+                    // force other inference options to be false
+                    infertau = false; infert1 = false; inferart = false; //inferinveff = false;
+                    }*/
 
     // add information about the parameters to the log
     LOG << "Inference using development model" << endl;
-    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1 << ", t1b = " << t1b;
+    LOG << "    Data parameters: #repeats = " << repeats << ", total number of bolus = " << n_bolus
+        << ", duration (sec) between each bolus = " << delta_bolus << ", t1 = " << t1
+        << ", t1b = " << t1b;
     LOG << ", bolus length (tau) = " << seqtau << endl;
     if (infertau)
     {
@@ -245,7 +310,7 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     LOG << endl;
 }
 
-void QuasarFwdModel::NameParams(vector<string> &names) const
+void TurboQuasarFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();
 
@@ -321,7 +386,7 @@ void QuasarFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
+void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -337,7 +402,10 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
         // if (!singleti) {
         // Tissue bolus transit delay
         prior.means(tiss_index() + 1) = 0.7;
+        // prior.means(tiss_index()+1) = 0.6;
+        // prior.means(tiss_index()+1) = 1;
         precisions(tiss_index() + 1, tiss_index() + 1) = 1;
+        // precisions(tiss_index()+1,tiss_index()+1) = 1e-12;
         // }
     }
 
@@ -345,12 +413,14 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
     if (infertau && infertiss)
     {
         prior.means(tau_index()) = seqtau;
+        // precisions(tau_index(),tau_index()) = 1;
         precisions(tau_index(), tau_index()) = 1;
     }
 
     if (infertaub)
     {
         prior.means(taub_index()) = seqtau;
+        // precisions(taub_index(),taub_index()) = 1;
         precisions(taub_index(), taub_index()) = 1;
     }
 
@@ -362,6 +432,7 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
         prior.means(aidx) = 0;
         precisions(aidx, aidx) = 1e-12;
 
+        // prior.means(aidx+1) = 0.1;
         prior.means(aidx + 1) = 0.5;
         precisions(aidx + 1, aidx + 1) = 1;
     }
@@ -382,11 +453,11 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
       precisions(R_index(),R_index()) = 1;
       }*/
 
-    // White matter
     if (inferwm)
     {
         int wmi = wm_index();
         prior.means(wmi) = 0;
+        // prior.means(wmi+1) = 1.2;
         prior.means(wmi + 1) = 1;
         precisions(wmi, wmi) = 1e-12;
         precisions(wmi + 1, wmi + 1) = 1;
@@ -394,6 +465,7 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
         if (infertau)
         {
             prior.means(wmi + 2) = seqtau;
+            // precisions(wmi+2,wmi+2) = 1;
             precisions(wmi + 2, wmi + 2) = 1;
         }
 
@@ -423,7 +495,12 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
     ColumnVector prvec(4);
     if (disptype == "none")
     {
-        prvec << 0 << 1e99 << 0 << 1e99;
+        /* Modified by Moss 20160430
+      1e99 is too large to be inverted to a non-zero value
+      we use 1e12 here.
+      */
+        prvec << 0 << 1e12 << 0 << 1e12;
+        // prvec << 0 << 1e99 << 0 << 1e99;
     }
     if (disptype == "gvf")
     {
@@ -435,7 +512,8 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
     }
     if (disptype == "gauss")
     {
-        prvec << -1 << 10 << 0 << 1e99;
+        prvec << -1 << 10 << 0 << 1e12;
+        // prvec << -1 << 10 << 0 << 1e99;
     }
     prior.means(disp_index()) = prvec(1); // 0.05;
     prior.means(disp_index() + 1) = prvec(3);
@@ -529,7 +607,7 @@ void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) c
     posterior.SetPrecisions(precisions);
 }
 
-void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
+void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -619,10 +697,18 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) 
     if (infertau && infertiss)
     {
         tauset = paramcpy(tau_index());
+        // tauset = (dti * 0.5) * (tanh(tauset) + 1);
+        // tauset = 0.1 * tanh(tauset) + dti - 0.1;
+        tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
+        // cout << "tanh function used" << endl;
+        // tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
+        // cout << tauset << endl;
+        // getchar();
     }
     else
     {
         tauset = seqtau;
+        // tauset = (dti * 0.5) * (tanh(tauset) + 1);
     }
 
     if (infertaub)
@@ -771,7 +857,6 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) 
     }
 
     // flip angle correction (only if calibon)
-    // Note that FA is in radians
     float FAtrue = FA;
     float dg = 0.023;
     if (calibon)
@@ -821,13 +906,25 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) 
     // generate the kinetic curves
     if (disptype == "none")
     {
+        /* Added by Moss */
+        if (simulation)
+        {
+            T_1b = 1.60;
+            T_1 = 1.3;
+            T_1app = T_1;
+            T_1ll = T_1b;
+        }
+
         if (infertiss)
-            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll);
+            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll);
+            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         if (inferart)
-            kcblood = kcblood_nodisp(thetis, deltblood, taub, T_1b, deltll, T_1ll);
+            kcblood = kcblood_nodisp(
+                thetis, deltblood, taub, T_1b, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
         // cout << kcblood << endl;
     }
     else if (disptype == "gamma")
@@ -869,19 +966,19 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) 
     }
 
     /* KC debugging
-    T_1 = 1.3;
-    T_1app = 1/( 1/T_1 + 0.01/lambdagm);
-    cout << T_1app << "  " << endl;
-    T_1b = 1.6; tau=1; delttiss=0.7; s=100, p=0.05;
-    kctissue=kctissue_nodisp(tis,delttiss,tau,T_1b,T_1app);
-    cout << kctissue.t() << endl;
-    kctissue=kctissue_gammadisp(tis,delttiss,tau,T_1b,T_1app,s,p);
-    cout << kctissue.t() << endl;
-    kctissue=kctissue_gvf(tis,delttiss,T_1b,T_1app,s,p);
-    cout << kctissue.t() << endl;
+  T_1 = 1.3;
+  T_1app = 1/( 1/T_1 + 0.01/lambdagm);
+  cout << T_1app << "  " << endl;
+  T_1b = 1.6; tau=1; delttiss=0.7; s=100, p=0.05;
+  kctissue=kctissue_nodisp(tis,delttiss,tau,T_1b,T_1app);
+  cout << kctissue.t() << endl;
+  kctissue=kctissue_gammadisp(tis,delttiss,tau,T_1b,T_1app,s,p);
+  cout << kctissue.t() << endl;
+  kctissue=kctissue_gvf(tis,delttiss,T_1b,T_1app,s,p);
+  cout << kctissue.t() << endl;
 
-    assert(1==0);
-    */
+  assert(1==0);
+  */
 
     // Nan catching
     bool cont = true;
@@ -1011,7 +1108,7 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) 
     return;
 }
 
-void QuasarFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
+void TurboQuasarFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
 {
     if (doard)
     {
@@ -1051,7 +1148,7 @@ void QuasarFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double 
     return;
 }
 
-void QuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void TurboQuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     if (doard)
         Fard = 0;
@@ -1085,62 +1182,143 @@ void QuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double
 
 // --- Kinetic curve functions ---
 // Arterial
-ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood, float taub,
-    float T_1bin, float deltll, float T_1ll) const
+
+ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood,
+    float taub, float T_1bin, float deltll, float T_1ll, int n_bolus, float delta_bolus,
+    const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
     float T_1b;
+    float bolus_time_passed;
+    float current_arrival_time;
+
     // Non dispersed arterial curve (pASL)
     float ti = 0.0;
-    for (int it = 1; it <= tis.Nrows(); it++)
-    {
-        ti = tis(it);
-        if (ti < deltll)
-            T_1b = T_1bin;
-        else
-            T_1b = T_1ll;
+    float current_value;
 
-        if (ti < deltblood)
+    int n_bolus_arrived = 0;
+    float current_bolus_duration = 0;
+
+    while (n_bolus_arrived < n_bolus)
+    {
+        bolus_time_passed = n_bolus_arrived * delta_bolus;
+
+        current_arrival_time = bolus_time_passed + deltblood;
+
+        current_bolus_duration
+            = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from one
+
+        for (int it = 1; it <= tis.Nrows(); it++)
         {
-            kcblood(it) = 2 * exp(-deltblood / T_1b)
-                * (0.98 * exp((ti - deltblood) / 0.05) + 0.02 * ti / deltblood);
-            // use a artifical lead in period for arterial bolus to improve
-            // model fitting
+            ti = tis(it);
+
+            // correct Look-locker T1
+            if (ti < deltll)
+            {
+                T_1b = T_1bin;
+            }
+            else
+            {
+                T_1b = T_1ll;
+            }
+
+            // start model fitting
+            if (ti < current_arrival_time)
+            {
+                // use a arti�fical lead in period for arterial bolus to improve
+                // model fitting
+                kcblood(it) = kcblood(it)
+                    + 2 * exp(-deltblood / T_1b)
+                        * (0.98 * exp(((ti - bolus_time_passed) - deltblood) / 0.05)
+                              + 0.02 * ti / deltblood);
+            }
+
+            else if (ti > current_arrival_time
+                && ti <= (current_arrival_time + current_bolus_duration))
+            {
+                kcblood(it) = kcblood(it) + 2 * exp(-(ti - bolus_time_passed) / T_1b);
+            }
+
+            else
+            {
+                // artifical lead out period for taub model fitting
+                current_value = 2 * exp(-(deltblood + current_bolus_duration) / T_1b);
+                current_value *= (0.98
+                        * exp(-((ti - bolus_time_passed) - deltblood - current_bolus_duration)
+                                      / 0.05)
+                    + 0.02 * (1
+                                 - ((ti - bolus_time_passed) - deltblood - current_bolus_duration)
+                                     / 5));
+                if (current_value >= 0)
+                {
+                    kcblood(it) = kcblood(it) + current_value;
+                }
+                else
+                {
+                    kcblood(it) = kcblood(it) + 0;
+                }
+            }
         }
-        else if (ti >= deltblood && ti <= (deltblood + taub))
-        {
-            kcblood(it) = 2 * exp(-ti / T_1b);
-        }
-        else //(ti > deltblood + tau)
-        {
-            kcblood(it) = 2 * exp(-(deltblood + taub) / T_1b);
-            kcblood(it) *= (0.98 * exp(-(ti - deltblood - taub) / 0.05)
-                + 0.02 * (1 - (ti - deltblood - taub) / 5));
-            // artifical lead out period for taub model fitting
-            if (kcblood(it) < 0)
-                kcblood(it) = 0; // negative values are possible with the lead
-                                 // out period equation
-        }
+
+        n_bolus_arrived++;
     }
+
+    /*
+  for(int it=1; it<=tis.Nrows(); it++)
+    {
+      ti = tis(it);
+
+      if (ti< deltll) T_1b = T_1bin;
+      else            T_1b = T_1ll;
+
+      if(ti < deltblood)
+  {
+    kcblood(it) = 2 * exp(-deltblood/T_1b) * (0.98 * exp( (ti-deltblood)/0.05 )
+  + 0.02 * ti/deltblood );
+    // use a arti�fical lead in period for arterial bolus to improve model
+  fitting
+  }
+      else if(ti >= deltblood && ti <= (deltblood + taub))
+  {
+    kcblood(it) = 2 * exp(-ti/T_1b);
+  }
+      else //(ti > deltblood + tau)
+  {
+    kcblood(it) = 2 * exp(-(deltblood+taub)/T_1b);
+    kcblood(it) *= (0.98 * exp( -(ti - deltblood - taub)/0.05) + 0.02 * (1-(ti -
+  deltblood - taub)/5));
+    // artifical lead out period for taub model fitting
+    if (kcblood(it)<0) kcblood(it)=0; //negative values are possible with the
+  lead out period equation
+  }
+
+    }
+  */
+
     return kcblood;
 }
-ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis, float deltblood, float taub,
-    float T_1bin, float s, float p, float deltll, float T_1ll) const
+
+ColumnVector TurboQuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis, float deltblood,
+    float taub, float T_1bin, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
     float T_1b;
     // Gamma dispersed arterial curve (pASL)
+
     float k = 1 + p * s;
     float ti = 0.0;
+
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
+
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
+
         if (ti < deltblood)
         {
             kcblood(it) = 0.0;
@@ -1159,7 +1337,8 @@ ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis, float de
     }
     return kcblood;
 }
-ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltblood, float taub,
+
+ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltblood, float taub,
     float T_1bin, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
@@ -1167,6 +1346,7 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltbloo
     float T_1b;
     if (s < 1)
         s = 1; // dont allow this to become too extreme
+
     // gamma variate arterial curve
     // NOTES: this model is only suitable for pASL
     //        no explicit taub (see below). However, it does scale the area
@@ -1174,13 +1354,16 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltbloo
     //                                      (since it affects the original
     //                                      ammount of labeled blood).
     float ti = 0.0;
+
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
+
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
+
         if (ti < deltblood)
         {
             kcblood(it) = 0.0;
@@ -1192,15 +1375,16 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltbloo
         // we do not have bolus duration with a GVF AIF - the duration is
         // 'built' into the function shape
         // else //(ti > deltblood + taub)
-        //	{
-        //	  kcblood(it) = 0.0 ;
+        //  {
+        //    kcblood(it) = 0.0 ;
         //
-        //	}
+        //  }
     }
     return kcblood * taub;
 }
-ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float deltblood, float taub,
-    float T_1bin, float sig1, float sig2, float deltll, float T_1ll) const
+
+ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float deltblood,
+    float taub, float T_1bin, float sig1, float sig2, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1209,60 +1393,146 @@ ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float de
     // after Hrabe & Lewis, MRM, 2004
     float ti = 0.0;
     float sqrt2 = sqrt(2);
+
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
+
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
+
         kcblood(it) = 0.5 * exp(-ti / T_1b)
             * (MISCMATHS::erf((ti - deltblood) / (sqrt2 * sig1))
                           - MISCMATHS::erf((ti - deltblood + taub) / (sqrt2 * sig2)));
     }
     return kcblood;
 }
+
 // Tissue
-ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss, float tau,
-    float T_1bin, float T_1app, float deltll, float T_1ll) const
+ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss,
+    float tau, float T_1bin, float T_1app, float deltll, float T_1ll, int n_bolus_total,
+    float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
     float ti = 0.0;
     float T_1b;
+
+    // hardcoded parameters
+    // int n_bolus_total = 4; // total number of boluses
+    // float delta_bolus = 0.6; // actual gap between boluses
+
     // Tissue kinetic curve no dispersion (pASL)
     // Buxton (1998) model
+
     float R;
-    for (int it = 1; it <= tis.Nrows(); it++)
+
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
+    float current_bolus_duration = 0; // Current bolus duration
+
+    // float k;
+
+    // tau = ti * (1 / M_PI * atan(k) + 0.5);
+
+    // now start model fitting
+    while (n_bolus_arrived < n_bolus_total)
     {
-        ti = tis(it);
-        float F = 2 * exp(-ti / T_1app);
-        if (ti < deltll)
-            T_1b = T_1bin;
-        else
-            T_1b = T_1ll;
-        R = 1 / T_1app - 1 / T_1b;
-        if (ti < delttiss)
+        bolus_time_passed = n_bolus_arrived * delta_bolus;
+
+        current_arrival_time = bolus_time_passed + delttiss;
+
+        current_bolus_duration
+            = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
+
+        for (int it = 1; it <= tis.Nrows(); it++)
         {
-            kctissue(it) = 0;
+            // cout << tau << "hahaha" << endl;
+
+            ti = tis(it);
+            float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
+
+            if (ti < deltll)
+                T_1b = T_1bin;
+            else
+                T_1b = T_1ll;
+
+            R = 1 / T_1app - 1 / T_1b;
+
+            if (ti < current_arrival_time)
+            {
+                kctissue(it) = kctissue(it) + 0;
+            }
+
+            else if (ti >= current_arrival_time
+                && ti <= (current_arrival_time + current_bolus_duration))
+            {
+                kctissue(it) = kctissue(it)
+                    + F / R * ((exp(R * (ti - bolus_time_passed)) - exp(R * delttiss)));
+                // kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp(
+                // (-1) * R * ti );
+            }
+
+            else //(ti > delttiss + tau)
+            {
+                kctissue(it) = kctissue(it)
+                    + F / R * ((exp(R * (delttiss + current_bolus_duration)) - exp(R * delttiss)));
+                // kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) -
+                // exp(R*delttiss))  ) * exp( (-1) * R * ti );
+            }
+
+            // Bolus duration must be less than the duration between each
+            // labelling pulse
+            /*
+      if (tau > dti) {
+        //cout << dti << endl;
+        // Added by Moss
+        // This ensures that tau is between 0 and 0.6
+        //tau = (3 / 10) * (tanh(tau) + 1);
+        tau = (dti * 0.5) * (tanh(tau) + 1);
+      }
+      */
         }
-        else if (ti >= delttiss && ti <= (delttiss + tau))
-        {
-            kctissue(it) = F / R * ((exp(R * ti) - exp(R * delttiss)));
-            // kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp(
-            // (-1) * R * ti );
-        }
-        else //(ti > delttiss + tau)
-        {
-            kctissue(it) = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
-            // kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))
-            // ) * exp( (-1) * R * ti );
-        }
+
+        n_bolus_arrived++;
     }
+
+    /*
+  for(int it=1; it<=tis.Nrows(); it++) {
+    ti = tis(it);
+    float F = 2 * exp(-ti/T_1app);
+    if (ti< deltll)
+      T_1b = T_1bin;
+    else
+      T_1b = T_1ll;
+
+    R = 1/T_1app - 1/T_1b;
+    if(ti < delttiss) {
+      kctissue(it) = 0;
+    }
+    else if(ti >= delttiss && ti <= (delttiss + tau)) {
+      kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) );
+      //kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp( (-1) * R *
+  ti );
+    }
+    else //(ti > delttiss + tau)
+    {
+      kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  );
+      //kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  ) *
+  exp( (-1) * R * ti );
+    }
+  }
+  */
+
     return kctissue;
 }
-ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float delttiss, float tau,
-    float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll) const
+
+ColumnVector TurboQuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float delttiss,
+    float tau, float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1272,14 +1542,18 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float d
     float C;
     float k = 1 + p * s;
     float T_1b;
+
     // cout << T_1app << " " << A << " " << B << " "<< C << " " << endl ;
+
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
+
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
+
         A = T_1app - T_1b;
         B = A + s * T_1app * T_1b;
         if (B < 1e-12)
@@ -1289,6 +1563,7 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float d
         if (s - 1 / T_1app + 1 / T_1b <= 0)
             C = 1e-12; // really shouldn't happen, but combination of parameters
                        // may arise in artefactual voxels?
+
         if (ti < delttiss)
         {
             kctissue(it) = 0;
@@ -1322,28 +1597,34 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float d
     // cout << kctissue.t() << endl;
     return kctissue;
 }
-ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis, float delttiss, float tau,
+
+ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis, float delttiss, float tau,
     float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
     float ti = 0.0;
     float T_1b;
+
     float k = 1 + p * s;
     float A;
     float B;
     float C;
     float sps = pow(s, k);
+
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
+
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
+
         A = T_1app - T_1b;
         B = A + s * T_1app * T_1b;
         C = pow(s - 1 / T_1app + 1 / T_1b, p * s);
+
         if (ti < delttiss)
         {
             kctissue(it) = 0.0;
@@ -1356,16 +1637,17 @@ ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis, float delttis
         // bolus duraiton is specified by the CVF AIF shape and is not an
         // explicit parameter
         // else //(ti > delttiss + tau)
-        //	{
-        //	  kctissue(it) = exp(-(ti-delttiss-tau)/T_1app) * 2* 1/(B*C) *
-        // exp(-(delttiss+tau)/T_1app)*sps*T_1app*T_1b * (1 -
-        // igamc(k,(s-1/T_1app-1/T_1b)*(delttiss+tau)));
-        //	}
+        //  {
+        //    kctissue(it) = exp(-(ti-delttiss-tau)/T_1app) * 2* 1/(B*C) *
+        //    exp(-(delttiss+tau)/T_1app)*sps*T_1app*T_1b * (1 -
+        //    igamc(k,(s-1/T_1app-1/T_1b)*(delttiss+tau)));
+        //  }
     }
     return kctissue * tau;
 }
-ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float delttiss, float tau,
-    float T_1bin, float T_1app, float sig1, float sig2, float deltll, float T_1ll) const
+
+ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float delttiss,
+    float tau, float T_1bin, float T_1app, float sig1, float sig2, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1373,19 +1655,24 @@ ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float d
     float T_1b;
     // Tissue kinetic curve gaussian dispersion (pASL)
     // Hrabe & Lewis, MRM, 2004
+
     float R;
     float sqrt2 = sqrt(2);
+
     for (int it = 1; it <= tis.Nrows(); it++)
     {
         ti = tis(it);
+
         if (ti < deltll)
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
         R = 1 / T_1app - 1 / T_1b;
+
         float F = 2 * exp(-ti / T_1app);
         float u1 = (ti - delttiss) / (sqrt2 * sig1);
         float u2 = (ti - delttiss - tau) / (sqrt2 * sig2);
+
         kctissue(it) = F / (2 * R) * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2)) * exp(R * ti)
                                          - (1 + MISCMATHS::erf(u1 - (R * sig1) / sqrt2))
                                              * exp(R * (delttiss + (R * sig1 * sig1) / 2))
@@ -1394,18 +1681,22 @@ ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float d
     }
     return kctissue;
 }
+
 // --- useful general functions ---
-float QuasarFwdModel::icgf(float a, float x) const
+float TurboQuasarFwdModel::icgf(float a, float x) const
 {
     // incomplete gamma function with a=k, based on the incomplete gamma
     // integral
+
     return MISCMATHS::gamma(a) * igamc(a, x);
 }
-float QuasarFwdModel::gvf(float t, float s, float p) const
+
+float TurboQuasarFwdModel::gvf(float t, float s, float p) const
 {
     // The Gamma Variate Function (correctly normalised for area under curve)
     // Form of Rausch 2000
     // NB this is basically a gamma pdf
+
     if (t < 0)
         return 0.0;
     else

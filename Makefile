@@ -10,11 +10,16 @@ LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lfslio -lniftiio -lznz -l
 XFILES = fabber_asl
 
 # Forward models
-OBJS =  fwdmodel_asl_multiphase.o fwdmodel_asl_grase.o asl_models.o fwdmodel_asl_rest.o
+OBJS =  fwdmodel_asl_multiphase.o fwdmodel_asl_grase.o asl_models.o fwdmodel_asl_rest.o fwdmodel_asl_quasar.o fwdmodel_asl_satrecov.o fwdmodel_asl_turboquasar.o
 
 # For debugging:
 OPTFLAGS = -ggdb
 #OPTFLAGS =
+
+# Pass Git revision details
+GIT_SHA1:=$(shell git describe --dirty)
+GIT_DATE:=$(shell git log -1 --format=%ad --date=local)
+CXXFLAGS += -DGIT_SHA1=\"${GIT_SHA1}\" -DGIT_DATE="\"${GIT_DATE}\""
 
 #
 # Build

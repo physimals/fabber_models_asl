@@ -8,7 +8,9 @@ if(APPLE)
 endif(APPLE)
 
 set(MODELS_NAME asl)
-set(MODELS_SRC fwdmodel_asl_rest.cc fwdmodel_asl_grase.cc fwdmodel_asl_multiphase.cc asl_models.cc)
+set(MODELS_SRC fwdmodel_asl_rest.cc fwdmodel_asl_grase.cc fwdmodel_asl_multiphase.cc 
+               fwdmodel_asl_quasar.cc fwdmodel_asl_satrecov.cc fwdmodel_asl_turboquasar.cc
+               asl_models.cc)
 
 add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC})
 add_executable(fabber_${MODELS_NAME} ${MODELS_SRC} fabber_client.cc)
@@ -43,10 +45,18 @@ find_library(NIFTIIO_LIBRARY NAMES niftiio libniftiio
              HINTS $ENV{FSLDIR}/lib REQUIRED )
 find_library(ZNZ_LIBRARY NAMES znz libznz
              HINTS $ENV{FSLDIR}/lib REQUIRED )
-find_library(Z_LIBRARY NAMES z libz zlib zlibd 
-               HINTS $ENV{FSLDIR}/lib REQUIRED )
 find_library(PROB_LIBRARY NAMES prob libprob
              HINTS $ENV{FSLDIR}/extras/lib REQUIRED )
+
+if(WIN32)
+  # Only use FSL zlib on windows as other versions are unlikely to be
+  # binary-compatibly
+  find_library(Z_LIBRARY NAMES z libz zlib zlibd 
+               HINTS $ENV{FSLDIR}/lib REQUIRED NO_DEFAULT_PATH)
+else(WIN32)
+  find_library(Z_LIBRARY NAMES z libz zlib zlibd 
+               HINTS $ENV{FSLDIR}/lib REQUIRED)
+endif(WIN32)
 
 set(LIBS ${FABBER_LIBRARY} ${FABBER_EXEC_LIBRARY}  ${NEWIMAGE_LIBRARY} ${FSLIO_LIBRARY} ${MISCMATHS_LIBRARY} ${NIFTIIO_LIBRARY}  ${ZNZ_LIBRARY} ${Z_LIBRARY} ${NEWMAT_LIBRARY} ${PROB_LIBRARY})
 #set(SHLIBS ${PROB_LIBRARY})

@@ -1,4 +1,4 @@
-/*  fwdmodel_asl_multiphase.h - 
+/*  fwdmodel_asl_multiphase.h -
 
  Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
 
@@ -22,30 +22,23 @@ public:
 
     // Virtual function overrides
     virtual void Initialize(ArgsType &args);
-    virtual void Evaluate(const NEWMAT::ColumnVector &params,
-        NEWMAT::ColumnVector &result) const;
+    virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
     virtual string ModelVersion() const;
-    virtual void GetOptions(std::vector<OptionSpec> &opts) const;
-    virtual std::string GetDescription() const;
+    virtual void GetOptions(vector<OptionSpec> &opts) const;
+    virtual string GetDescription() const;
 
     virtual void NameParams(vector<string> &names) const;
-    virtual int NumParams() const
-    {
-        return 3 + (incvel ? 1 : 0);
-    }
-
-    virtual ~MultiPhaseASLFwdModel()
-    {
-        return;
-    }
-
-    virtual void HardcodedInitialDists(MVNDist &prior,
-        MVNDist &posterior) const;
+    virtual int NumParams() const { return 3 + (incvel ? 1 : 0); }
+    virtual ~MultiPhaseASLFwdModel() { return; }
+    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
     virtual void InitParams(MVNDist &posterior) const;
 
-protected:
-    // Constants
+protected: // Constants
     int repeats;
+
+    // phases in data
+    int nph;
+    NEWMAT::ColumnVector ph_list;
 
     // modulation function
     string modfn;
@@ -58,10 +51,10 @@ protected:
     double alpha;
     double beta;
 
-    //modulation matrix
+    // modulation matrix
     double mod_fn(const double inphase, const double v) const;
-    double interp(const NEWMAT::ColumnVector &x, const NEWMAT::ColumnVector &y,
-        const double xi) const;
+    double interp(
+        const NEWMAT::ColumnVector &x, const NEWMAT::ColumnVector &y, const double xi) const;
     NEWMAT::Matrix mod_mat;
     NEWMAT::ColumnVector mod_phase;
     NEWMAT::ColumnVector mod_v;
