@@ -1371,7 +1371,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             {
                 tiss_model = new TissueModel_nodisp_wellmix();
             }
-            else if (disptype == "gamma" & !casl)
+            else if ((disptype == "gamma") && !casl)
             {
                 tiss_model = new TissueModel_gammadisp_wellmix();
             }
@@ -1390,7 +1390,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         else if (exchtype == "2cpt")
         {
             resid_model = new ResidModel_twocpt;
-            if (disptype == "none" & !casl)
+            if ((disptype == "none") && !casl)
             {
                 tiss_model = new TissueModel_nodisp_2cpt();
             }
@@ -1399,7 +1399,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         else if (exchtype == "spa")
         {
             resid_model = new ResidModel_spa();
-            if (disptype == "none" & !casl)
+            if ((disptype == "none") && !casl)
             {
                 tiss_model = new TissueModel_nodisp_spa();
             }
