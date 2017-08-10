@@ -777,33 +777,33 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     {
         // ASL data - unstracted (raw)
         result.ReSize(2 * tpoints);
-	int ent=0;
+        int ent = 0;
         for (int it = 1; it <= tis.Nrows(); it++)
         {
-	  // data is in blocks of repeated TIs
-	  // loop over the repeats
-	  for (int rpt = 1; rpt <= repeats[it-1]; rpt++)
+            // data is in blocks of repeated TIs
+            // loop over the repeats
+            for (int rpt = 1; rpt <= repeats[it - 1]; rpt++)
             {
-	      result(ent + 2 * rpt - 1) = statcont(it) + kctotal(it); //TAG
-	      result(ent + 2 * rpt) = statcont(it);                   //CONTROL
+                result(ent + 2 * rpt - 1) = statcont(it) + kctotal(it); // TAG
+                result(ent + 2 * rpt) = statcont(it);                   // CONTROL
             }
-	  ent += 2*repeats[it-1];
+            ent += 2 * repeats[it - 1];
         }
     }
     else
     {
         // normal (differenced) ASL data
         result.ReSize(tpoints);
-	int ent=0;
+        int ent = 0;
         for (int it = 1; it <= tis.Nrows(); it++)
         {
-	  // data is in blocks of repeated TIs
-	  // loop over the repeats
-	  for (int rpt = 1; rpt <= repeats[it-1]; rpt++)
+            // data is in blocks of repeated TIs
+            // loop over the repeats
+            for (int rpt = 1; rpt <= repeats[it - 1]; rpt++)
             {
-	      result(ent + rpt) = statcont(it) + kctotal(it);
+                result(ent + rpt) = statcont(it) + kctotal(it);
             }
-	  ent += repeats[it-1];
+            ent += repeats[it - 1];
         }
     }
 
@@ -915,12 +915,17 @@ void ASLFwdModel::Initialize(ArgsType &args)
             ardindices.push_back(flow_index() + artidx);
         }
         // scan parameters
-        //repeats = convertTo<int>(args.ReadWithDefault("repeats", "1"));      // number of repeats in data
-        pretisat = convertTo<double>(args.ReadWithDefault("pretisat", "0")); // deal with saturation of the bolus a fixed time pre TI measurement
-        slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
-        sliceband = convertTo<int>(args.ReadWithDefault("sliceband", "0"));  //number of slices in a band in a multi-band setup (zero implies single band)
-        casl = args.ReadBool("casl");                                        //set if the data is CASL or PASL (default)
-        //seqtau = convertTo<double>(args.ReadWithDefault("tau","1000")); //bolus length as set by sequence (default of 1000 is effectively infinite
+        // repeats = convertTo<int>(args.ReadWithDefault("repeats", "1"));      // number of repeats
+        // in data
+        pretisat = convertTo<double>(args.ReadWithDefault(
+            "pretisat", "0")); // deal with saturation of the bolus a fixed time pre TI measurement
+        slicedt
+            = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+        sliceband = convertTo<int>(args.ReadWithDefault("sliceband",
+            "0")); // number of slices in a band in a multi-band setup (zero implies single band)
+        casl = args.ReadBool("casl"); // set if the data is CASL or PASL (default)
+        // seqtau = convertTo<double>(args.ReadWithDefault("tau","1000")); //bolus length as set by
+        // sequence (default of 1000 is effectively infinite
 
         setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
         string deltwm = args.ReadWithDefault("batwm", "null");
@@ -1137,17 +1142,17 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
         }
 
-        timax = tis.Maximum(); //dtermine the final TI
+        timax = tis.Maximum(); // dtermine the final TI
 
-	//repeats
-	string rpt_temp = args.ReadWithDefault("repeats", "NULL");      
+        // repeats
+        string rpt_temp = args.ReadWithDefault("repeats", "NULL");
         if (rpt_temp != "NULL")
         {
-	  // number of repeats has been specified - same for each TI
-	  for (int it=0; it<tis.Nrows(); it++)
-	    {
-	      repeats.push_back( convertTo<int>(rpt_temp) );
-	    }
+            // number of repeats has been specified - same for each TI
+            for (int it = 0; it < tis.Nrows(); it++)
+            {
+                repeats.push_back(convertTo<int>(rpt_temp));
+            }
         }
         else
         {
@@ -1155,46 +1160,47 @@ void ASLFwdModel::Initialize(ArgsType &args)
             if (rpt_temp != "none")
             {
                 // a list of repeats
-	      repeats.push_back( convertTo<double>(rpt_temp) );
-	      int N=2;
-                while (true) //get the rest of the repeats
+                repeats.push_back(convertTo<int>(rpt_temp));
+                int N = 2;
+                while (true) // get the rest of the repeats
                 {
-		  if (hadamard)
+                    if (hadamard)
                     {
-		      throw invalid_argument("Cannot specify more than one set of repeats with Hadmard encoding");
-		    }
-		  
+                        throw invalid_argument(
+                            "Cannot specify more than one set of repeats with Hadmard encoding");
+                    }
+
                     rpt_temp = args.ReadWithDefault("rpt" + stringify(N), "stop!");
                     if (rpt_temp == "stop!")
-                        break; //we have run out of repeats
+                        break; // we have run out of repeats
 
-                    repeats.push_back( convertTo<double>(rpt_temp) );
-		    N++;
+                    repeats.push_back(convertTo<int>(rpt_temp));
+                    N++;
                 }
                 // check that number of entries for repeats matches number of TIs
-                if (repeats.size() != tis.Nrows())
+                if (int(repeats.size()) != tis.Nrows())
                 {
-                    throw invalid_argument("Mismatch between number of inflow times (TIs/PLDs) and entries for repeats - these should be equal");
+                    throw invalid_argument("Mismatch between number of inflow times (TIs/PLDs) and "
+                                           "entries for repeats - these should be equal");
                 }
             }
-	    else
-	      {
-		// The number of repeats has not been specified by the user - default is one.
-		for (int it=0; it<tis.Nrows(); it++)
-		  {
-		    repeats.push_back( 1 );
-		  }
-	      }
+            else
+            {
+                // The number of repeats has not been specified by the user - default is one.
+                for (int it = 0; it < tis.Nrows(); it++)
+                {
+                    repeats.push_back(1);
+                }
+            }
         }
-	// total number of time points in data
-	tpoints=0;
-	for (int it=0; it<tis.Nrows(); it++)
-	  {
-	    tpoints += repeats[it];
-	  }
-	
-	
-        //bolus durations
+        // total number of time points in data
+        tpoints = 0;
+        for (int it = 0; it < tis.Nrows(); it++)
+        {
+            tpoints += repeats[it];
+        }
+
+        // bolus durations
 
         multitau = false;
         string tau_temp = args.ReadWithDefault("tau", "none");
@@ -1242,7 +1248,6 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
         }
 
-	
         // vascular crushing
         // to specify a custom combination of vascular crushing
         string crush_temp = args.ReadWithDefault("crush1", "notsupplied");
