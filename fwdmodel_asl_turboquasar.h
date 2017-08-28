@@ -118,12 +118,12 @@ protected: // Constants
     NEWMAT::ColumnVector kcblood_nodisp(const NEWMAT::ColumnVector &tis, float deltblood, float taub, float T_1b, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kcblood_gammadisp(const NEWMAT::ColumnVector &tis, float deltblood, float taub, float T_1bin, float s, float p, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kcblood_gvf(const NEWMAT::ColumnVector &tis, float deltblood, float taub, float T_1b, float s, float p, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
-    NEWMAT::ColumnVector kcblood_gaussdisp(const NEWMAT::ColumnVector &tis, float deltblood, float taub, float T_1b, float sig1, float sig2, float deltll, float T_1ll) const;
+    NEWMAT::ColumnVector kcblood_gaussdisp(const NEWMAT::ColumnVector &tis, float deltblood, float taub, float T_1b, float sig1, float sig2, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     //Tissue
     NEWMAT::ColumnVector kctissue_nodisp(const NEWMAT::ColumnVector &tis, float delttiss, float tau, float T1_b, float T1_app, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kctissue_gammadisp(const NEWMAT::ColumnVector &tis, float delttiss, float tau, float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kctissue_gvf(const NEWMAT::ColumnVector &tis, float delttiss, float tau, float T1_b, float T1_app, float s, float p, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
-    NEWMAT::ColumnVector kctissue_gaussdisp(const NEWMAT::ColumnVector &tis, float delttiss, float tau, float T_1b, float T_1app, float sig1, float sig2, float deltll, float T_1ll) const;
+    NEWMAT::ColumnVector kctissue_gaussdisp(const NEWMAT::ColumnVector &tis, float delttiss, float tau, float T_1b, float T_1app, float sig1, float sig2, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
 
     //useful functions
     float icgf(float a, float x) const;

@@ -925,12 +925,12 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     else if (disptype == "gauss")
     {
         if (infertiss)
-            kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll);
+            kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
         //cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll);
+            kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
         if (inferart)
-            kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll);
+            kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
         //cout << kcblood << endl;
     }
     else
@@ -1425,7 +1425,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float del
     return kcblood;
 }
 
-
+/*
 ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float deltblood, float taub, float T_1bin, float sig1, float sig2, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
@@ -1446,6 +1446,48 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, flo
             T_1b = T_1ll;
 
         kcblood(it) = 0.5 * exp(-ti / T_1b) * (MISCMATHS::erf((ti - deltblood) / (sqrt2 * sig1)) - MISCMATHS::erf((ti - deltblood + taub) / (sqrt2 * sig2)));
+    }
+    return kcblood;
+}
+*/
+
+ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float deltblood, float taub, float T_1bin, float sig1, float sig2, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const ColumnVector &bolus_order) const
+{
+    ColumnVector kcblood(tis.Nrows());
+    kcblood = 0.0;
+    float T_1b;
+    // Gaussian dispersion arterial curve
+    // after Hrabe & Lewis, MRM, 2004
+    float ti = 0.0;
+    float sqrt2 = sqrt(2);
+
+    // Turbo QUASAR specific parameters
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
+    float current_bolus_duration = 0; // Current bolus duration
+
+    while (n_bolus_arrived < n_bolus_total)
+    {
+        bolus_time_passed = n_bolus_arrived * delta_bolus;
+
+        current_arrival_time = bolus_time_passed + deltblood;
+
+        current_bolus_duration = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
+
+        for (int it = 1; it <= tis.Nrows(); it++)
+        {
+            ti = tis(it);
+
+            if (ti < deltll)
+                T_1b = T_1bin;
+            else
+                T_1b = T_1ll;
+
+            kcblood(it) = 0.5 * exp(-(ti - bolus_time_passed) / T_1b) * (MISCMATHS::erf(((ti - bolus_time_passed) - deltblood) / (sqrt2 * sig1)) - MISCMATHS::erf(((ti - bolus_time_passed) - deltblood + current_bolus_duration) / (sqrt2 * sig2)));
+        }
+
+        n_bolus_arrived++;
     }
     return kcblood;
 }
@@ -1768,6 +1810,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis, float de
     return kctissue;
 }
 
+/*
 ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float delttiss, float tau, float T_1bin, float T_1app, float sig1, float sig2, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
@@ -1798,6 +1841,58 @@ ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, fl
                                          - (1 + MISCMATHS::erf(u1 - (R * sig1) / sqrt2)) * exp(R * (delttiss + (R * sig1 * sig1) / 2))
                                          + (1 + MISCMATHS::erf(u2 - (R * sig2) / sqrt2)) * exp(R * (delttiss + tau + (R * sig2 * sig2) / 2)));
     }
+    return kctissue;
+}
+*/
+
+ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float delttiss, float tau, float T_1bin, float T_1app, float sig1, float sig2, float deltll, float T_1ll, int n_bolus_total, float delta_bolus, const ColumnVector &bolus_order) const
+{
+    ColumnVector kctissue(tis.Nrows());
+    kctissue = 0.0;
+    float ti = 0.0;
+    float T_1b;
+    // Tissue kinetic curve gaussian dispersion (pASL)
+    // Hrabe & Lewis, MRM, 2004
+
+    float R;
+    float sqrt2 = sqrt(2);
+
+    // Turbo QUASAR specific parameters
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
+    float current_bolus_duration = 0; // Current bolus duration
+
+    while (n_bolus_arrived < n_bolus_total)
+    {
+        bolus_time_passed = n_bolus_arrived * delta_bolus;
+
+        current_arrival_time = bolus_time_passed + delttiss;
+
+        current_bolus_duration = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
+
+        for (int it = 1; it <= tis.Nrows(); it++)
+        {
+            ti = tis(it);
+
+            if (ti < deltll)
+                T_1b = T_1bin;
+            else
+                T_1b = T_1ll;
+            R = 1 / T_1app - 1 / T_1b;
+
+            float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
+            float u1 = ((ti - bolus_time_passed) - delttiss) / (sqrt2 * sig1);
+            float u2 = ((ti - bolus_time_passed) - delttiss - current_bolus_duration) / (sqrt2 * sig2);
+
+            kctissue(it) = kctissue(it) + F / (2 * R) * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2)) * exp(R * (ti - bolus_time_passed))
+                                             - (1 + MISCMATHS::erf(u1 - (R * sig1) / sqrt2)) * exp(R * (delttiss + (R * sig1 * sig1) / 2))
+                                             + (1 + MISCMATHS::erf(u2 - (R * sig2) / sqrt2)) * exp(R * (delttiss + tau + (R * sig2 * sig2) / 2)));
+        }
+
+        n_bolus_arrived++;
+    }
+
     return kctissue;
 }
 
