@@ -124,7 +124,8 @@ protected:
     ColumnVector tis;
     ColumnVector taus; // bolus durations if there are more than one
     Real timax;
-    int repeats;
+    vector<int> repeats;
+    int tpoints;
     ColumnVector crush;
     Matrix crushdir;
     int sliceband; // number of slices per band

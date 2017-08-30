@@ -932,6 +932,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (infertiss)
             kctissue = kctissue_gammadisp(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
+
         // cout << kctissue << endl;
         if (inferwm)
             kcwm = kctissue_gammadisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll,
@@ -939,6 +940,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (inferart)
             kcblood = kcblood_gammadisp(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
+
         // cout << kcblood << endl;
     }
     else if (disptype == "gvf")
@@ -946,6 +948,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (infertiss)
             kctissue = kctissue_gvf(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
+
         // cout << kctissue << endl;
         if (inferwm)
             kcwm = kctissue_gvf(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll, n_bolus,
@@ -953,6 +956,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (inferart)
             kcblood = kcblood_gvf(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
+
         // cout << kcblood << endl;
     }
     else if (disptype == "gauss")
@@ -960,6 +964,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (infertiss)
             kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
+
         // cout << kctissue << endl;
         if (inferwm)
             kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll,
@@ -967,6 +972,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (inferart)
             kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
+
         // cout << kcblood << endl;
     }
     else
@@ -1190,6 +1196,7 @@ void TurboQuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, d
 }
 
 // --- Kinetic curve functions ---
+
 // Arterial
 ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood,
     float taub, float T_1bin, float deltll, float T_1ll, int n_bolus, float delta_bolus,
@@ -1427,7 +1434,7 @@ T_1ll) const
     kcblood = 0.0;
     float T_1b;
     if (s < 1)
-        s = 1; //dont allow this to become too extreme
+        s = 1; // dont allow this to become too extreme
 
     // gamma variate arterial curve
     // NOTES: this model is only suitable for pASL
@@ -1450,7 +1457,7 @@ ammount of labeled blood).
         {
             kcblood(it) = 0.0;
         }
-        else //if(ti >= deltblood) && ti <= (deltblood + taub))
+        else // if(ti >= deltblood) && ti <= (deltblood + taub))
         {
             kcblood(it) = 2 * exp(-ti / T_1b) * gvf(ti - deltblood, s, p);
         }
@@ -1735,7 +1742,7 @@ deltll, float T_1ll) const
     float k = 1 + p * s;
     float T_1b;
 
-    //cout << T_1app << " " << A << " " << B << " "<< C << " " << endl ;
+    // cout << T_1app << " " << A << " " << B << " "<< C << " " << endl ;
 
     for (int it = 1; it <= tis.Nrows(); it++)
     {
@@ -1780,7 +1787,7 @@ delttiss - tau)) - igamc(k, s * (ti - delttiss)))));
         //if (isnan(kctissue(it))) { kctissue(it)=0.0; cout << "Warning NaN in
 tissue KC"; }
     }
-    //cout << kctissue.t() << endl;
+    // cout << kctissue.t() << endl;
     return kctissue;
 }
 */
@@ -1920,7 +1927,7 @@ float T_1ll) const
         {
             kctissue(it) = 0.0;
         }
-        else //if(ti >= delttiss && ti <= (delttiss + tau))
+        else // if(ti >= delttiss && ti <= (delttiss + tau))
         {
             kctissue(it) = 2 * 1 / (B * C) * exp(-(ti - delttiss) / T_1app) *
 sps * T_1app * T_1b * (1 - igamc(k, (s - 1 / T_1app - 1 / T_1b) * (ti -

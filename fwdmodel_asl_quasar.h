@@ -5,7 +5,7 @@
  Copyright (C) 2010 University of Oxford  */
 
 /*  CCOPYRIGHT */
-#pragma ONCE
+#pragma once
 
 #include "fabber_core/fwdmodel.h"
 
