@@ -25,8 +25,7 @@ public:
 
     // Virtual function overrides
     virtual void Initialize(ArgsType &args);
-    virtual void Evaluate(
-        const ColumnVector &params, ColumnVector &result) const;
+    virtual void Evaluate(const ColumnVector &params, ColumnVector &result) const;
     virtual std::string ModelVersion() const;
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
     virtual std::string GetDescription() const;
@@ -35,29 +34,23 @@ public:
     virtual int NumParams() const
     {
         return (inctiss ? (incbat ? 2 : 1) : 0) + (incwm ? (incbat ? 2 : 1) : 0)
-            + (incart ? (incbat ? 2 : 1) : 0)
-            + (inctau ? (septau ? ncomps : 1) : 0)
-            + (inct1 ? (1 + (inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0)
-            + (incpve ? 2 : 0)
+            + (incart ? (incbat ? 2 : 1) : 0) + (inctau ? (septau ? ncomps : 1) : 0)
+            + (inct1 ? (1 + (inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0) + (incpve ? 2 : 0)
             + (incpc ? ((inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0)
             + (incdisp ? (sepdisp ? ((inctiss ? tiss_model->NumDisp() : 0)
                                         + (incwm ? tiss_model->NumDisp() : 0)
                                         + (incart ? art_model->NumDisp() : 0))
                                   : tiss_model->NumDisp())
                        : 0)
-            + (incexch ? tiss_model->NumResid() : 0) + (incfacorr ? 1 : 0)
-            + (incstattiss ? 1 : 0);
+            + (incexch ? tiss_model->NumResid() : 0) + (incfacorr ? 1 : 0) + (incstattiss ? 1 : 0);
     }
 
     virtual ~ASLFwdModel() { return; }
-    virtual void HardcodedInitialDists(
-        MVNDist &prior, MVNDist &posterior) const;
+    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
     virtual void InitParams(MVNDist &posterior) const;
 
-    virtual void SetupARD(
-        const MVNDist &posterior, MVNDist &prior, double &Fard) const;
-    virtual void UpdateARD(
-        const MVNDist &posterior, MVNDist &prior, double &Fard) const;
+    virtual void SetupARD(const MVNDist &posterior, MVNDist &prior, double &Fard) const;
+    virtual void UpdateARD(const MVNDist &posterior, MVNDist &prior, double &Fard) const;
     vector<int> ardindices;
 
 protected:
@@ -83,27 +76,24 @@ protected:
 
     int pv_index() const
     {
-        return t1_index()
-            + (inct1 ? ((inctiss ? 1 : 0) + (incwm ? 1 : 0) + 1) : 0);
+        return t1_index() + (inct1 ? ((inctiss ? 1 : 0) + (incwm ? 1 : 0) + 1) : 0);
     } // special case since we always have T1 of blood
 
     int taupc_index() const { return pv_index() + (incpve ? 2 : 0); }
     int disp_index() const
     {
-        return taupc_index()
-            + (incpc ? ((inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0);
+        return taupc_index() + (incpc ? ((inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0);
     } // NB in the absence of any tissue compoennts (when this parameter is
       // meaningless) this reduces to taupc_index and thus still makes sense in
       // sequence
 
     int resid_index() const
     {
-        return disp_index()
-            + (incdisp ? (sepdisp ? ((inctiss ? tiss_model->NumDisp() : 0)
-                                        + (incwm ? tiss_model->NumDisp() : 0)
-                                        + (incart ? art_model->NumDisp() : 0))
-                                  : tiss_model->NumDisp())
-                       : 0);
+        return disp_index() + (incdisp ? (sepdisp ? ((inctiss ? tiss_model->NumDisp() : 0)
+                                                        + (incwm ? tiss_model->NumDisp() : 0)
+                                                        + (incart ? art_model->NumDisp() : 0))
+                                                  : tiss_model->NumDisp())
+                                       : 0);
     }
 
     int facorr_index() const
@@ -170,13 +160,12 @@ protected:
     double dg; // flip angle correction term (for slice profile)
 
     // Hadamard time encoding
-    bool hadamard;       // indicates that we are modelling hadamard data
-    int HadamardSize;    // Size of the hadamard encoding
-    int NumberOfSubBoli; // number of sub boli (might just different from
-                         // HadamardSize)
-    Matrix HadEncMatrix; // stores the Hadamard encoding matrix
-    Matrix HadamardMatrix(
-        const int size) const; // function to generate the hadamard matrix
+    bool hadamard;                               // indicates that we are modelling hadamard data
+    int HadamardSize;                            // Size of the hadamard encoding
+    int NumberOfSubBoli;                         // number of sub boli (might just different from
+                                                 // HadamardSize)
+    Matrix HadEncMatrix;                         // stores the Hadamard encoding matrix
+    Matrix HadamardMatrix(const int size) const; // function to generate the hadamard matrix
 
     // inference/inclusion
     // -components

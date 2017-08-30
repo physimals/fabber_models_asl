@@ -9,4 +9,4 @@ PointerBindsToType: false
 SpacesBeforeTrailingComments: 1
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 80
+ColumnLimit: 100 

@@ -21,8 +21,7 @@ using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
 
-FactoryRegistration<FwdModelFactory, QuasarFwdModel>
-    QuasarFwdModel::registration("quasar");
+FactoryRegistration<FwdModelFactory, QuasarFwdModel> QuasarFwdModel::registration("quasar");
 
 FwdModel *QuasarFwdModel::NewInstance() { return new QuasarFwdModel(); }
 string QuasarFwdModel::ModelVersion() const
@@ -50,12 +49,10 @@ static OptionSpec OPTIONS[] = {
     { "tau", OPT_FLOAT, "Single tau value", OPT_NONREQ, "" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
     { "ardoff", OPT_BOOL, "Turn off ARD", OPT_NONREQ, "" },
-    { "tauboff", OPT_BOOL, "Force the inference of arterial bolus off",
-        OPT_NONREQ, "" },
+    { "tauboff", OPT_BOOL, "Force the inference of arterial bolus off", OPT_NONREQ, "" },
     { "usepve", OPT_BOOL, "Use PVE", OPT_NONREQ, "" },
     { "artdir", OPT_BOOL, "Infer direction of arterial blood", OPT_NONREQ, "" },
-    { "usecalib", OPT_BOOL, "use calibration images (provided as image priors)",
-        OPT_NONREQ, "" },
+    { "usecalib", OPT_BOOL, "use calibration images (provided as image priors)", OPT_NONREQ, "" },
     { "tissoff", OPT_BOOL, "Turn off tissue CPT", OPT_NONREQ, "" },
     { "onephase", OPT_BOOL, "Special - a single phase of data (if we have "
                             "already processed the phases)",
@@ -75,11 +72,7 @@ void QuasarFwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-std::string QuasarFwdModel::GetDescription() const
-{
-    return "QUASAR ASL model";
-}
-
+std::string QuasarFwdModel::GetDescription() const { return "QUASAR ASL model"; }
 void QuasarFwdModel::Initialize(ArgsType &args)
 {
     // specify command line parameters here
@@ -90,33 +83,30 @@ void QuasarFwdModel::Initialize(ArgsType &args)
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
     t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
-    lambda = convertTo<double>(args.ReadWithDefault(
-        "lambda", "0.9")); // NOTE that this parameter is not used!!
+    lambda = convertTo<double>(
+        args.ReadWithDefault("lambda", "0.9")); // NOTE that this parameter is not used!!
 
     infertau = args.ReadBool("infertau"); // infer on bolus length?
     infert1 = args.ReadBool("infert1");   // infer on T1 values?
     inferart = args.ReadBool("inferart"); // infer on arterial compartment?
     inferwm = args.ReadBool("inferwm");
 
-    seqtau = convertTo<double>(
-        args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
-                                              // (default of 1000 is effectively
-                                              // infinite
-    slicedt = convertTo<double>(
-        args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    seqtau
+        = convertTo<double>(args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
+                                                                  // (default of 1000 is effectively
+                                                                  // infinite
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
     bool ardoff = false;
     ardoff = args.ReadBool("ardoff");
     bool tauboff = false;
-    tauboff = args.ReadBool(
-        "tauboff"); // forces the inference of arterial bolus off
+    tauboff = args.ReadBool("tauboff"); // forces the inference of arterial bolus off
 
     usepve = args.ReadBool("usepve");
 
     artdir = args.ReadBool("artdir"); // infer direction of arterial blood
 
-    calibon = args.ReadBool(
-        "usecalib"); // use calibration images (provided as image priors)
+    calibon = args.ReadBool("usecalib"); // use calibration images (provided as image priors)
 
     // combination options
     infertaub = false;
@@ -211,8 +201,7 @@ void QuasarFwdModel::Initialize(ArgsType &args)
 
     // add information about the parameters to the log
     LOG << "Inference using development model" << endl;
-    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1
-        << ", t1b = " << t1b;
+    LOG << "    Data parameters: #repeats = " << repeats << ", t1 = " << t1 << ", t1b = " << t1b;
     LOG << ", bolus length (tau) = " << seqtau << endl;
     if (infertau)
     {
@@ -332,8 +321,7 @@ void QuasarFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void QuasarFwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+void QuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -488,7 +476,7 @@ void QuasarFwdModel::HardcodedInitialDists(
     // calibration parameters
     if (calibon)
     {
-        prior.means(calib_index()) = 1; // should be overwritten by an image
+        prior.means(calib_index()) = 1;                 // should be overwritten by an image
         precisions(calib_index(), calib_index()) = 100; // small uncertainty
     }
 
@@ -541,8 +529,7 @@ void QuasarFwdModel::HardcodedInitialDists(
     posterior.SetPrecisions(precisions);
 }
 
-void QuasarFwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -829,64 +816,51 @@ void QuasarFwdModel::Evaluate(
 
     ColumnVector thetis;
     thetis = tis;
-    thetis += slicedt
-        * coord_z; // account here for an increase in delay between slices
+    thetis += slicedt * coord_z; // account here for an increase in delay between slices
 
     // generate the kinetic curves
     if (disptype == "none")
     {
         if (infertiss)
-            kctissue = kctissue_nodisp(
-                thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll);
+            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_nodisp(
-                thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll);
+            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll);
         if (inferart)
-            kcblood
-                = kcblood_nodisp(thetis, deltblood, taub, T_1b, deltll, T_1ll);
+            kcblood = kcblood_nodisp(thetis, deltblood, taub, T_1b, deltll, T_1ll);
         // cout << kcblood << endl;
     }
     else if (disptype == "gamma")
     {
         if (infertiss)
-            kctissue = kctissue_gammadisp(
-                thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll);
+            kctissue = kctissue_gammadisp(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gammadisp(
-                thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll);
+            kcwm = kctissue_gammadisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll);
         if (inferart)
-            kcblood = kcblood_gammadisp(
-                thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll);
+            kcblood = kcblood_gammadisp(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll);
         // cout << kcblood << endl;
     }
     else if (disptype == "gvf")
     {
         if (infertiss)
-            kctissue = kctissue_gvf(
-                thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll);
+            kctissue = kctissue_gvf(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gvf(
-                thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll);
+            kcwm = kctissue_gvf(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll);
         if (inferart)
-            kcblood = kcblood_gvf(
-                thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll);
+            kcblood = kcblood_gvf(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll);
         // cout << kcblood << endl;
     }
     else if (disptype == "gauss")
     {
         if (infertiss)
-            kctissue = kctissue_gaussdisp(
-                thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll);
+            kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gaussdisp(
-                thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll);
+            kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll);
         if (inferart)
-            kcblood = kcblood_gaussdisp(
-                thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll);
+            kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll);
         // cout << kcblood << endl;
     }
     else
@@ -970,10 +944,9 @@ void QuasarFwdModel::Evaluate(
             // artweight(i) = exp( -bloodbv *
             // std::max(DotProduct(artdir,crushdir.Row(i)),0.0) ); # exponential
             // based on simple diffusion expt
-            artweight(i) = Sinc(
-                2 * bloodbv * std::max(DotProduct(artdir, crushdir.Row(i)),
-                                  0.0)); // based on laminar flow profile c.f.
-                                         // perfusion tensor imaging
+            artweight(i) = Sinc(2 * bloodbv * std::max(DotProduct(artdir, crushdir.Row(i)),
+                                                  0.0)); // based on laminar flow profile c.f.
+                                                         // perfusion tensor imaging
 
             // angle = fabs(crushdir(i) - blooddir);
             // if (angle<M_PI/2) {
@@ -994,44 +967,40 @@ void QuasarFwdModel::Evaluate(
 
             if (onephase)
             {
-                result(tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
             }
             else if (artdir)
             {
-                result(tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(1) * fblood * kcblood(it)
+                result(tiref) = pv_gm * ftiss * kctissue(it) + artweight(1) * fblood * kcblood(it)
                     + pv_wm * fwm * kcwm(it);
                 result(nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(2) * fblood * kcblood(it)
-                    + pv_wm * fwm * kcwm(it);
-                result(2 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                    + artweight(2) * fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(2 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(3 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(3) * fblood * kcblood(it)
-                    + pv_wm * fwm * kcwm(it);
+                    + artweight(3) * fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(4 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(4) * fblood * kcblood(it)
-                    + pv_wm * fwm * kcwm(it);
-                result(5 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                    + artweight(4) * fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(5 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 // result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue +
                 // fblood*kcblood + pv_wm*fwm*kcwm;
             }
             else
             {
-                result(tiref) = pv_gm * ftiss * kctissue(it)
-                    + fbloodc1 * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(tiref) = pv_gm * ftiss * kctissue(it) + fbloodc1 * kcblood(it)
+                    + pv_wm * fwm * kcwm(it);
                 result(nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
                     + fbloodc2 * kcblood(it) + pv_wm * fwm * kcwm(it);
-                result(2 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(2 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(3 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
                     + fbloodc3 * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(4 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
                     + fbloodc4 * kcblood(it) + pv_wm * fwm * kcwm(it);
-                result(5 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(5 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 // result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue +
                 // fblood*kcblood + pv_wm*fwm*kcwm;
             }
@@ -1042,8 +1011,7 @@ void QuasarFwdModel::Evaluate(
     return;
 }
 
-void QuasarFwdModel::SetupARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
+void QuasarFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
 {
     if (doard)
     {
@@ -1066,8 +1034,7 @@ void QuasarFwdModel::SetupARD(
             SymmetricMatrix PriorPrec;
             PriorPrec = thetaPrior.GetPrecisions();
 
-            PriorPrec(ardindex, ardindex)
-                = 1e-12; // set prior to be initally non-informative
+            PriorPrec(ardindex, ardindex) = 1e-12; // set prior to be initally non-informative
 
             thetaPrior.SetPrecisions(PriorPrec);
 
@@ -1075,8 +1042,8 @@ void QuasarFwdModel::SetupARD(
 
             // set the Free energy contribution from ARD term
             SymmetricMatrix PostCov = theta.GetCovariance();
-            double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                               + PostCov(ardindex, ardindex));
+            double b
+                = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
             Fard += -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
                 - 0.5 * log(b); // taking c as 0.5 - which it will be!
         }
@@ -1084,8 +1051,7 @@ void QuasarFwdModel::SetupARD(
     return;
 }
 
-void QuasarFwdModel::UpdateARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void QuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     if (doard)
         Fard = 0;
@@ -1102,14 +1068,13 @@ void QuasarFwdModel::UpdateARD(
             PostCov = theta.GetCovariance();
 
             PriorCov(ardindex, ardindex)
-                = theta.means(ardindex) * theta.means(ardindex)
-                + PostCov(ardindex, ardindex);
+                = theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex);
 
             thetaPrior.SetCovariance(PriorCov);
 
             // Calculate the extra terms for the free energy
-            double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                               + PostCov(ardindex, ardindex));
+            double b
+                = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
             Fard += -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
                 - 0.5 * log(b); // taking c as 0.5 - which it will be!
         }
@@ -1120,8 +1085,8 @@ void QuasarFwdModel::UpdateARD(
 
 // --- Kinetic curve functions ---
 // Arterial
-ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float deltll, float T_1ll) const
+ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood, float taub,
+    float T_1bin, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1160,9 +1125,8 @@ ColumnVector QuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
     }
     return kcblood;
 }
-ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float s, float p, float deltll,
-    float T_1ll) const
+ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis, float deltblood, float taub,
+    float T_1bin, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1183,23 +1147,20 @@ ColumnVector QuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
         }
         else if (ti >= deltblood && ti <= (deltblood + taub))
         {
-            kcblood(it)
-                = 2 * exp(-ti / T_1b) * (1 - igamc(k, s * (ti - deltblood)));
+            kcblood(it) = 2 * exp(-ti / T_1b) * (1 - igamc(k, s * (ti - deltblood)));
         }
         else //(ti > deltblood + taub)
         {
-            kcblood(it)
-                = 2 * exp(-ti / T_1b) * (igamc(k, s * (ti - deltblood - taub))
-                                            - igamc(k, s * (ti - deltblood)));
+            kcblood(it) = 2 * exp(-ti / T_1b)
+                * (igamc(k, s * (ti - deltblood - taub)) - igamc(k, s * (ti - deltblood)));
         }
         // if (isnan(kcblood(it))) { kcblood(it)=0.0; cout << "Warning NaN in
         // blood KC"; }
     }
     return kcblood;
 }
-ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float s, float p, float deltll,
-    float T_1ll) const
+ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltblood, float taub,
+    float T_1bin, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1238,9 +1199,8 @@ ColumnVector QuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
     }
     return kcblood * taub;
 }
-ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float sig1, float sig2,
-    float deltll, float T_1ll) const
+ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float deltblood, float taub,
+    float T_1bin, float sig1, float sig2, float deltll, float T_1ll) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1256,17 +1216,15 @@ ColumnVector QuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
             T_1b = T_1bin;
         else
             T_1b = T_1ll;
-        kcblood(it)
-            = 0.5 * exp(-ti / T_1b)
+        kcblood(it) = 0.5 * exp(-ti / T_1b)
             * (MISCMATHS::erf((ti - deltblood) / (sqrt2 * sig1))
-                  - MISCMATHS::erf((ti - deltblood + taub) / (sqrt2 * sig2)));
+                          - MISCMATHS::erf((ti - deltblood + taub) / (sqrt2 * sig2)));
     }
     return kcblood;
 }
 // Tissue
-ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float deltll,
-    float T_1ll) const
+ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss, float tau,
+    float T_1bin, float T_1app, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1296,17 +1254,15 @@ ColumnVector QuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
         }
         else //(ti > delttiss + tau)
         {
-            kctissue(it)
-                = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
+            kctissue(it) = F / R * ((exp(R * (delttiss + tau)) - exp(R * delttiss)));
             // kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))
             // ) * exp( (-1) * R * ti );
         }
     }
     return kctissue;
 }
-ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float s, float p,
-    float deltll, float T_1ll) const
+ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float delttiss, float tau,
+    float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1339,32 +1295,24 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
         }
         else if (ti >= delttiss && ti <= (delttiss + tau))
         {
-            kctissue(it)
-                = 2 * 1 / A * exp(-(T_1app * delttiss + (T_1app + T_1b) * ti)
-                                  / (T_1app * T_1b))
-                * T_1app * T_1b * pow(B, -k)
-                * (exp(delttiss / T_1app + ti / T_1b)
-                          * pow(s * T_1app * T_1b, k)
-                          * (1 - igamc(
-                                     k, B / (T_1app * T_1b) * (ti - delttiss)))
-                      + exp(delttiss / T_1b + ti / T_1app) * pow(B, k)
-                          * (-1 + igamc(k, s * (ti - delttiss))));
+            kctissue(it) = 2 * 1 / A
+                * exp(-(T_1app * delttiss + (T_1app + T_1b) * ti) / (T_1app * T_1b)) * T_1app * T_1b
+                * pow(B, -k) * (exp(delttiss / T_1app + ti / T_1b) * pow(s * T_1app * T_1b, k)
+                                       * (1 - igamc(k, B / (T_1app * T_1b) * (ti - delttiss)))
+                                   + exp(delttiss / T_1b + ti / T_1app) * pow(B, k)
+                                       * (-1 + igamc(k, s * (ti - delttiss))));
         }
         else //(ti > delttiss + tau)
         {
             kctissue(it)
                 = 2 * 1 / (A * B)
-                * (exp(-A / (T_1app * T_1b) * (delttiss + tau) - ti / T_1app)
-                      * T_1app * T_1b / C
+                * (exp(-A / (T_1app * T_1b) * (delttiss + tau) - ti / T_1app) * T_1app * T_1b / C
                       * (pow(s, k) * T_1app * T_1b
                                 * (-1
                                       + exp((-1 / T_1app + 1 / T_1b) * tau)
-                                          * (1 - igamc(k, B / (T_1app * T_1b)
-                                                         * (ti - delttiss)))
-                                      + igamc(k, B / (T_1app * T_1b)
-                                                * (ti - delttiss - tau)))
-                            - exp(-A / (T_1app * T_1b) * (ti - delttiss - tau))
-                                * C * B
+                                          * (1 - igamc(k, B / (T_1app * T_1b) * (ti - delttiss)))
+                                      + igamc(k, B / (T_1app * T_1b) * (ti - delttiss - tau)))
+                            - exp(-A / (T_1app * T_1b) * (ti - delttiss - tau)) * C * B
                                 * (igamc(k, s * (ti - delttiss - tau))
                                       - igamc(k, s * (ti - delttiss)))));
         }
@@ -1374,9 +1322,8 @@ ColumnVector QuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
     // cout << kctissue.t() << endl;
     return kctissue;
 }
-ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float s, float p,
-    float deltll, float T_1ll) const
+ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis, float delttiss, float tau,
+    float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1403,8 +1350,7 @@ ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
         }
         else // if(ti >= delttiss && ti <= (delttiss + tau))
         {
-            kctissue(it) = 2 * 1 / (B * C) * exp(-(ti - delttiss) / T_1app)
-                * sps * T_1app * T_1b
+            kctissue(it) = 2 * 1 / (B * C) * exp(-(ti - delttiss) / T_1app) * sps * T_1app * T_1b
                 * (1 - igamc(k, (s - 1 / T_1app - 1 / T_1b) * (ti - delttiss)));
         }
         // bolus duraiton is specified by the CVF AIF shape and is not an
@@ -1418,9 +1364,8 @@ ColumnVector QuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
     }
     return kctissue * tau;
 }
-ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float sig1,
-    float sig2, float deltll, float T_1ll) const
+ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float delttiss, float tau,
+    float T_1bin, float T_1app, float sig1, float sig2, float deltll, float T_1ll) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1441,13 +1386,11 @@ ColumnVector QuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
         float F = 2 * exp(-ti / T_1app);
         float u1 = (ti - delttiss) / (sqrt2 * sig1);
         float u2 = (ti - delttiss - tau) / (sqrt2 * sig2);
-        kctissue(it)
-            = F / (2 * R)
-            * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2)) * exp(R * ti)
-                  - (1 + MISCMATHS::erf(u1 - (R * sig1) / sqrt2))
-                      * exp(R * (delttiss + (R * sig1 * sig1) / 2))
-                  + (1 + MISCMATHS::erf(u2 - (R * sig2) / sqrt2))
-                      * exp(R * (delttiss + tau + (R * sig2 * sig2) / 2)));
+        kctissue(it) = F / (2 * R) * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2)) * exp(R * ti)
+                                         - (1 + MISCMATHS::erf(u1 - (R * sig1) / sqrt2))
+                                             * exp(R * (delttiss + (R * sig1 * sig1) / 2))
+                                         + (1 + MISCMATHS::erf(u2 - (R * sig2) / sqrt2))
+                                             * exp(R * (delttiss + tau + (R * sig2 * sig2) / 2)));
     }
     return kctissue;
 }
@@ -1466,6 +1409,5 @@ float QuasarFwdModel::gvf(float t, float s, float p) const
     if (t < 0)
         return 0.0;
     else
-        return pow(s, 1 + s * p) / MISCMATHS::gamma(1 + s * p) * pow(t, s * p)
-            * exp(-s * t);
+        return pow(s, 1 + s * p) / MISCMATHS::gamma(1 + s * p) * pow(t, s * p) * exp(-s * t);
 }

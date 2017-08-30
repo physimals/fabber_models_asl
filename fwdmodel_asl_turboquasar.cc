@@ -19,14 +19,10 @@ using namespace std;
 using namespace NEWMAT;
 using namespace MISCMATHS;
 
-FactoryRegistration<FwdModelFactory, TurboQuasarFwdModel>
-    TurboQuasarFwdModel::registration("turboquasar");
+FactoryRegistration<FwdModelFactory, TurboQuasarFwdModel> TurboQuasarFwdModel::registration(
+    "turboquasar");
 
-FwdModel *TurboQuasarFwdModel::NewInstance()
-{
-    return new TurboQuasarFwdModel();
-}
-
+FwdModel *TurboQuasarFwdModel::NewInstance() { return new TurboQuasarFwdModel(); }
 string TurboQuasarFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_turboquasar.cc";
@@ -52,12 +48,10 @@ static OptionSpec OPTIONS[] = {
     { "tau", OPT_FLOAT, "Single tau value", OPT_NONREQ, "" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
     { "ardoff", OPT_BOOL, "Turn off ARD", OPT_NONREQ, "" },
-    { "tauboff", OPT_BOOL, "Force the inference of arterial bolus off",
-        OPT_NONREQ, "" },
+    { "tauboff", OPT_BOOL, "Force the inference of arterial bolus off", OPT_NONREQ, "" },
     { "usepve", OPT_BOOL, "Use PVE", OPT_NONREQ, "" },
     { "artdir", OPT_BOOL, "Infer direction of arterial blood", OPT_NONREQ, "" },
-    { "usecalib", OPT_BOOL, "use calibration images (provided as image priors)",
-        OPT_NONREQ, "" },
+    { "usecalib", OPT_BOOL, "use calibration images (provided as image priors)", OPT_NONREQ, "" },
     { "tissoff", OPT_BOOL, "Turn off tissue CPT", OPT_NONREQ, "" },
     { "onephase", OPT_BOOL, "Special - a single phase of data (if we have "
                             "already processed the phases)",
@@ -66,11 +60,9 @@ static OptionSpec OPTIONS[] = {
     { "artardoff", OPT_BOOL, "Arterial ARD on", OPT_NONREQ, "" },
     { "wmardoff", OPT_BOOL, "WM ARD on", OPT_NONREQ, "" },
     { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" },
-    { "bolus_<n>", OPT_FLOAT,
-        "Whether the bolus is on or off. E.g --bolus_1=1 --bolus_2=0. n<=7",
+    { "bolus_<n>", OPT_FLOAT, "Whether the bolus is on or off. E.g --bolus_1=1 --bolus_2=0. n<=7",
         OPT_NONREQ, "" },
-    { "slice_shift", OPT_FLOAT, "Slice shifting factor (default: 1)",
-        OPT_NONREQ, "" },
+    { "slice_shift", OPT_FLOAT, "Slice shifting factor (default: 1)", OPT_NONREQ, "" },
     { "fa", OPT_FLOAT, "Flip angle in degrees", OPT_NONREQ, "30" }, { "" },
 };
 
@@ -82,11 +74,7 @@ void TurboQuasarFwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-std::string TurboQuasarFwdModel::GetDescription() const
-{
-    return "TURBO_QUASAR ASL model";
-}
-
+std::string TurboQuasarFwdModel::GetDescription() const { return "TURBO_QUASAR ASL model"; }
 void TurboQuasarFwdModel::Initialize(ArgsType &args)
 {
     // simulation mode, put everything in fixed manner
@@ -108,16 +96,16 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
     t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
-    lambda = convertTo<double>(args.ReadWithDefault(
-        "lambda", "0.9")); // NOTE that this parameter is not used!!
+    lambda = convertTo<double>(
+        args.ReadWithDefault("lambda", "0.9")); // NOTE that this parameter is not used!!
     // n_bolus = convertTo<int>(args.Read("n_bolus")); // total number of
     // boluses in turbo QUASAR
     // delta_bolus = convertTo<double>(args.ReadWithDefault("delta_bolus",
     // "0.6")); // time duration between each successive bolus
-    slice_shifting_factor = convertTo<int>(
-        args.ReadWithDefault("slice_shift", "1")); // slice shifting factor,
-                                                   // default is 1 meaning no
-                                                   // increaing sampling rate
+    slice_shifting_factor
+        = convertTo<int>(args.ReadWithDefault("slice_shift", "1")); // slice shifting factor,
+                                                                    // default is 1 meaning no
+                                                                    // increaing sampling rate
     // delta_ti_gap_factor = convertTo<int>(args.ReadWithDefault("bolus_skip",
     // "1")); // Number of boluses to skip, default is 1 meaning one bolus
     // duration is skipped between each successive bolus
@@ -127,25 +115,22 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     inferart = args.ReadBool("inferart"); // infer on arterial compartment?
     inferwm = args.ReadBool("inferwm");
 
-    seqtau = convertTo<double>(
-        args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
-                                              // (default of 1000 is effectively
-                                              // infinite
-    slicedt = convertTo<double>(
-        args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    seqtau
+        = convertTo<double>(args.ReadWithDefault("tau", "1000")); // bolus length as set by sequence
+                                                                  // (default of 1000 is effectively
+                                                                  // infinite
+    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
     bool ardoff = false;
     ardoff = args.ReadBool("ardoff");
     bool tauboff = false;
-    tauboff = args.ReadBool(
-        "tauboff"); // forces the inference of arterial bolus off
+    tauboff = args.ReadBool("tauboff"); // forces the inference of arterial bolus off
 
     usepve = args.ReadBool("usepve");
 
     artdir = args.ReadBool("artdir"); // infer direction of arterial blood
 
-    calibon = args.ReadBool(
-        "usecalib"); // use calibration images (provided as image priors)
+    calibon = args.ReadBool("usecalib"); // use calibration images (provided as image priors)
 
     // combination options
     infertaub = false;
@@ -233,8 +218,8 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     while (true)
     {
         int next_bolus_index = bolus_order.Nrows() + 1;
-        string next_bolus_string = args.ReadWithDefault(
-            "bolus_" + stringify(next_bolus_index), "stop!");
+        string next_bolus_string
+            = args.ReadWithDefault("bolus_" + stringify(next_bolus_index), "stop!");
 
         // Reached end of bolus order, then stop reading
         if (next_bolus_string == "stop!")
@@ -266,23 +251,22 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     crushdir /= sqrt(3); // make unit vectors;
 
     singleti = false; // normally we do multi TI ASL
-    /*if (tis.Nrows()==1) {
-  //only one TI therefore only infer on CBF and ignore other inference options
-  LOG << "--Single inversion time mode--" << endl;
-  LOG << "Only a sinlge inversion time has been supplied," << endl;
-  LOG << "Therefore only tissue perfusion will be inferred." << endl;
-  LOG << "-----" << endl;
-  singleti = true;
-  // force other inference options to be false
-  infertau = false; infert1 = false; inferart = false; //inferinveff = false;
-  }*/
+                      /*if (tis.Nrows()==1) {
+                    //only one TI therefore only infer on CBF and ignore other inference options
+                    LOG << "--Single inversion time mode--" << endl;
+                    LOG << "Only a sinlge inversion time has been supplied," << endl;
+                    LOG << "Therefore only tissue perfusion will be inferred." << endl;
+                    LOG << "-----" << endl;
+                    singleti = true;
+                    // force other inference options to be false
+                    infertau = false; infert1 = false; inferart = false; //inferinveff = false;
+                    }*/
 
     // add information about the parameters to the log
     LOG << "Inference using development model" << endl;
-    LOG << "    Data parameters: #repeats = " << repeats
-        << ", total number of bolus = " << n_bolus
-        << ", duration (sec) between each bolus = " << delta_bolus
-        << ", t1 = " << t1 << ", t1b = " << t1b;
+    LOG << "    Data parameters: #repeats = " << repeats << ", total number of bolus = " << n_bolus
+        << ", duration (sec) between each bolus = " << delta_bolus << ", t1 = " << t1
+        << ", t1b = " << t1b;
     LOG << ", bolus length (tau) = " << seqtau << endl;
     if (infertau)
     {
@@ -402,8 +386,7 @@ void TurboQuasarFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void TurboQuasarFwdModel::HardcodedInitialDists(
-    MVNDist &prior, MVNDist &posterior) const
+void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -571,7 +554,7 @@ void TurboQuasarFwdModel::HardcodedInitialDists(
     // calibration parameters
     if (calibon)
     {
-        prior.means(calib_index()) = 1; // should be overwritten by an image
+        prior.means(calib_index()) = 1;                 // should be overwritten by an image
         precisions(calib_index(), calib_index()) = 100; // small uncertainty
     }
 
@@ -624,8 +607,7 @@ void TurboQuasarFwdModel::HardcodedInitialDists(
     posterior.SetPrecisions(precisions);
 }
 
-void TurboQuasarFwdModel::Evaluate(
-    const ColumnVector &params, ColumnVector &result) const
+void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
@@ -717,8 +699,7 @@ void TurboQuasarFwdModel::Evaluate(
         tauset = paramcpy(tau_index());
         // tauset = (dti * 0.5) * (tanh(tauset) + 1);
         // tauset = 0.1 * tanh(tauset) + dti - 0.1;
-        tauset = ((dti - tau_lowest) / 2) * tanh(tauset)
-            + (dti - (dti - tau_lowest) / 2);
+        tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
         // cout << "tanh function used" << endl;
         // tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
         // cout << tauset << endl;
@@ -920,8 +901,7 @@ void TurboQuasarFwdModel::Evaluate(
 
     ColumnVector thetis;
     thetis = tis;
-    thetis += slicedt
-        * coord_z; // account here for an increase in delay between slices
+    thetis += slicedt * coord_z; // account here for an increase in delay between slices
 
     // generate the kinetic curves
     if (disptype == "none")
@@ -936,57 +916,57 @@ void TurboQuasarFwdModel::Evaluate(
         }
 
         if (infertiss)
-            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app,
-                deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm,
-                deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         if (inferart)
-            kcblood = kcblood_nodisp(thetis, deltblood, taub, T_1b, deltll,
-                T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcblood = kcblood_nodisp(
+                thetis, deltblood, taub, T_1b, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
         // cout << kcblood << endl;
     }
     else if (disptype == "gamma")
     {
         if (infertiss)
-            kctissue = kctissue_gammadisp(thetis, delttiss, tau, T_1b, T_1app,
-                s, p, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kctissue = kctissue_gammadisp(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll,
+                n_bolus, delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gammadisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s,
-                p, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcwm = kctissue_gammadisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll,
+                n_bolus, delta_bolus, bolus_order);
         if (inferart)
-            kcblood = kcblood_gammadisp(thetis, deltblood, taub, T_1b, s, p,
-                deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcblood = kcblood_gammadisp(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         // cout << kcblood << endl;
     }
     else if (disptype == "gvf")
     {
         if (infertiss)
-            kctissue = kctissue_gvf(thetis, delttiss, tau, T_1b, T_1app, s, p,
-                deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kctissue = kctissue_gvf(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll,
+                n_bolus, delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gvf(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p,
-                deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcwm = kctissue_gvf(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         if (inferart)
-            kcblood = kcblood_gvf(thetis, deltblood, taub, T_1b, s, p, deltll,
-                T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcblood = kcblood_gvf(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         // cout << kcblood << endl;
     }
     else if (disptype == "gauss")
     {
         if (infertiss)
-            kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app,
-                s, s, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll,
+                n_bolus, delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s,
-                s, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll,
+                n_bolus, delta_bolus, bolus_order);
         if (inferart)
-            kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s,
-                deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+            kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll, n_bolus,
+                delta_bolus, bolus_order);
         // cout << kcblood << endl;
     }
     else
@@ -1070,10 +1050,9 @@ void TurboQuasarFwdModel::Evaluate(
             // artweight(i) = exp( -bloodbv *
             // std::max(DotProduct(artdir,crushdir.Row(i)),0.0) ); # exponential
             // based on simple diffusion expt
-            artweight(i) = Sinc(
-                2 * bloodbv * std::max(DotProduct(artdir, crushdir.Row(i)),
-                                  0.0)); // based on laminar flow profile c.f.
-                                         // perfusion tensor imaging
+            artweight(i) = Sinc(2 * bloodbv * std::max(DotProduct(artdir, crushdir.Row(i)),
+                                                  0.0)); // based on laminar flow profile c.f.
+                                                         // perfusion tensor imaging
 
             // angle = fabs(crushdir(i) - blooddir);
             // if (angle<M_PI/2) {
@@ -1094,44 +1073,40 @@ void TurboQuasarFwdModel::Evaluate(
 
             if (onephase)
             {
-                result(tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
             }
             else if (artdir)
             {
-                result(tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(1) * fblood * kcblood(it)
+                result(tiref) = pv_gm * ftiss * kctissue(it) + artweight(1) * fblood * kcblood(it)
                     + pv_wm * fwm * kcwm(it);
                 result(nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(2) * fblood * kcblood(it)
-                    + pv_wm * fwm * kcwm(it);
-                result(2 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                    + artweight(2) * fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(2 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(3 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(3) * fblood * kcblood(it)
-                    + pv_wm * fwm * kcwm(it);
+                    + artweight(3) * fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(4 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + artweight(4) * fblood * kcblood(it)
-                    + pv_wm * fwm * kcwm(it);
-                result(5 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                    + artweight(4) * fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(5 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 // result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue +
                 // fblood*kcblood + pv_wm*fwm*kcwm;
             }
             else
             {
-                result(tiref) = pv_gm * ftiss * kctissue(it)
-                    + fbloodc1 * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(tiref) = pv_gm * ftiss * kctissue(it) + fbloodc1 * kcblood(it)
+                    + pv_wm * fwm * kcwm(it);
                 result(nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
                     + fbloodc2 * kcblood(it) + pv_wm * fwm * kcwm(it);
-                result(2 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(2 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(3 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
                     + fbloodc3 * kcblood(it) + pv_wm * fwm * kcwm(it);
                 result(4 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
                     + fbloodc4 * kcblood(it) + pv_wm * fwm * kcwm(it);
-                result(5 * nti * repeats + tiref) = pv_gm * ftiss * kctissue(it)
-                    + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
+                result(5 * nti * repeats + tiref)
+                    = pv_gm * ftiss * kctissue(it) + fblood * kcblood(it) + pv_wm * fwm * kcwm(it);
                 // result( 6*nti*repeats + tiref ) = pv_gm*ftiss*kctissue +
                 // fblood*kcblood + pv_wm*fwm*kcwm;
             }
@@ -1142,8 +1117,7 @@ void TurboQuasarFwdModel::Evaluate(
     return;
 }
 
-void TurboQuasarFwdModel::SetupARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
+void TurboQuasarFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard)
 {
     if (doard)
     {
@@ -1166,8 +1140,7 @@ void TurboQuasarFwdModel::SetupARD(
             SymmetricMatrix PriorPrec;
             PriorPrec = thetaPrior.GetPrecisions();
 
-            PriorPrec(ardindex, ardindex)
-                = 1e-12; // set prior to be initally non-informative
+            PriorPrec(ardindex, ardindex) = 1e-12; // set prior to be initally non-informative
 
             thetaPrior.SetPrecisions(PriorPrec);
 
@@ -1175,8 +1148,8 @@ void TurboQuasarFwdModel::SetupARD(
 
             // set the Free energy contribution from ARD term
             SymmetricMatrix PostCov = theta.GetCovariance();
-            double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                               + PostCov(ardindex, ardindex));
+            double b
+                = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
             Fard += -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
                 - 0.5 * log(b); // taking c as 0.5 - which it will be!
         }
@@ -1184,8 +1157,7 @@ void TurboQuasarFwdModel::SetupARD(
     return;
 }
 
-void TurboQuasarFwdModel::UpdateARD(
-    const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
+void TurboQuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     if (doard)
         Fard = 0;
@@ -1202,14 +1174,13 @@ void TurboQuasarFwdModel::UpdateARD(
             PostCov = theta.GetCovariance();
 
             PriorCov(ardindex, ardindex)
-                = theta.means(ardindex) * theta.means(ardindex)
-                + PostCov(ardindex, ardindex);
+                = theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex);
 
             thetaPrior.SetCovariance(PriorCov);
 
             // Calculate the extra terms for the free energy
-            double b = 2 / (theta.means(ardindex) * theta.means(ardindex)
-                               + PostCov(ardindex, ardindex));
+            double b
+                = 2 / (theta.means(ardindex) * theta.means(ardindex) + PostCov(ardindex, ardindex));
             Fard += -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
                 - 0.5 * log(b); // taking c as 0.5 - which it will be!
         }
@@ -1220,9 +1191,9 @@ void TurboQuasarFwdModel::UpdateARD(
 
 // --- Kinetic curve functions ---
 // Arterial
-ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float deltll, float T_1ll,
-    int n_bolus, float delta_bolus, const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood,
+    float taub, float T_1bin, float deltll, float T_1ll, int n_bolus, float delta_bolus,
+    const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1232,11 +1203,10 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
 
     // Turbo QUASAR specific parameters
     float current_value;
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus)
@@ -1246,8 +1216,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + deltblood;
 
         current_bolus_duration
-            = taub * bolus_order(n_bolus_arrived
-                         + 1); // Column vector index starts from one
+            = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from one
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -1270,31 +1239,26 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis,
                 // model fitting
                 kcblood(it) = kcblood(it)
                     + 2 * exp(-deltblood / T_1b)
-                        * (0.98 * exp(((ti - bolus_time_passed) - deltblood)
-                                      / 0.05)
+                        * (0.98 * exp(((ti - bolus_time_passed) - deltblood) / 0.05)
                               + 0.02 * ti / deltblood);
             }
 
             else if (ti > current_arrival_time
                 && ti <= (current_arrival_time + current_bolus_duration))
             {
-                kcblood(it)
-                    = kcblood(it) + 2 * exp(-(ti - bolus_time_passed) / T_1b);
+                kcblood(it) = kcblood(it) + 2 * exp(-(ti - bolus_time_passed) / T_1b);
             }
 
             else
             {
                 // artifical lead out period for taub model fitting
-                current_value
-                    = 2 * exp(-(deltblood + current_bolus_duration) / T_1b);
-                current_value
-                    *= (0.98 * exp(-((ti - bolus_time_passed) - deltblood
-                                       - current_bolus_duration)
-                                   / 0.05)
-                        + 0.02 * (1
-                                     - ((ti - bolus_time_passed) - deltblood
-                                           - current_bolus_duration)
-                                         / 5));
+                current_value = 2 * exp(-(deltblood + current_bolus_duration) / T_1b);
+                current_value *= (0.98
+                        * exp(-((ti - bolus_time_passed) - deltblood - current_bolus_duration)
+                                      / 0.05)
+                    + 0.02 * (1
+                                 - ((ti - bolus_time_passed) - deltblood - current_bolus_duration)
+                                     / 5));
                 if (current_value >= 0)
                 {
                     kcblood(it) = kcblood(it) + current_value;
@@ -1387,10 +1351,9 @@ blood KC"; }
 }
 */
 
-ColumnVector TurboQuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float s, float p, float deltll,
-    float T_1ll, int n_bolus_total, float delta_bolus,
-    const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis, float deltblood,
+    float taub, float T_1bin, float s, float p, float deltll, float T_1ll, int n_bolus_total,
+    float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1402,11 +1365,10 @@ ColumnVector TurboQuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
 
     // Turbo QUASAR specific parameters
     float current_value;
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus_total)
@@ -1416,8 +1378,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + deltblood;
 
         current_bolus_duration
-            = taub * bolus_order(n_bolus_arrived
-                         + 1); // Column vector index starts from one
+            = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from one
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -1437,17 +1398,15 @@ ColumnVector TurboQuasarFwdModel::kcblood_gammadisp(const ColumnVector &tis,
             {
                 kcblood(it) = kcblood(it)
                     + 2 * exp(-(ti - bolus_time_passed) / T_1b)
-                        * (1 - igamc(k,
-                                   s * ((ti - bolus_time_passed) - deltblood)));
+                        * (1 - igamc(k, s * ((ti - bolus_time_passed) - deltblood)));
             }
             else //(ti > deltblood + taub)
             {
                 kcblood(it) = kcblood(it)
                     + 2 * exp(-(ti - bolus_time_passed) / T_1b)
-                        * (igamc(k, s * ((ti - bolus_time_passed) - deltblood
-                                            - current_bolus_duration))
-                              - igamc(k, s * ((ti - bolus_time_passed)
-                                                 - deltblood)));
+                        * (igamc(k,
+                               s * ((ti - bolus_time_passed) - deltblood - current_bolus_duration))
+                              - igamc(k, s * ((ti - bolus_time_passed) - deltblood)));
             }
             // if (isnan(kcblood(it))) { kcblood(it)=0.0; cout << "Warning NaN
             // in blood KC"; }
@@ -1507,9 +1466,8 @@ ammount of labeled blood).
 }
 */
 
-ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float s, float p, float deltll,
-    float T_1ll, int n_bolus_total, float delta_bolus,
+ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis, float deltblood, float taub,
+    float T_1bin, float s, float p, float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
     const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
@@ -1527,11 +1485,10 @@ ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
     float ti = 0.0;
 
     // Turbo QUASAR specific parameters
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus_total)
@@ -1541,8 +1498,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + deltblood;
 
         current_bolus_duration
-            = taub * bolus_order(n_bolus_arrived
-                         + 1); // Column vector index starts from zero
+            = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -1561,8 +1517,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gvf(const ColumnVector &tis,
             {
                 kcblood(it) = kcblood(it)
                     + 2 * exp(-(ti - bolus_time_passed) / T_1b)
-                        * gvf((ti - bolus_time_passed) - deltblood, s, p)
-                        * current_bolus_duration;
+                        * gvf((ti - bolus_time_passed) - deltblood, s, p) * current_bolus_duration;
             }
             // we do not have bolus duration with a GVF AIF - the duration is
             // 'built' into the function shape
@@ -1607,10 +1562,9 @@ float T_1ll) const
 }
 */
 
-ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
-    float deltblood, float taub, float T_1bin, float sig1, float sig2,
-    float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
-    const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, float deltblood,
+    float taub, float T_1bin, float sig1, float sig2, float deltll, float T_1ll, int n_bolus_total,
+    float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
     kcblood = 0.0;
@@ -1621,11 +1575,10 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
     float sqrt2 = sqrt(2);
 
     // Turbo QUASAR specific parameters
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus_total)
@@ -1635,8 +1588,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + deltblood;
 
         current_bolus_duration
-            = taub * bolus_order(n_bolus_arrived
-                         + 1); // Column vector index starts from zero
+            = taub * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -1647,13 +1599,11 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
             else
                 T_1b = T_1ll;
 
-            kcblood(it)
-                = 0.5 * exp(-(ti - bolus_time_passed) / T_1b)
-                * (MISCMATHS::erf(
-                       ((ti - bolus_time_passed) - deltblood) / (sqrt2 * sig1))
-                      - MISCMATHS::erf(((ti - bolus_time_passed) - deltblood
-                                           + current_bolus_duration)
-                            / (sqrt2 * sig2)));
+            kcblood(it) = 0.5 * exp(-(ti - bolus_time_passed) / T_1b)
+                * (MISCMATHS::erf(((ti - bolus_time_passed) - deltblood) / (sqrt2 * sig1))
+                              - MISCMATHS::erf(
+                                    ((ti - bolus_time_passed) - deltblood + current_bolus_duration)
+                                    / (sqrt2 * sig2)));
         }
 
         n_bolus_arrived++;
@@ -1662,10 +1612,9 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis,
 }
 
 // Tissue
-ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float deltll,
-    float T_1ll, int n_bolus_total, float delta_bolus,
-    const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss,
+    float tau, float T_1bin, float T_1app, float deltll, float T_1ll, int n_bolus_total,
+    float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1682,11 +1631,10 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
     float R;
 
     // Turbo QUASAR specific parameters
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     // float k;
@@ -1701,8 +1649,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + delttiss;
 
         current_bolus_duration
-            = tau * bolus_order(n_bolus_arrived
-                        + 1); // Column vector index starts from zero
+            = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -1727,8 +1674,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
                 && ti <= (current_arrival_time + current_bolus_duration))
             {
                 kctissue(it) = kctissue(it)
-                    + F / R * ((exp(R * (ti - bolus_time_passed))
-                                  - exp(R * delttiss)));
+                    + F / R * ((exp(R * (ti - bolus_time_passed)) - exp(R * delttiss)));
                 // kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp(
                 // (-1) * R * ti );
             }
@@ -1736,8 +1682,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis,
             else //(ti > delttiss + tau)
             {
                 kctissue(it) = kctissue(it)
-                    + F / R * ((exp(R * (delttiss + current_bolus_duration))
-                                  - exp(R * delttiss)));
+                    + F / R * ((exp(R * (delttiss + current_bolus_duration)) - exp(R * delttiss)));
                 // kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) -
                 // exp(R*delttiss))  ) * exp( (-1) * R * ti );
             }
@@ -1840,10 +1785,9 @@ tissue KC"; }
 }
 */
 
-ColumnVector TurboQuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float s, float p,
-    float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
-    const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis, float delttiss,
+    float tau, float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll,
+    int n_bolus_total, float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -1855,11 +1799,10 @@ ColumnVector TurboQuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
     float T_1b;
 
     // Turbo QUASAR specific parameters
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     // cout << T_1app << " " << A << " " << B << " "<< C << " " << endl ;
@@ -1870,8 +1813,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + delttiss;
 
         current_bolus_duration
-            = tau * bolus_order(n_bolus_arrived
-                        + 1); // Column vector index starts from zero
+            = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -1901,53 +1843,40 @@ ColumnVector TurboQuasarFwdModel::kctissue_gammadisp(const ColumnVector &tis,
             {
                 kctissue(it) = kctissue(it)
                     + 2 * 1 / A
-                        * exp(-(T_1app * delttiss
-                                  + (T_1app + T_1b) * (ti - bolus_time_passed))
+                        * exp(-(T_1app * delttiss + (T_1app + T_1b) * (ti - bolus_time_passed))
                               / (T_1app * T_1b))
                         * T_1app * T_1b * pow(B, -k)
-                        * (exp(delttiss / T_1app
-                               + (ti - bolus_time_passed) / T_1b)
+                        * (exp(delttiss / T_1app + (ti - bolus_time_passed) / T_1b)
                                   * pow(s * T_1app * T_1b, k)
                                   * (1 - igamc(k, B / (T_1app * T_1b)
-                                                 * ((ti - bolus_time_passed)
-                                                       - delttiss)))
-                              + exp(delttiss / T_1b
-                                    + (ti - bolus_time_passed) / T_1app)
-                                  * pow(B, k)
-                                  * (-1 + igamc(k, s * ((ti - bolus_time_passed)
-                                                           - delttiss))));
+                                                 * ((ti - bolus_time_passed) - delttiss)))
+                              + exp(delttiss / T_1b + (ti - bolus_time_passed) / T_1app) * pow(B, k)
+                                  * (-1 + igamc(k, s * ((ti - bolus_time_passed) - delttiss))));
             }
             else //(ti > delttiss + tau)
             {
                 kctissue(it) = kctissue(it)
                     + 2 * 1 / (A * B)
-                        * (exp(-A / (T_1app * T_1b)
-                                   * (delttiss + current_bolus_duration)
+                        * (exp(-A / (T_1app * T_1b) * (delttiss + current_bolus_duration)
                                - (ti - bolus_time_passed) / T_1app)
                               * T_1app * T_1b / C
                               * (pow(s, k) * T_1app * T_1b
                                         * (-1
                                               + exp((-1 / T_1app + 1 / T_1b)
                                                     * current_bolus_duration)
-                                                  * (1 - igamc(k,
-                                                             B / (T_1app * T_1b)
+                                                  * (1 - igamc(k, B / (T_1app * T_1b)
                                                                  * ((ti - bolus_time_passed)
                                                                        - delttiss)))
                                               + igamc(k, B / (T_1app * T_1b)
-                                                        * ((ti - bolus_time_passed)
-                                                              - delttiss
+                                                        * ((ti - bolus_time_passed) - delttiss
                                                               - current_bolus_duration)))
                                     - exp(-A / (T_1app * T_1b)
                                           * ((ti - bolus_time_passed) - delttiss
                                                 - current_bolus_duration))
-                                        * C * B
-                                        * (igamc(k,
-                                               s * ((ti - bolus_time_passed)
-                                                       - delttiss
-                                                       - current_bolus_duration))
-                                              - igamc(k,
-                                                    s * ((ti - bolus_time_passed)
-                                                            - delttiss)))));
+                                        * C * B * (igamc(k, s * ((ti - bolus_time_passed) - delttiss
+                                                                    - current_bolus_duration))
+                                                      - igamc(k, s * ((ti - bolus_time_passed)
+                                                                         - delttiss)))));
             }
             // if (isnan(kctissue(it))) { kctissue(it)=0.0; cout << "Warning NaN
             // in tissue KC"; }
@@ -2010,10 +1939,9 @@ igamc(k,(s-1/T_1app-1/T_1b)*(delttiss+tau)));
 }
 */
 
-ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float s, float p,
-    float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
-    const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis, float delttiss, float tau,
+    float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll, int n_bolus_total,
+    float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -2027,11 +1955,10 @@ ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
     float sps = pow(s, k);
 
     // Turbo QUASAR specific parameters
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus_total)
@@ -2041,8 +1968,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + delttiss;
 
         current_bolus_duration
-            = tau * bolus_order(n_bolus_arrived
-                        + 1); // Column vector index starts from zero
+            = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -2064,11 +1990,9 @@ ColumnVector TurboQuasarFwdModel::kctissue_gvf(const ColumnVector &tis,
             else // if(ti >= delttiss && ti <= (delttiss + tau))
             {
                 kctissue(it) = kctissue(it)
-                    + 2 * 1 / (B * C)
-                        * exp(-((ti - bolus_time_passed) - delttiss) / T_1app)
-                        * sps * T_1app * T_1b
-                        * (1 - igamc(k, (s - 1 / T_1app - 1 / T_1b)
-                                       * ((ti - bolus_time_passed) - delttiss)))
+                    + 2 * 1 / (B * C) * exp(-((ti - bolus_time_passed) - delttiss) / T_1app) * sps
+                        * T_1app * T_1b * (1 - igamc(k, (s - 1 / T_1app - 1 / T_1b)
+                                                       * ((ti - bolus_time_passed) - delttiss)))
                         * current_bolus_duration;
             }
             // bolus duraiton is specified by the CVF AIF shape and is not an
@@ -2127,10 +2051,9 @@ sqrt2)) * exp(R * (delttiss + tau + (R * sig2 * sig2) / 2)));
 }
 */
 
-ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
-    float delttiss, float tau, float T_1bin, float T_1app, float sig1,
-    float sig2, float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
-    const ColumnVector &bolus_order) const
+ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis, float delttiss,
+    float tau, float T_1bin, float T_1app, float sig1, float sig2, float deltll, float T_1ll,
+    int n_bolus_total, float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
@@ -2143,11 +2066,10 @@ ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
     float sqrt2 = sqrt(2);
 
     // Turbo QUASAR specific parameters
-    int n_bolus_arrived = 0;     // bolus arrived (passed) or processed
-    float bolus_time_passed = 0; // total time passed since the first bolus
-                                 // arrived (excluding arrival time)
-    float current_arrival_time
-        = 0; // total time since TI1 (including arrival time)
+    int n_bolus_arrived = 0;          // bolus arrived (passed) or processed
+    float bolus_time_passed = 0;      // total time passed since the first bolus
+                                      // arrived (excluding arrival time)
+    float current_arrival_time = 0;   // total time since TI1 (including arrival time)
     float current_bolus_duration = 0; // Current bolus duration
 
     while (n_bolus_arrived < n_bolus_total)
@@ -2157,8 +2079,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
         current_arrival_time = bolus_time_passed + delttiss;
 
         current_bolus_duration
-            = tau * bolus_order(n_bolus_arrived
-                        + 1); // Column vector index starts from zero
+            = tau * bolus_order(n_bolus_arrived + 1); // Column vector index starts from zero
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
@@ -2173,18 +2094,15 @@ ColumnVector TurboQuasarFwdModel::kctissue_gaussdisp(const ColumnVector &tis,
             float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
             float u1 = ((ti - bolus_time_passed) - delttiss) / (sqrt2 * sig1);
             float u2
-                = ((ti - bolus_time_passed) - delttiss - current_bolus_duration)
-                / (sqrt2 * sig2);
+                = ((ti - bolus_time_passed) - delttiss - current_bolus_duration) / (sqrt2 * sig2);
 
             kctissue(it) = kctissue(it)
                 + F / (2 * R)
-                    * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2))
-                              * exp(R * (ti - bolus_time_passed))
+                    * ((MISCMATHS::erf(u1) - MISCMATHS::erf(u2)) * exp(R * (ti - bolus_time_passed))
                           - (1 + MISCMATHS::erf(u1 - (R * sig1) / sqrt2))
                               * exp(R * (delttiss + (R * sig1 * sig1) / 2))
                           + (1 + MISCMATHS::erf(u2 - (R * sig2) / sqrt2))
-                              * exp(R * (delttiss + tau
-                                            + (R * sig2 * sig2) / 2)));
+                              * exp(R * (delttiss + tau + (R * sig2 * sig2) / 2)));
         }
 
         n_bolus_arrived++;
@@ -2211,6 +2129,5 @@ float TurboQuasarFwdModel::gvf(float t, float s, float p) const
     if (t < 0)
         return 0.0;
     else
-        return pow(s, 1 + s * p) / MISCMATHS::gamma(1 + s * p) * pow(t, s * p)
-            * exp(-s * t);
+        return pow(s, 1 + s * p) / MISCMATHS::gamma(1 + s * p) * pow(t, s * p) * exp(-s * t);
 }

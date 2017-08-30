@@ -25,10 +25,8 @@ public:
 
     virtual void NameParams(vector<string> &names) const;
     virtual int NumParams() const { return (LFAon ? 4 : 3); }
-    virtual void HardcodedInitialDists(
-        MVNDist &prior, MVNDist &posterior) const;
-    virtual void Evaluate(
-        const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
+    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
+    virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
 
 protected:
     // Constants
