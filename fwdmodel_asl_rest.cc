@@ -925,8 +925,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         sliceband = convertTo<int>(args.ReadWithDefault("sliceband",
             "0")); // number of slices in a band in a multi-band setup (zero implies single band)
         casl = args.ReadBool("casl"); // set if the data is CASL or PASL (default)
-        // seqtau = convertTo<double>(args.ReadWithDefault("tau","1000")); //bolus length as set by
-        // sequence (default of 1000 is effectively infinite
+        seqtau = convertTo<double>(args.ReadWithDefault("tau","1000")); //bolus length as set by sequence (default of 1000 is effectively infinite
 
         setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
         string deltwm = args.ReadWithDefault("batwm", "null");
