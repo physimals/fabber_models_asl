@@ -63,6 +63,7 @@ static OptionSpec OPTIONS[] = {
     { "bolus_<n>", OPT_FLOAT, "Whether the bolus is on or off. E.g --bolus_1=1 --bolus_2=0. n<=7",
         OPT_NONREQ, "" },
     { "slice_shift", OPT_FLOAT, "Slice shifting factor (default: 1)", OPT_NONREQ, "" },
+    { "dti", OPT_FLOAT, "Delta TI (default: 0.6)", OPT_NONREQ, "" },
     { "fa", OPT_FLOAT, "Flip angle in degrees", OPT_NONREQ, "30" }, { "" },
 };
 
@@ -202,8 +203,10 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     }
 
     timax = tis.Maximum(); // dtermine the final TI
+
     // determine the TI interval (assume it is even throughout)
-    dti = (tis(2) - tis(1)) * slice_shifting_factor;
+    //dti = (tis(2) - tis(1)) * slice_shifting_factor;
+    dti = convertTo<double>(args.ReadWithDefault("dti", "0.6"));
 
     // Bolus duration parameters
     // determine delta bolus (time between each successive bolus)
