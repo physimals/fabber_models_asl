@@ -312,7 +312,7 @@ public:
         }
         else {
             residpriors.ReSize(4);
-            residpriors << 0.8 << 10 << mtt_prior << MTT_PRIOR_PRECISION;
+            residpriors << 0.8 << mtt_prior << 10 << MTT_PRIOR_PRECISION;
         }
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
