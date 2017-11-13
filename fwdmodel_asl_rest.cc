@@ -75,7 +75,10 @@ static OptionSpec OPTIONS[] = {
     { "tau<n>", OPT_FLOAT, "List of tau values", OPT_NONREQ, "" },
     { "crush<n>", OPT_STR, "List of vascular crushing specifications values", OPT_NONREQ, "" },
     { "FA", OPT_FLOAT, "Look-Locker correction", OPT_NONREQ, "" },
-    { "facorr", OPT_BOOL, "Do FA correction", OPT_NONREQ, "" }, { "" },
+    { "facorr", OPT_BOOL, "Do FA correction", OPT_NONREQ, "" }, 
+    { "2cpt-solution", OPT_BOOL, "For 2-compartment model, solution type (fast, slow or dist)", OPT_NONREQ, "slow" }, 
+    { "mtt", OPT_BOOL, "For 2-compartment model and fast/dist solution method, mean transit time (s)", OPT_NONREQ, "1" }, 
+    { "" },
 };
 void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
 {
@@ -822,748 +825,610 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
 FwdModel *ASLFwdModel::NewInstance() { return new ASLFwdModel(); }
 void ASLFwdModel::Initialize(ArgsType &args)
 {
-    string scanParams = args.ReadWithDefault("scan-params", "cmdline");
+    // set the AIF dispersion type
+    disptype = args.ReadWithDefault("disp", "none");
+    // set the type of exchange in tissue compartment
+    exchtype = args.ReadWithDefault("exch", "mix");
+    // force numerical convolution for the evaluation of the model
+    bool forceconv = args.ReadBool("forceconv");
 
-    bool forceconv;
-    if (scanParams == "cmdline")
+    // inference/inclusion
+    inctiss = args.ReadBool("inctiss");
+    infertiss = args.ReadBool("infertiss");
+    inferart = args.ReadBool("inferart");
+    incart = args.ReadBool("incart") || inferart;
+    if (!inctiss & !incart)
     {
-        // specify command line parameters here
-        // model choices
-        disptype = args.ReadWithDefault("disp", "none"); // set the AIF dispersion type
-        exchtype
-            = args.ReadWithDefault("exch", "mix"); // set the type of exchange in tissue compartment
-        forceconv = args.ReadBool("forceconv");    // force numerical convolution
-                                                   // for the evaluation of the
-                                                   // model
-        // inference/inclusion
-        // -components
-        inctiss = args.ReadBool("inctiss");
-        infertiss = args.ReadBool("infertiss");
-        incart = args.ReadBool("incart");
-        inferart = args.ReadBool("inferart");
-        if (inferart)
-            incart = true;
-        incwm = args.ReadBool("incwm");
-        inferwm = false; // we only infer WM if we are doing PV correction (below)
-        if (!inctiss & !incart)
-        {
-            throw invalid_argument("Error: neither tissue nor arterial "
-                                   "components have been selected: make sure "
-                                   "you set either (or both) of --inctiss and "
-                                   "--incart");
-        }
-        // -common things
-        incbat = args.ReadBool("incbat");
-        inferbat = args.ReadBool("inferbat");
-        incpc = args.ReadBool("incpc");
-        inferpc = args.ReadBool("inferpc");
-        if (inferpc)
-            incpc = true;
-        inctau = args.ReadBool("inctau");
-        infertau = args.ReadBool("infertau");
-        if (infertau)
-            inctau = true;
-        septau = args.ReadBool("septau");
-        inct1 = args.ReadBool("inct1");
-        infert1 = args.ReadBool("infert1");
-        if (infert1)
-            inct1 = true;
-        // incdisp = args.ReadBool("incdisp");
-        // incdisp is set based on whether there are dispersion parameters in
-        // the model
-        inferdisp = args.ReadBool("inferdisp");
-        sepdisp = args.ReadBool("sepdisp");
-        // incexch = args.ReadBool("incexch");
-        // incexch is set based on whether there are residue function parameters
-        // in the model
-        inferexch = args.ReadBool("inferexch");
-        // if (inferexch) incexch = true;
-        // -special
-        incpve = args.ReadBool("incpve");
-        // PV correction
-        pvcorr = args.ReadBool("pvcorr");
-        if (pvcorr)
-        {
-            incpve = true;
-            incwm = true;
-            inferwm = true;
-        }
-        // make sure if we include PVE that we always have WM component in the
-        // model
-        if (incpve)
-            incwm = true;
-        // include the static tissue
-        incstattiss = args.ReadBool("incstattiss");
-        inferstattiss = args.ReadBool("inferstattiss");
+        throw FabberRunDataError("Neither tissue nor arterial components have been selected. "
+                                 "At least one of --inctiss and --incart must be set");
+    }
 
-        // some useful (relative) indices for WM and arterial components
-        ncomps = (inctiss ? 1 : 0) + (incart ? 1 : 0) + (incwm ? 1 : 0);
-        wmidx = 0;
-        if (inctiss)
-            wmidx++;
-        artidx = 0;
-        if (inctiss)
-            artidx++;
-        if (incwm)
-            artidx++;
+    incwm = args.ReadBool("incwm");
+    // we only infer WM if we are doing PV correction (below)
+    inferwm = false;
 
-        // deal with ARD selection for aBV
-        bool ardoff = false;
-        ardoff = args.ReadBool("ardoff");
-        doard = false;
-        if (inferart == true && ardoff == false)
-        {
-            ardindices.push_back(flow_index() + artidx);
-        }
-        // scan parameters
-        // repeats = convertTo<int>(args.ReadWithDefault("repeats", "1"));      // number of repeats
-        // in data
-        pretisat = convertTo<double>(args.ReadWithDefault(
-            "pretisat", "0")); // deal with saturation of the bolus a fixed time pre TI measurement
-        slicedt
-            = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
-        sliceband = convertTo<int>(args.ReadWithDefault("sliceband",
-            "0")); // number of slices in a band in a multi-band setup (zero implies single band)
-        casl = args.ReadBool("casl"); // set if the data is CASL or PASL (default)
-        seqtau = convertTo<double>(args.ReadWithDefault("tau","1000")); //bolus length as set by sequence (default of 1000 is effectively infinite
+    // common things
+    incbat = args.ReadBool("incbat");
+    inferbat = args.ReadBool("inferbat");
+    inferpc = args.ReadBool("inferpc");
+    incpc = args.ReadBool("incpc") || inferpc;
 
-        setdelt = convertTo<double>(args.ReadWithDefault("bat", "0.7"));
-        string deltwm = args.ReadWithDefault("batwm", "null");
-        if (deltwm == "null")
-        {
-            setdeltwm = setdelt + 0.3; // by default choose delt WM longer then GM
-        }
-        else
-        {
-            setdeltwm = convertTo<double>(deltwm);
-        }
-        string deltart = args.ReadWithDefault("batart", "null");
-        if (deltart == "null")
-        {
-            setdeltart = setdelt - 0.3; // by default choose delt blood shorter then GM
-        }
-        else
-        {
-            setdeltart = convertTo<double>(deltart);
-        }
-        // std dev for delt prior (same for all tissue BAT)
-        double deltsd;
-        deltsd = convertTo<double>(args.ReadWithDefault("batsd", "0.316"));
-        deltprec = 1 / (deltsd * deltsd);
-        // now arterial BAT precision
-        string batartsd = args.ReadWithDefault("batartsd", "null");
-        if (batartsd == "null")
-        {
-            // by default the arterial BAT SD is same as tissue
-        }
-        else
-        {
-            deltsd = convertTo<double>(batartsd);
-        }
-        deltartprec = 1 / (deltsd * deltsd);
-        // data information
-        raw = false;
-        tagfirst = true;
-        string iaf = args.ReadWithDefault("iaf", "diff");
-        if ((iaf == "tc") | (iaf == "ct"))
-        {
-            // data is in raw form
-            raw = true;
-            if (iaf == "ct")
-                tagfirst = false;
-        }
-        // analysis options/settings
-        calib = args.ReadBool("calib"); // data has already been subjected to calibration
-        // T1 values
-        string default_t1 = "1.3"; // T1 for generic tissue (i.e. mixed GM and WM)
-        if (incwm)
-            default_t1 = "1.3"; // possibly a different default for T1 of tissue
-                                // if this represents GM only
-        t1 = convertTo<double>(args.ReadWithDefault("t1", default_t1));
-        t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
-        t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
-        // other model parameters
-        string default_lambda = "0.9"; // lambda for generic tissue (mixed GM and WM)
-        if (incwm)
-            default_lambda = "0.98"; // different default for labda if we have a
-                                     // WM component (since then the 'tissue' is
-                                     // a GM component)
-        lambda = convertTo<double>(args.ReadWithDefault("lambda", default_lambda));
-        lamwm = 0.82;
-        // Read in timing parameters (TIs / PLDs)
-        bool ti_set = false;
-        bool pld_set = false;
-        ColumnVector ti_list;
-        ColumnVector pld_list;
-        // TIs
-        string ti_temp = args.ReadWithDefault("ti", "none");
-        if (ti_temp != "none")
-        {
-            // a single TI
-            ti_set = true;
-            ti_list.ReSize(1);
-            ti_list(1) = convertTo<double>(ti_temp);
-        }
-        else
-        {
-            ti_temp = args.ReadWithDefault("ti1", "none");
-            if (ti_temp != "none")
-            {
-                // a list of TIs
-                ti_set = true;
-                ti_list.ReSize(1); // will add extra values onto end as needed
-                ti_list(1) = convertTo<double>(ti_temp);
-                while (true) // get the rest of the tis
-                {
-                    int N = ti_list.Nrows() + 1;
-                    ti_temp = args.ReadWithDefault("ti" + stringify(N), "stop!");
-                    if (ti_temp == "stop!")
-                        break; // we have run out of tis
+    infertau = args.ReadBool("infertau");
+    inctau = args.ReadBool("inctau") || infertau;
 
-                    // append the new ti onto the end of the list
-                    ColumnVector tmp(1);
-                    tmp = convertTo<double>(ti_temp);
-                    ti_list &= tmp; // vertical concatenation
-                }
-            }
-        }
-        // PLDs
-        string pld_temp = args.ReadWithDefault("pld", "none");
-        if (pld_temp != "none")
-        {
-            // a single PLD
-            pld_set = true;
-            pld_list.ReSize(1);
-            pld_list(1) = convertTo<double>(pld_temp);
-        }
-        else
-        {
-            pld_temp = args.ReadWithDefault("pld1", "none");
-            if (pld_temp != "none")
-            {
-                // a list of TIs
-                pld_set = true;
-                pld_list.ReSize(1); // will add extra values onto end as needed
-                pld_list(1) = convertTo<double>(pld_temp);
-                while (true) // get the rest of the tis
-                {
-                    int N = pld_list.Nrows() + 1;
-                    pld_temp = args.ReadWithDefault("pld" + stringify(N), "stop!");
-                    if (pld_temp == "stop!")
-                        break; // we have run out of tis
+    septau = args.ReadBool("septau");
+    infert1 = args.ReadBool("infert1");
+    inct1 = args.ReadBool("inct1") || infert1;
 
-                    // append the new ti onto the end of the list
-                    ColumnVector tmp(1);
-                    tmp = convertTo<double>(pld_temp);
-                    pld_list &= tmp; // vertical concatenation
-                }
-            }
-        }
+    // incdisp is set based on whether there are dispersion parameters in the model
+    inferdisp = args.ReadBool("inferdisp");
+    sepdisp = args.ReadBool("sepdisp");
 
-        // Hadamard time encoding
-        string hadamardin = args.ReadWithDefault(
-            "hadamard", "none");                 // if nothing is stated, no Hadamard encoding
-                                                 // is assumed. If it is set to an integer N, N
-                                                 // encoding lines are assumed.
-        bool FullHad = args.ReadBool("fullhad"); // in some cases the full
-                                                 // Hadamard matrix is needed,
-                                                 // i.e. all N rows (and not
-                                                 // only N-1). This is activated
-                                                 // by this command.
-        if (hadamardin == "none")
-        {
-            hadamard = false;
-            HadamardSize = 1;
-        }
-        else
-        {
-            hadamard = true;
-            HadamardSize = convertTo<int>(hadamardin); // This gives the number of encoding lines
-            if (((HadamardSize % 2) != 0) & (HadamardSize != 12))
-            {
-                // check that we have a sensible hadamard scheme
-                throw invalid_argument("Hadamard encoding is only possible "
-                                       "with a number of encodings that are "
-                                       "modulo 2 (2,4,8,16...) or number of "
-                                       "encodings equal to 12");
-            }
-            if (FullHad)
-                NumberOfSubBoli = HadamardSize; // This gives the number of subboli
-            else
-                NumberOfSubBoli = HadamardSize - 1;
-            HadEncMatrix = HadamardMatrix(HadamardSize);
-            // we will usually ingore the first column (all control), unless we
-            // are doign FullHad
-            HadEncMatrix = HadEncMatrix.SubMatrix(
-                1, HadamardSize, HadamardSize - (NumberOfSubBoli - 1), HadamardSize);
-        }
-        // Populate the inflow time (TI) vector
-        if (hadamard)
-        {
-            // set TIs up for hadamard data
-            if (pld_list.Nrows() == 0)
-            {
-                throw invalid_argument("For Hadamard time encoding please specify a PLD (--pld=)");
-            }
-            else if (pld_list.Nrows() > 1)
-            {
-                throw invalid_argument("Hadamard time encoding with more than "
-                                       "one PLD is not currently supported");
-            }
-            // calculate the TIs corresponding to the indiviual subboli
-            tis.ReSize(1);
-            tis(1) = NumberOfSubBoli * seqtau + pld_list(1);
-            for (int i = 1; i < NumberOfSubBoli; i++)
-            {
-                ColumnVector tmp(1);
-                tmp = pld_list(1) + (NumberOfSubBoli - i) * seqtau;
-                tis &= tmp; // vertical concatenation
-            }
-        }
-        else
-        {
-            // normal ASL data
-            if (ti_set)
-            {
-                tis = ti_list;
-            }
-            if (pld_set)
-            {
-                if (casl)
-                {
-                    tis = pld_list + seqtau;
-                }
-                else
-                {
-                    // unlikely to happen, but permits the user to supply PLDs
-                    // for a pASL acquisition
-                    tis = pld_list;
-                }
-            }
-        }
+    // incexch is set based on whether there are residue function parameters in the model
+    inferexch = args.ReadBool("inferexch");
 
-        timax = tis.Maximum(); // dtermine the final TI
+    // special
+    incpve = args.ReadBool("incpve");
+    // make sure if we include PVE that we always have WM component in the model
+    if (incpve)
+    {
+        incwm = true;
+    }
 
-        // repeats
-        string rpt_temp = args.ReadWithDefault("repeats", "NULL");
-        if (rpt_temp != "NULL")
-        {
-            // number of repeats has been specified - same for each TI
-            for (int it = 0; it < tis.Nrows(); it++)
-            {
-                repeats.push_back(convertTo<int>(rpt_temp));
-            }
-        }
-        else
-        {
-            rpt_temp = args.ReadWithDefault("rpt1", "none");
-            if (rpt_temp != "none")
-            {
-                // a list of repeats
-                repeats.push_back(convertTo<int>(rpt_temp));
-                int N = 2;
-                while (true) // get the rest of the repeats
-                {
-                    if (hadamard)
-                    {
-                        throw invalid_argument(
-                            "Cannot specify more than one set of repeats with Hadmard encoding");
-                    }
+    // PV correction
+    pvcorr = args.ReadBool("pvcorr");
+    if (pvcorr)
+    {
+        incpve = true;
+        incwm = true;
+        inferwm = true;
+    }
 
-                    rpt_temp = args.ReadWithDefault("rpt" + stringify(N), "stop!");
-                    if (rpt_temp == "stop!")
-                        break; // we have run out of repeats
+    // include the static tissue
+    incstattiss = args.ReadBool("incstattiss");
+    inferstattiss = args.ReadBool("inferstattiss");
 
-                    repeats.push_back(convertTo<int>(rpt_temp));
-                    N++;
-                }
-                // check that number of entries for repeats matches number of TIs
-                if (int(repeats.size()) != tis.Nrows())
-                {
-                    throw invalid_argument("Mismatch between number of inflow times (TIs/PLDs) and "
-                                           "entries for repeats - these should be equal");
-                }
-            }
-            else
-            {
-                // The number of repeats has not been specified by the user - default is one.
-                for (int it = 0; it < tis.Nrows(); it++)
-                {
-                    repeats.push_back(1);
-                }
-            }
-        }
-        // total number of time points in data
-        tpoints = 0;
-        for (int it = 0; it < tis.Nrows(); it++)
-        {
-            tpoints += repeats[it];
-        }
+    // some useful (relative) indices for WM and arterial components
+    ncomps = (inctiss ? 1 : 0) + (incart ? 1 : 0) + (incwm ? 1 : 0);
+    wmidx = 0;
+    if (inctiss)
+        wmidx++;
+    artidx = 0;
+    if (inctiss)
+        artidx++;
+    if (incwm)
+        artidx++;
 
-        // bolus durations
+    // deal with ARD selection for aBV
+    bool ardoff = false;
+    ardoff = args.ReadBool("ardoff");
+    doard = false;
+    if (inferart == true && ardoff == false)
+    {
+        ardindices.push_back(flow_index() + artidx);
+    }
 
-        multitau = false;
-        string tau_temp = args.ReadWithDefault("tau", "none");
-        if (tau_temp == "none")
-        {
-            tau_temp = args.ReadWithDefault("tau1", "none");
-            if (tau_temp != "none")
-            {
-                // a list of taus
-                taus.ReSize(1); // will add extra values onto end as needed
-                taus(1) = convertTo<double>(tau_temp);
-                while (true) // get the rest of the taus
-                {
-                    if (inctau)
-                    {
-                        throw invalid_argument("Inference/Inclusion of (variable) bolus duration "
-                                               "is not compatible with multiple bolus durations "
-                                               "use a single value (--tau=)");
-                    }
-                    if (septau)
-                    {
-                        throw invalid_argument("Separate bolus duration for "
-                                               "different components not valid "
-                                               "with multiple bolus durations "
-                                               "use a single value (--tau=)");
-                    }
-                    multitau = true;
-                    int N = taus.Nrows() + 1;
-                    tau_temp = args.ReadWithDefault("tau" + stringify(N), "stop!");
-                    if (tau_temp == "stop!")
-                        break; // we have run out of tis
+    // Scan parameters
 
-                    // append the new tau onto the end of the list
-                    ColumnVector tmp(1);
-                    tmp = convertTo<double>(tau_temp);
-                    taus &= tmp; // vertical concatenation
-                }
-                // check that number of bolus durations matches number of TIs
-                if (taus.Nrows() != tis.Nrows())
-                {
-                    throw invalid_argument("Mismatch between number of inflow "
-                                           "times (TIs/PLDs) and bolus "
-                                           "durations - these should be equal");
-                }
-            }
-        }
+    // Deal with saturation of the bolus a fixed time pre TI measurement
+    pretisat = args.GetDoubleDefault("pretisat", 0);
 
-        // vascular crushing
-        // to specify a custom combination of vascular crushing
-        string crush_temp = args.ReadWithDefault("crush1", "notsupplied");
-        // if crush_temp = none then we assume all data has same crushing
-        // parameters we will represent this as no crushers
-        crush.ReSize(tis.Nrows());
-        crush = 0.0; // default is no crusher
-        crushdir.ReSize(tis.Nrows(), 3);
-        crushdir = 0.0;
-        crushdir.Column(3) = 1.0; // default (which should remain ignored normally) is z-only
-        if (crush_temp != "notsupplied")
-        {
-            // we need to assemble crusher information
-            int N = 1;
-            while (true)
-            {
-                if (N > 1)
-                {
-                    crush_temp = args.ReadWithDefault("crush" + stringify(N), "stop!");
-                    if (crush_temp == "stop!")
-                        break; // we have run out of crusher specifications
-                }
-                // determine what crusher type we have
-                if (crush_temp == "off" || crush_temp == "none")
-                {
-                    crush(N) = 0.0;
-                }
-                else if (crush_temp == "on")
-                {
-                    crush(N) = 1.0;
-                }
-                else if (crush_temp == "xyz")
-                {
-                    crush(N) = 1.0;
-                    crushdir.Row(N) << 1 << 1 << 1;
-                    crushdir.Row(N) /= sqrt(3);
-                }
-                else if (crush_temp == "-xyz")
-                {
-                    crush(N) = 1.0;
-                    crushdir.Row(N) << -1 << 1 << 1;
-                    crushdir.Row(N) /= sqrt(3);
-                }
-                else if (crush_temp == "x-yz")
-                {
-                    crush(N) = 1.0;
-                    crushdir.Row(N) << 1 << -1 << 1;
-                    crushdir.Row(N) /= sqrt(3);
-                }
-                else if (crush_temp == "-x-yz")
-                {
-                    crush(N) = 1.0;
-                    crushdir.Row(N) << -1 << -1 << 1;
-                    crushdir.Row(N) /= sqrt(3);
-                }
-                N++;
-            }
-        }
-        // Look-Locker correction
-        string FAin = args.ReadWithDefault("FA", "none");
-        if (FAin == "none")
-            looklocker = false;
-        else
-        {
-            looklocker = true;
-            FA = convertTo<double>(FAin);
-            FA *= M_PI / 180;      // convert to radians
-            dti = tis(2) - tis(1); // NOTE LL correction is only valid with
-                                   // evenly spaced TIs
-        }
-        incfacorr = args.ReadBool("facorr"); // indicate that we want to do FA
-                                             // correction - the g image will
-                                             // need to be separately loaded in
-                                             // as an image prior
-        dg = convertTo<double>(args.ReadWithDefault("dg", "0.0"));
-        // need to set the voxel coordinates to a default of 0 (for the times we
-        // call the model before we start handling data)
-        coord_x = 0;
-        coord_y = 0;
-        coord_z = 0;
-        // setup the models
-        // same tissue model for GM and WM
-        // NB it is feasible to have different dispersion for arterial and
-        // tissue models, but not implemented
-        // > Arterial Model (only depend upon dispersion type)
-        art_model = NULL;
-        if (disptype == "none")
-        {
-            art_model = new AIFModel_nodisp();
-        }
-        else if (disptype == "gamma")
-        {
-            art_model = new AIFModel_gammadisp();
-        }
-        else if (disptype == "gauss")
-        {
-            art_model = new AIFModel_gaussdisp();
-        }
-        else if (disptype == "sgauss")
-        {
-            art_model = new AIFModel_spatialgaussdisp();
-        }
-        // > PC models
-        pc_model = NULL;
-        if (disptype == "none")
-        {
-            pc_model = new TissueModel_nodisp_imperm();
-        }
-        // default is to use convolution model with the impermeable residue
-        // function
-        if ((pc_model == NULL) | forceconv)
-        {
-            ResidModel *imperm_resid;
-            imperm_resid = new ResidModel_imperm();
-            pc_model = new TissueModel_aif_residue(art_model, imperm_resid);
-        }
-        // > Tissue model
-        tiss_model = NULL;
-        resid_model = NULL;
-        // This should ALWAYS set a resid_model and maybe a MATCHING tiss_model
-        //   - well mixed single compartment
-        if (exchtype == "mix")
-        {
-            resid_model = new ResidModel_wellmix();
-            if (disptype == "none")
-            {
-                tiss_model = new TissueModel_nodisp_wellmix();
-            }
-            else if ((disptype == "gamma") && !casl)
-            {
-                tiss_model = new TissueModel_gammadisp_wellmix();
-            }
-        }
-        //    - simple single impermeable compartment that decays with T1b
-        if (exchtype == "simple")
-        {
-            resid_model = new ResidModel_simple();
-            if (disptype == "none")
-            {
-                tiss_model = new TissueModel_nodisp_simple();
-            }
-        }
-        //    - 2 compartment exchange (simplest model - no backflow, no venous
-        //    outflow)
-        else if (exchtype == "2cpt")
-        {
-            resid_model = new ResidModel_twocpt;
-            if ((disptype == "none") && !casl)
-            {
-                tiss_model = new TissueModel_nodisp_2cpt();
-            }
-        }
-        //    - SPA 2 compartment model
-        else if (exchtype == "spa")
-        {
-            resid_model = new ResidModel_spa();
-            if ((disptype == "none") && !casl)
-            {
-                tiss_model = new TissueModel_nodisp_spa();
-            }
-        }
-        // > default is to use the convolution model with the residue function
-        // if no analytical tissue model can be found
-        if ((tiss_model == NULL) | args.ReadBool("forceconv"))
-        {
-            // note the 'forceconv' option, this forces the model to use the
-            // convolution formulation voer any analytic form it has
-            if (resid_model == NULL)
-            {
-                // we cannot do a convolution in this case as a residue function
-                // has not been found either!
-                throw invalid_argument("A residue function model for this "
-                                       "exchange type cannot be found");
-            }
-            else
-            {
-                tiss_model = new TissueModel_aif_residue(art_model, resid_model);
-            }
-        }
-        // include dispersion parameters if the model has them
-        if ((art_model->NumDisp() > 0) | (tiss_model->NumDisp() > 0))
-        {
-            incdisp = true;
-        }
-        // include resdue function (i.e. exchange) parameters is the model has
-        // them
-        if (tiss_model->NumResid() > 0)
-        {
-            incexch = true;
-        }
+    // Increase in TI per slice
+    slicedt = args.GetDoubleDefault("slicedt", 0);
 
-        // dispersion model - load priors from command line
-        for (int i = 1; i <= art_model->NumDisp(); i++)
-        {
-            string priormean = args.ReadWithDefault("disp_prior_mean_" + stringify(i), "null");
-            if (priormean != "null")
-            {
-                art_model->SetPriorMean(i, convertTo<double>(priormean));
-                tiss_model->SetDispPriorMean(i,
-                    convertTo<double>(priormean)); // ASSUME that dispersion
-                                                   // model same for arterial
-                                                   // and tissue model (and they
-                                                   // share the same priors)
-            }
-        }
+    // Number of slices in a band in a multi-band setup (zero implies single band)
+    sliceband = args.GetIntDefault("sliceband", 0);
 
-        // add information about the parameters to the log
-        LOG << "Inference using resting state ASL model" << endl;
-        LOG << "INCLUSIONS:" << endl;
-        if (inctiss)
-            LOG << "Tissue" << endl;
-        if (incart)
-            LOG << "Arterial/MV" << endl;
-        if (incwm)
-            LOG << "White matter" << endl;
-        LOG << "Number of components: " << ncomps << endl;
-        if (incbat)
-            LOG << "Bolus arrival time" << endl;
-        if (incpc)
-            LOG << "Pre capilliary" << endl;
-        if (inctau)
-            LOG << "Bolus duration (tau)" << endl;
-        if (inct1)
-            LOG << "T1 values" << endl;
-        if (incdisp)
-            LOG << "Dispersion" << endl;
-        if (incexch)
-            LOG << "Restricted exchange" << endl;
-        if (incpve)
-            LOG << "Partial volume estimates" << endl;
-        if (incstattiss)
-            LOG << "Statis tissue" << endl;
-        LOG << "INFERENCE:" << endl;
-        if (infertiss)
-            LOG << "Tissue" << endl;
-        if (inferart)
-            LOG << "Arterial/MV" << endl;
-        if (inferwm)
-            LOG << "White matter" << endl;
-        if (inferbat)
-            LOG << "Bolus arrival time" << endl;
-        if (inferpc)
-            LOG << "Pre capilliary" << endl;
-        if (infertau)
-            LOG << "Bolus duration (tau)" << endl;
-        if (septau)
-            LOG << "  Separate values of tau for each component" << endl;
-        if (infert1)
-            LOG << "T1 values" << endl;
-        if (inferdisp)
-            LOG << "Dispersion" << endl;
-        if (sepdisp)
-            LOG << "  Separate dispersion parameters for each component" << endl;
-        if (inferexch)
-            LOG << "Restricted exchange" << endl;
-        if (pvcorr)
-            LOG << "Partial volume correction" << endl;
-        if (inferstattiss)
-            LOG << "Static tissue" << endl;
-        LOG << "------" << endl;
-        // kinetic model
-        LOG << "Kinetic model:" << endl;
-        if (!casl)
-            LOG << "Data being analysed using PASL inversion profile" << endl;
-        if (casl)
-            LOG << "Data being analysed using CASL inversion profile" << endl;
-        LOG << "Tissue model:" << tiss_model->Name() << endl;
-        if (tiss_model->NumDisp() > 0)
-            LOG << "Dispersion parameter priors (means then precisions): "
-                << tiss_model->DispPriors() << endl;
-        if (tiss_model->NumResid() > 0)
-            LOG << "Residue function parameter priors (means then precisions): "
-                << tiss_model->ResidPriors() << endl;
-        if (incart)
-            LOG << "Arterial model:" << art_model->Name() << endl;
-        if (art_model->NumDisp() > 0)
-            LOG << "Dispersion parameter priors (means then precisions): " << art_model->Priors()
-                << endl;
-        if (incpc)
-            LOG << "Pre-capillary model:" << pc_model->Name() << endl;
-        LOG << "------" << endl;
-        // scan parameters
-        if (pretisat > 0)
-            LOG << "Saturation of " << pretisat << " s before TI has been specified" << endl;
-        if (calib)
-            LOG << "Input data is in physioligcal units, using estimated CBF "
-                   "in T_1app calculation"
-                << endl;
-        LOG << "Data parameters: #repeats = " << repeats << endl;
-        LOG << " t1 = " << t1 << ", t1b = " << t1b;
-        if (incwm)
-            LOG << "t1wm= " << t1wm << endl;
-        LOG << " bolus duration (tau) = " << seqtau << endl;
-        // Hadamard
-        if (hadamard)
-        {
-            LOG << "Hadamard time encoding:" << endl;
-            if (FullHad)
-                LOG << "  Full nxn-Hadamard matrix is used." << endl;
-            LOG << "  Number of Hadamard encoded images: " << HadamardSize << endl;
-            LOG << "  Number of Hadamard subboli: " << NumberOfSubBoli << endl;
-            LOG << "  Subbolus length: " << seqtau << endl;
-            LOG << "  Post labeling delay (PLD): " << pld_list(1) << endl;
-        }
+    // Set if the data is CASL or PASL (default)
+    casl = args.GetBool("casl");
 
-        if (doard)
+    setdelt = args.GetDoubleDefault("bat", 0.7);
+    // By default choose delt WM longer then GM
+    setdeltwm = args.GetDoubleDefault("batwm", setdelt + 0.3);
+    // By default choose delt blood shorter then GM
+    double deltart = args.GetDoubleDefault("batart", setdelt - 0.3);
+
+    // std dev for delt prior (same for all tissue BAT)
+    double deltsd = args.GetDoubleDefault("batsd", 0.316);
+    deltprec = 1 / (deltsd * deltsd);
+
+    // Arterial BAT precision - by default the arterial BAT SD is same as tissue
+    deltsd = args.GetDoubleDefault("batartsd", deltsd);
+    deltartprec = 1 / (deltsd * deltsd);
+
+    // Whether data has been tag-control subtracted or not
+    string iaf = args.GetStringDefault("iaf", "diff");
+    raw = false;
+    if ((iaf == "tc") | (iaf == "ct"))
+    {
+        // data is in raw (non-subtracted) form
+        raw = true;
+    }
+    tagfirst = (iaf != "ct");
+
+    // data has already been subjected to calibration
+    calib = args.GetBool("calib");
+
+    // Possible different default for T1 if we have a WM component (since then the 'tissue' is
+    // GM only rather than mixed WM/GM)
+    t1 = args.GetDoubleDefault("t1", incwm ? 1.3 : 1.3);
+    t1b = args.GetDoubleDefault("t1b", 1.65);
+    t1wm = args.GetDoubleDefault("t1wm", 1.1);
+
+    // Different default for labda if we have a WM component (since then the 'tissue' is
+    // GM only rather than mixed WM/GM)
+    lambda = args.GetDoubleDefault("lambda", incwm ? 0.98 : 0.9);
+    lamwm = 0.82;
+
+    // Timing parameters (TIs / PLDs)
+    vector<double> ti_list = args.GetDoubleList("ti");
+    bool ti_set = (ti_list.size() >= 1);
+    int num_times = ti_list.size();
+
+    vector<double> pld_list = args.GetDoubleList("pld");
+    bool pld_set = (pld_list.size() >= 1);
+    if (pld_set)
+        num_times = pld_list.size();
+
+    if (ti_set && pld_set)
+        throw FabberRunDataError("Cannot specify TIs and PLDs at the same time");
+
+    // Repeats - may be single repeat or multiple (one per TI/PLD)
+    if (args.HaveKey("rpt1"))
+    {
+        // Multiple repeats have been specified
+        repeats = args.GetIntList("rpt");
+        if (repeats.size() > 1 && hadamard)
         {
-            LOG << "ARD has been set on arterial compartment " << endl;
+            throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
+                "Cannot specify more than one set of repeats with Hadmard encoding");
         }
-        LOG << "TIs: ";
-        for (int i = 1; i <= tis.Nrows(); i++)
-            LOG << tis(i) << " ";
-        LOG << endl;
+        if (repeats.size() != num_times)
+        {
+            throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
+                "Mismatch between number of inflow times (TIs/PLDs) and repeats - should be equal");
+        }
     }
     else
-        throw invalid_argument("Only --scan-params=cmdline is accepted at the moment");
+    {
+        // Multiple repeats not specified - use single value defaulting to 1
+        for (int it = 0; it < num_times; it++)
+        {
+            repeats.push_back(args.GetIntDefault("repeats", 1));
+        }
+    }
+
+    // total number of time points in data
+    tpoints = 0;
+    for (int it = 0; it < num_times; it++)
+    {
+        tpoints += repeats[it];
+    }
+
+    // Bolus durations - may be single value or multiple (one per TI/PLD)
+
+    // Bolus length as set by sequence (default of 1000 is effectively infinite
+    seqtau = args.GetDoubleDefault("tau", 1000);
+    vector<double> taus_list = args.GetDoubleList("tau");
+    multitau = taus_list.size() > 1;
+    if (multitau)
+    {
+        if (inctau)
+        {
+            throw InvalidOptionValue("Number of taus", stringify(taus_list.size()),
+                "Inference/Inclusion of (variable) bolus duration "
+                "is not compatible with multiple bolus durations "
+                "use a single value (--tau=)");
+        }
+        if (septau)
+        {
+            throw InvalidOptionValue("Number of taus", stringify(taus_list.size()),
+                "Separate bolus duration for different components "
+                "is not compatible with multiple bolus durations "
+                "use a single value (--tau=)");
+        }
+        if (taus_list.size() != num_times)
+        {
+            throw InvalidOptionValue("Number of taus", stringify(taus_list.size()),
+                "Mismatch between number of inflow times (TIs/PLDs) and "
+                "bolus durations - these should be equal");
+        }
+        taus.ReSize(taus_list.size());
+        for (int i = 0; i < taus_list.size(); i++)
+            taus(i + 1) = taus_list[i];
+    }
+
+    // Hadamard time encoding
+    // if nothing is stated, no Hadamard encoding is assumed.
+    // If it is set to an integer N, N encoding lines are assumed.
+    hadamard = args.HaveKey("hadamard");
+    if (hadamard)
+    {
+        if (pld_list.size() != 1)
+        {
+            throw InvalidOptionValue("Number of PLDs", stringify(pld_list.size()),
+                "Hadamard time encoding requires exactly one PLD");
+        }
+        HadamardSize = args.GetInt("hadamard");
+        if (((HadamardSize % 2) != 0) && (HadamardSize != 12))
+        {
+            // check that we have a sensible hadamard scheme
+            throw invalid_argument("Hadamard encoding is only possible "
+                                   "with a number of encodings that are "
+                                   "modulo 2 (2,4,8,16...) or number of "
+                                   "encodings equal to 12");
+        }
+
+        // in some cases the full Hadamard matrix is needed,
+        // i.e. all N rows (and not only N-1). This is activated by this command.
+        bool FullHad = hadamard || args.ReadBool("fullhad");
+        if (FullHad)
+            NumberOfSubBoli = HadamardSize;
+        else
+            NumberOfSubBoli = HadamardSize - 1;
+        HadEncMatrix = HadamardMatrix(HadamardSize);
+
+        // we will usually ingore the first column (all control), unless we are doing FullHad
+        HadEncMatrix = HadEncMatrix.SubMatrix(
+            1, HadamardSize, HadamardSize - (NumberOfSubBoli - 1), HadamardSize);
+
+        // calculate the TIs corresponding to the indiviual subboli
+        tis.ReSize(1);
+        tis(1) = NumberOfSubBoli * seqtau + pld_list[0];
+        for (int i = 1; i < NumberOfSubBoli; i++)
+        {
+            ColumnVector tmp(1);
+            tmp = pld_list[0] + (NumberOfSubBoli - i) * seqtau;
+            tis &= tmp; // vertical concatenation
+        }
+    }
+    else
+    {
+        // normal ASL data
+        if (ti_set)
+        {
+            tis.ReSize(ti_list.size());
+            for (int i = 0; i < ti_list.size(); i++)
+                tis(i + 1) = ti_list[i];
+        }
+        if (pld_set)
+        {
+            tis.ReSize(pld_list.size());
+            if (casl)
+            {
+                for (int i = 0; i < ti_list.size(); i++)
+                {
+                    if (multitau)
+                        tis(i + 1) = pld_list[i] + taus_list[i];
+                    else
+                        tis(i + 1) = pld_list[i] + seqtau;
+                }
+            }
+            else
+            {
+                // unlikely to happen, but permits the user to supply PLDs
+                // for a pASL acquisition
+                for (int i = 0; i < ti_list.size(); i++)
+                    tis(i + 1) = pld_list[i];
+            }
+        }
+    }
+
+    timax = tis.Maximum(); // dtermine the final TI
+
+    // vascular crushing
+    // to specify a custom combination of vascular crushing
+    string crush_temp = args.ReadWithDefault("crush1", "notsupplied");
+    // if crush_temp = none then we assume all data has same crushing
+    // parameters we will represent this as no crushers
+    crush.ReSize(num_times);
+    crush = 0.0; // default is no crusher
+    crushdir.ReSize(num_times, 3);
+    crushdir = 0.0;
+    crushdir.Column(3) = 1.0; // default (which should remain ignored normally) is z-only
+    if (crush_temp != "notsupplied")
+    {
+        // we need to assemble crusher information
+        int N = 1;
+        while (true)
+        {
+            if (N > 1)
+            {
+                crush_temp = args.ReadWithDefault("crush" + stringify(N), "stop!");
+                if (crush_temp == "stop!")
+                    break; // we have run out of crusher specifications
+            }
+            // determine what crusher type we have
+            if (crush_temp == "off" || crush_temp == "none")
+            {
+                crush(N) = 0.0;
+            }
+            else if (crush_temp == "on")
+            {
+                crush(N) = 1.0;
+            }
+            else if (crush_temp == "xyz")
+            {
+                crush(N) = 1.0;
+                crushdir.Row(N) << 1 << 1 << 1;
+                crushdir.Row(N) /= sqrt(3);
+            }
+            else if (crush_temp == "-xyz")
+            {
+                crush(N) = 1.0;
+                crushdir.Row(N) << -1 << 1 << 1;
+                crushdir.Row(N) /= sqrt(3);
+            }
+            else if (crush_temp == "x-yz")
+            {
+                crush(N) = 1.0;
+                crushdir.Row(N) << 1 << -1 << 1;
+                crushdir.Row(N) /= sqrt(3);
+            }
+            else if (crush_temp == "-x-yz")
+            {
+                crush(N) = 1.0;
+                crushdir.Row(N) << -1 << -1 << 1;
+                crushdir.Row(N) /= sqrt(3);
+            }
+            N++;
+        }
+    }
+    // Look-Locker correction
+    string FAin = args.ReadWithDefault("FA", "none");
+    if (FAin == "none")
+        looklocker = false;
+    else
+    {
+        looklocker = true;
+        FA = convertTo<double>(FAin);
+        FA *= M_PI / 180;      // convert to radians
+        dti = tis(2) - tis(1); // NOTE LL correction is only valid with
+                               // evenly spaced TIs
+    }
+    incfacorr = args.ReadBool("facorr"); // indicate that we want to do FA
+                                         // correction - the g image will
+                                         // need to be separately loaded in
+                                         // as an image prior
+    dg = convertTo<double>(args.ReadWithDefault("dg", "0.0"));
+    // need to set the voxel coordinates to a default of 0 (for the times we
+    // call the model before we start handling data)
+    coord_x = 0;
+    coord_y = 0;
+    coord_z = 0;
+    // setup the models
+    // same tissue model for GM and WM
+    // NB it is feasible to have different dispersion for arterial and
+    // tissue models, but not implemented
+    // > Arterial Model (only depend upon dispersion type)
+    art_model = NULL;
+    if (disptype == "none")
+    {
+        art_model = new AIFModel_nodisp();
+    }
+    else if (disptype == "gamma")
+    {
+        art_model = new AIFModel_gammadisp();
+    }
+    else if (disptype == "gauss")
+    {
+        art_model = new AIFModel_gaussdisp();
+    }
+    else if (disptype == "sgauss")
+    {
+        art_model = new AIFModel_spatialgaussdisp();
+    }
+    // > PC models
+    pc_model = NULL;
+    if (disptype == "none")
+    {
+        pc_model = new TissueModel_nodisp_imperm();
+    }
+    // default is to use convolution model with the impermeable residue
+    // function
+    if ((pc_model == NULL) | forceconv)
+    {
+        ResidModel *imperm_resid;
+        imperm_resid = new ResidModel_imperm();
+        pc_model = new TissueModel_aif_residue(art_model, imperm_resid);
+    }
+    // > Tissue model
+    tiss_model = NULL;
+    resid_model = NULL;
+    // This should ALWAYS set a resid_model and maybe a MATCHING tiss_model
+    //   - well mixed single compartment
+    if (exchtype == "mix")
+    {
+        resid_model = new ResidModel_wellmix();
+        if (disptype == "none")
+        {
+            tiss_model = new TissueModel_nodisp_wellmix();
+        }
+        else if ((disptype == "gamma") && !casl)
+        {
+            tiss_model = new TissueModel_gammadisp_wellmix();
+        }
+    }
+    //    - simple single impermeable compartment that decays with T1b
+    if (exchtype == "simple")
+    {
+        resid_model = new ResidModel_simple();
+        if (disptype == "none")
+        {
+            tiss_model = new TissueModel_nodisp_simple();
+        }
+    }
+    //    - 2 compartment exchange (simplest model - no backflow, no venous
+    //    outflow)
+    else if (exchtype == "2cpt")
+    {
+        resid_model = new ResidModel_twocpt();
+        if (disptype == "none") {
+            string solution = args.GetStringDefault("2cpt-solution", "slow");
+            double mtt_prior = args.GetDoubleDefault("mtt", 1.0, 0);
+            tiss_model = new TissueModel_nodisp_2cpt(solution, mtt_prior);
+        }
+    }
+    //    - SPA 2 compartment model
+    else if (exchtype == "spa")
+    {
+        resid_model = new ResidModel_spa();
+        if ((disptype == "none") && !casl)
+        {
+            tiss_model = new TissueModel_nodisp_spa();
+        }
+    }
+    // > default is to use the convolution model with the residue function
+    // if no analytical tissue model can be found
+    if ((tiss_model == NULL) | args.ReadBool("forceconv"))
+    {
+        // note the 'forceconv' option, this forces the model to use the
+        // convolution formulation voer any analytic form it has
+        if (resid_model == NULL)
+        {
+            // we cannot do a convolution in this case as a residue function
+            // has not been found either!
+            throw invalid_argument("A residue function model for this "
+                                   "exchange type cannot be found");
+        }
+        else
+        {
+            tiss_model = new TissueModel_aif_residue(art_model, resid_model);
+        }
+    }
+    // include dispersion parameters if the model has them
+    if ((art_model->NumDisp() > 0) | (tiss_model->NumDisp() > 0))
+    {
+        incdisp = true;
+    }
+    // include resdue function (i.e. exchange) parameters is the model has
+    // them
+    if (tiss_model->NumResid() > 0)
+    {
+        incexch = true;
+    }
+
+    // dispersion model - load priors from command line
+    for (int i = 1; i <= art_model->NumDisp(); i++)
+    {
+        string priormean = args.ReadWithDefault("disp_prior_mean_" + stringify(i), "null");
+        if (priormean != "null")
+        {
+            art_model->SetPriorMean(i, convertTo<double>(priormean));
+            tiss_model->SetDispPriorMean(i, convertTo<double>(priormean)); // ASSUME that dispersion
+            // model same for arterial
+            // and tissue model (and they
+            // share the same priors)
+        }
+    }
+
+    // Write information about the parameters to the log
+    LOG << "Inference using resting state ASL model" << endl;
+    LOG << "INCLUSIONS:" << endl;
+    if (inctiss)
+        LOG << "Tissue" << endl;
+    if (incart)
+        LOG << "Arterial/MV" << endl;
+    if (incwm)
+        LOG << "White matter" << endl;
+    LOG << "Number of components: " << ncomps << endl;
+    if (incbat)
+        LOG << "Bolus arrival time" << endl;
+    if (incpc)
+        LOG << "Pre capilliary" << endl;
+    if (inctau)
+        LOG << "Bolus duration (tau)" << endl;
+    if (inct1)
+        LOG << "T1 values" << endl;
+    if (incdisp)
+        LOG << "Dispersion" << endl;
+    if (incexch)
+        LOG << "Restricted exchange" << endl;
+    if (incpve)
+        LOG << "Partial volume estimates" << endl;
+    if (incstattiss)
+        LOG << "Statis tissue" << endl;
+    LOG << "INFERENCE:" << endl;
+    if (infertiss)
+        LOG << "Tissue" << endl;
+    if (inferart)
+        LOG << "Arterial/MV" << endl;
+    if (inferwm)
+        LOG << "White matter" << endl;
+    if (inferbat)
+        LOG << "Bolus arrival time" << endl;
+    if (inferpc)
+        LOG << "Pre capilliary" << endl;
+    if (infertau)
+        LOG << "Bolus duration (tau)" << endl;
+    if (septau)
+        LOG << "  Separate values of tau for each component" << endl;
+    if (infert1)
+        LOG << "T1 values" << endl;
+    if (inferdisp)
+        LOG << "Dispersion" << endl;
+    if (sepdisp)
+        LOG << "  Separate dispersion parameters for each component" << endl;
+    if (inferexch)
+        LOG << "Restricted exchange" << endl;
+    if (pvcorr)
+        LOG << "Partial volume correction" << endl;
+    if (inferstattiss)
+        LOG << "Static tissue" << endl;
+    LOG << "------" << endl;
+    // kinetic model
+    LOG << "Kinetic model:" << endl;
+    if (!casl)
+        LOG << "Data being analysed using PASL inversion profile" << endl;
+    if (casl)
+        LOG << "Data being analysed using CASL inversion profile" << endl;
+    LOG << "Tissue model:" << tiss_model->Name() << endl;
+    if (tiss_model->NumDisp() > 0)
+        LOG << "Dispersion parameter priors (means then precisions): " << tiss_model->DispPriors()
+            << endl;
+    if (tiss_model->NumResid() > 0)
+        LOG << "Residue function parameter priors (means then precisions): "
+            << tiss_model->ResidPriors() << endl;
+    if (incart)
+        LOG << "Arterial model:" << art_model->Name() << endl;
+    if (art_model->NumDisp() > 0)
+        LOG << "Dispersion parameter priors (means then precisions): " << art_model->Priors()
+            << endl;
+    if (incpc)
+        LOG << "Pre-capillary model:" << pc_model->Name() << endl;
+    LOG << "------" << endl;
+    // scan parameters
+    if (pretisat > 0)
+        LOG << "Saturation of " << pretisat << " s before TI has been specified" << endl;
+    if (calib)
+        LOG << "Input data is in physioligcal units, using estimated CBF "
+               "in T_1app calculation"
+            << endl;
+    LOG << "Data parameters: #repeats = " << repeats << endl;
+    LOG << " t1 = " << t1 << ", t1b = " << t1b;
+    if (incwm)
+        LOG << "t1wm= " << t1wm << endl;
+    LOG << " bolus duration (tau) = " << seqtau << endl;
+    // Hadamard
+    if (hadamard)
+    {
+        LOG << "Hadamard time encoding:" << endl;
+        // if (FullHad)
+        //    LOG << "  Full nxn-Hadamard matrix is used." << endl;
+        LOG << "  Number of Hadamard encoded images: " << HadamardSize << endl;
+        LOG << "  Number of Hadamard subboli: " << NumberOfSubBoli << endl;
+        LOG << "  Subbolus length: " << seqtau << endl;
+        LOG << "  Post labeling delay (PLD): " << pld_list[0] << endl;
+    }
+
+    if (doard)
+    {
+        LOG << "ARD has been set on arterial compartment " << endl;
+    }
+    LOG << "TIs: ";
+    for (int i = 1; i <= tis.Nrows(); i++)
+        LOG << tis(i) << " ";
+    LOG << endl;
 }
 
 void ASLFwdModel::NameParams(vector<string> &names) const

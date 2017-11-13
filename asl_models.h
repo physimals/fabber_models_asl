@@ -288,21 +288,52 @@ public:
 class TissueModel_nodisp_2cpt : public TissueModel
 {
 public:
-    TissueModel_nodisp_2cpt()
+    enum Solution {FAST, SLOW, DIST};
+    static const double MTT_PRIOR_PRECISION=1.0;
+
+    TissueModel_nodisp_2cpt(std::string &solution, double mtt_prior)
+      : m_mtt_prior(mtt_prior)
     {
-        residpriors.ReSize(2);
-        residpriors << 0.8 << 10;
+        if (solution == "fast") {
+            m_solution = FAST;
+        } 
+        else if (solution == "slow") {
+            m_solution = SLOW;
+        }
+        else if (solution == "dist") {
+            m_solution = DIST;
+        }
+        else {
+            throw InvalidOptionValue("solution", solution, "2 compartment solution type must be fast, slow or dist");
+        }
+        if (m_solution == SLOW) {
+            residpriors.ReSize(2);
+            residpriors << 0.8 << 10;
+        }
+        else {
+            residpriors.ReSize(4);
+            residpriors << 0.8 << 10 << mtt_prior << MTT_PRIOR_PRECISION;
+        }
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
     virtual int NumDisp() const { return 0; }
-    virtual int NumResid() const { return 1; }
+    virtual int NumResid() const { return (m_solution == SLOW) ? 1 : 2;}
     virtual string Name() const
     {
-        return "No dispersion | Two compartmentr (no backflow, no venous "
-               "output)";
+        switch (m_solution) {
+            case FAST:
+                return "Fast solution (MTT=" + stringify(m_mtt_prior) + " << measurement time) | Two compartment(no backflow)";
+            case SLOW:
+                return "Slow solution (MTT >> measurement time) | Two compartment(no backflow)";
+            case DIST:
+                return "Distributed solution (MTT=" + stringify(m_mtt_prior) + ") | Two compartment(no backflow)";
+        }
     }
+private:
+    Solution m_solution;
+    double m_mtt_prior;
 };
 
 class TissueModel_nodisp_spa : public TissueModel
