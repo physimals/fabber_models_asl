@@ -289,7 +289,6 @@ class TissueModel_nodisp_2cpt : public TissueModel
 {
 public:
     enum Solution {FAST, SLOW, DIST};
-    static const double MTT_PRIOR_PRECISION=1.0;
 
     TissueModel_nodisp_2cpt(std::string &solution, double mtt_prior)
       : m_mtt_prior(mtt_prior)
@@ -312,7 +311,7 @@ public:
         }
         else {
             residpriors.ReSize(4);
-            residpriors << 0.8 << mtt_prior << 10 << MTT_PRIOR_PRECISION;
+            residpriors << 0.8 << mtt_prior << 10 << 10;
         }
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
