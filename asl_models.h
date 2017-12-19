@@ -288,28 +288,40 @@ public:
 class TissueModel_nodisp_2cpt : public TissueModel
 {
 public:
-    enum Solution {FAST, SLOW, DIST};
+    enum Solution
+    {
+        FAST,
+        SLOW,
+        DIST
+    };
 
     TissueModel_nodisp_2cpt(std::string &solution, double mtt_prior)
-      : m_mtt_prior(mtt_prior)
+        : m_mtt_prior(mtt_prior)
     {
-        if (solution == "fast") {
+        if (solution == "fast")
+        {
             m_solution = FAST;
-        } 
-        else if (solution == "slow") {
+        }
+        else if (solution == "slow")
+        {
             m_solution = SLOW;
         }
-        else if (solution == "dist") {
+        else if (solution == "dist")
+        {
             m_solution = DIST;
         }
-        else {
-            throw InvalidOptionValue("solution", solution, "2 compartment solution type must be fast, slow or dist");
+        else
+        {
+            throw InvalidOptionValue(
+                "solution", solution, "2 compartment solution type must be fast, slow or dist");
         }
-        if (m_solution == SLOW) {
+        if (m_solution == SLOW)
+        {
             residpriors.ReSize(2);
             residpriors << 0.8 << 10;
         }
-        else {
+        else
+        {
             residpriors.ReSize(4);
             residpriors << 0.8 << mtt_prior << 10 << 10;
         }
@@ -318,18 +330,22 @@ public:
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
         const ColumnVector dispparam, const ColumnVector residparam) const;
     virtual int NumDisp() const { return 0; }
-    virtual int NumResid() const { return (m_solution == SLOW) ? 1 : 2;}
+    virtual int NumResid() const { return (m_solution == SLOW) ? 1 : 2; }
     virtual string Name() const
     {
-        switch (m_solution) {
-            case FAST:
-                return "Fast solution (MTT=" + stringify(m_mtt_prior) + " << measurement time) | Two compartment(no backflow)";
-            case SLOW:
-                return "Slow solution (MTT >> measurement time) | Two compartment(no backflow)";
-            case DIST:
-                return "Distributed solution (MTT=" + stringify(m_mtt_prior) + ") | Two compartment(no backflow)";
+        switch (m_solution)
+        {
+        case FAST:
+            return "Fast solution (MTT=" + stringify(m_mtt_prior)
+                + " << measurement time) | Two compartment(no backflow)";
+        case SLOW:
+            return "Slow solution (MTT >> measurement time) | Two compartment(no backflow)";
+        case DIST:
+            return "Distributed solution (MTT=" + stringify(m_mtt_prior)
+                + ") | Two compartment(no backflow)";
         }
     }
+
 private:
     Solution m_solution;
     double m_mtt_prior;

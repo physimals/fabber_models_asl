@@ -11,13 +11,13 @@
 
 #include <algorithm>
 
+#include "fwdmodel_asl_2compartment.h"
 #include "fwdmodel_asl_grase.h"
 #include "fwdmodel_asl_multiphase.h"
 #include "fwdmodel_asl_quasar.h"
 #include "fwdmodel_asl_rest.h"
 #include "fwdmodel_asl_satrecov.h"
 #include "fwdmodel_asl_turboquasar.h"
-#include "fwdmodel_asl_2compartment.h"
 
 extern "C" {
 int CALL get_num_models() { return 6; }
@@ -669,46 +669,51 @@ double TissueModel_nodisp_2cpt::kctissue(const double ti, const double fcalib,
 
     // calculate the residue function
     double a, b, S, T;
-    if (casl) {
+    if (casl)
+    {
         // For CASL, the following parameter substitutions makes the equations
         // for kctissue below equivalent to equations [22] and [23] in Parkes/Tofts 2002
         // taking J->T, A->kw, C->S and D->1/T1b and also assuming T1e = T1
-        switch(m_solution) {
-            case SLOW:
-                T = kw + 1 / T_1b;
-                break;
-            case FAST:
-                T = kw + 1 / T_1b + 1/residparam(2);
-                break;
-            case DIST:
-                T = kw + 1 / T_1b;
-                if (ti >= residparam(2)) T += 1/residparam(2);
+        switch (m_solution)
+        {
+        case SLOW:
+            T = kw + 1 / T_1b;
+            break;
+        case FAST:
+            T = kw + 1 / T_1b + 1 / residparam(2);
+            break;
+        case DIST:
+            T = kw + 1 / T_1b;
+            if (ti >= residparam(2))
+                T += 1 / residparam(2);
         }
         S = 1 / T_1;
         a = T;
-        b = kw / (T-S);
+        b = kw / (T - S);
     }
-    else {
+    else
+    {
         S = 1 / T_1 - 1 / T_1b;
         T = kw;
-        a = kw + 1 / T_1b;   
+        a = kw + 1 / T_1b;
         b = (kw * T_1 * T_1b) / (kw * T_1 * T_1b + (T_1 - T_1b));
     }
 
     double kctissue;
-    if (ti <= delttiss) {
+    if (ti <= delttiss)
+    {
         kctissue = 0;
     }
     else if (ti <= (delttiss + tau))
     {
         kctissue = 2 * (b / S * exp(-ti / T_1) * (exp(S * ti) - exp(S * delttiss))
-                        + (1 - b) / T * exp(-a * ti) * (exp(T * ti) - exp(T * delttiss)));
+                           + (1 - b) / T * exp(-a * ti) * (exp(T * ti) - exp(T * delttiss)));
     }
     else
     {
         kctissue = 2 * (b / S * exp(-ti / T_1) * (exp(S * (delttiss + tau)) - exp(S * delttiss))
-                        + (1 - b) / T * exp(-a * ti)
-                            * (exp(T * (delttiss + tau)) - exp(T * delttiss)));
+                           + (1 - b) / T * exp(-a * ti)
+                               * (exp(T * (delttiss + tau)) - exp(T * delttiss)));
     }
 
     if (casl)
