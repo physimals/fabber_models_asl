@@ -466,7 +466,7 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             alltis = tis;
             for (int rpt = 2; rpt <= repeats[0]; rpt++)
             {
-                alltis &= alltis;
+                alltis &= tis;
             }
 
             // Calculate the actual TI of the data given slice timing
