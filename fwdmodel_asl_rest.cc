@@ -1,5 +1,13 @@
+/*  fwdmodel_asl_rest.cc - Resting state ASL model
+
+    Michael Chappell, QuBIc & FMRIB Image Analysis Group
+
+    Copyright (C) 2011-12 University of Oxford  */
+
 /*  CCOPYRIGHT */
+
 #include "fwdmodel_asl_rest.h"
+
 #include "miscmaths/miscprob.h"
 #include "newimage/newimageall.h"
 #include <iostream>
@@ -10,6 +18,7 @@ using namespace NEWIMAGE;
 #include "fabber_core/tools.h"
 
 FactoryRegistration<FwdModelFactory, ASLFwdModel> ASLFwdModel::registration("aslrest");
+
 string ASLFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_rest.cc";
@@ -21,6 +30,7 @@ string ASLFwdModel::ModelVersion() const
 #endif
     return version;
 }
+
 static OptionSpec OPTIONS[] = {
     { "disp", OPT_STR, "AIF dispersion type", OPT_NONREQ, "none" },
     { "exch", OPT_STR, "Type of exchange in tissue compartment", OPT_NONREQ, "mix" },
@@ -75,11 +85,15 @@ static OptionSpec OPTIONS[] = {
     { "tau<n>", OPT_FLOAT, "List of tau values", OPT_NONREQ, "" },
     { "crush<n>", OPT_STR, "List of vascular crushing specifications values", OPT_NONREQ, "" },
     { "FA", OPT_FLOAT, "Look-Locker correction", OPT_NONREQ, "" },
-    { "facorr", OPT_BOOL, "Do FA correction", OPT_NONREQ, "" }, 
-    { "2cpt-solution", OPT_BOOL, "For 2-compartment model, solution type (fast, slow or dist)", OPT_NONREQ, "slow" }, 
-    { "mtt", OPT_BOOL, "For 2-compartment model and fast/dist solution method, mean transit time (s)", OPT_NONREQ, "1" }, 
+    { "facorr", OPT_BOOL, "Do FA correction", OPT_NONREQ, "" },
+    { "2cpt-solution", OPT_BOOL, "For 2-compartment model, solution type (fast, slow or dist)",
+        OPT_NONREQ, "slow" },
+    { "mtt", OPT_BOOL,
+        "For 2-compartment model and fast/dist solution method, mean transit time (s)", OPT_NONREQ,
+        "1" },
     { "" },
 };
+
 void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
 {
     for (int i = 0; OPTIONS[i].name != ""; i++)
@@ -87,7 +101,9 @@ void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
         opts.push_back(OPTIONS[i]);
     }
 }
+
 std::string ASLFwdModel::GetDescription() const { return "Resting state ASL model"; }
+
 void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
@@ -438,8 +454,58 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             // init the aBV - use max value in data
             posterior.means(flow_index() + artidx) = data.Maximum();
         }
+        // initialise BAT
+        if (inferbat)
+        {
+            // Time of maximum signal minus the bolus duration (only for differenced data)
+            int ind;
+            data.Maximum1(ind); // find the point of maximum
+            // need a list of all TIs (i.e. deal with the case where repeats>1)
+            // FIXME what if repeats variable?
+            ColumnVector alltis; 
+            alltis = tis;
+            for (int rpt = 2; rpt <= repeats[0]; rpt++)
+            {
+                alltis &= alltis;
+            }
+
+            // Calculate the actual TI of the data given slice timing
+            double batinitval = alltis(ind) + slicedt * coord_z; 
+
+            // Subtract bolus duration, unless we are assuming it is 'infinite'
+            if (seqtau < 10) batinitval -= seqtau;
+
+            // Don't allow the BAT to get too long or too short
+            if (batinitval > (timax - 0.5)) batinitval = timax - 0.5; 
+            if (batinitval < 0.01) batinitval = 0.01;
+
+            double tissbatinit = setdelt;
+            if (inferart)
+            {
+                // arterial component is earliest
+                posterior.means(bat_index() + artidx) = batinitval; 
+                if (infertiss)
+                {
+                    tissbatinit = batinitval + 0.3;
+                    posterior.means(bat_index()) = tissbatinit;
+                }
+            }
+            else
+            {
+                if (infertiss)
+                {
+                    tissbatinit = batinitval;
+                    posterior.means(bat_index()) = tissbatinit;
+                }
+            }
+            if (inferwm)
+            {
+                posterior.means(bat_index() + wmidx) = tissbatinit + 0.3;
+            }
+        }
     }
 }
+
 void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
@@ -613,8 +679,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     // exchange (residue function) parameters
     if (incexch)
     {
-        // tissue and white matter have same residue function parameters (at
-        // present)
+        // tissue and white matter have same residue function parameters (at present)
         residtiss = params.Rows(resid_index(), resid_index() - 1 + tiss_model->NumResid());
         residwm = residtiss;
     }
@@ -714,13 +779,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
         // crushers
         double artweight = 1.0;
         artweight = 1.0 - crush(it); // arterial weight is opposte of crsuh extent
-        /*
-    if (artdir) {
-      artweight = Sinc( 2 * bloodbv *
-    std::max(DotProduct(artdir,crushdir.Row(it)),0.0) ); // based on laminar
-    flow profile c.f. perfusion tensor imaging
-    }
-    */
+       
         // Tissue
         if (inctiss)
             kctissue = pvgm * ftiss
@@ -750,9 +809,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
                     * pc_model->kctissue(ti, f_calibwm, deltwm - taupcwm, tauwm, T_1b, T_1, lamwm,
                           casl, dispwm, pcvecwm);
         }
-        // if (isnan(kctissue)) { kctissue=0; LOG << "Warning NaN in tissue
-        // curve at TI:" << ti << " with f:" << ftiss << " delt:" << delttiss <<
-        // " tau:" << tau << " T1:" << T_1 << " T1b:" << T_1b << endl; }
+        
         // total kinetic contribution
         kctotal(it) = kctissue + kcblood + kcwm + kcpc + kcpcwm;
         // static tissue contribution
@@ -769,8 +826,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
         ColumnVector signal;
         signal = HadEncMatrix * kctotal; // collect the KC contirbutions from each block of label
         signal = statcont - signal;      // inlcude static tissue signal
-        // loop over repeats - we assume we always get blocks of each set of
-        // encodings
+        // loop over repeats - we assume we always get blocks of each set of encodings
         result = signal;
         for (int rpt = 2; rpt <= repeats[0]; rpt++)
         {
@@ -817,12 +873,10 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
         throw InvalidOptionValue("num volumes", stringify(data.Nrows()),
             "Expected " + stringify(result.Nrows()) + " volumes - check the number of repeats/TIs");
     }
-
-    // cout << result.t();
-
-    return;
 }
+
 FwdModel *ASLFwdModel::NewInstance() { return new ASLFwdModel(); }
+
 void ASLFwdModel::Initialize(ArgsType &args)
 {
     // set the AIF dispersion type
@@ -978,11 +1032,6 @@ void ASLFwdModel::Initialize(ArgsType &args)
     {
         // Multiple repeats have been specified
         repeats = args.GetIntList("rpt");
-        if (repeats.size() > 1 && hadamard)
-        {
-            throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
-                "Cannot specify more than one set of repeats with Hadmard encoding");
-        }
         if (repeats.size() != num_times)
         {
             throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
@@ -996,13 +1045,6 @@ void ASLFwdModel::Initialize(ArgsType &args)
         {
             repeats.push_back(args.GetIntDefault("repeats", 1));
         }
-    }
-
-    // total number of time points in data
-    tpoints = 0;
-    for (int it = 0; it < num_times; it++)
-    {
-        tpoints += repeats[it];
     }
 
     // Bolus durations - may be single value or multiple (one per TI/PLD)
@@ -1042,44 +1084,65 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // if nothing is stated, no Hadamard encoding is assumed.
     // If it is set to an integer N, N encoding lines are assumed.
     hadamard = args.HaveKey("hadamard");
+    // In some cases the full Hadamard matrix is needed,
+    // i.e. all N rows (and not only N-1). This is activated by this command.
+    // FIXME this looks wrong, why the OR?
+    bool FullHad = hadamard || args.ReadBool("fullhad");
+    // indicates if a Walsh-sorted Hadamard matrix was used for encoding.
+    bool Walsh = args.ReadBool("walsh"); 
+    // indicates if a non-hadamard matrix was used for encoding.
+    bool NonHadamardMatrix = args.ReadBool("NonHadamardMatrix"); 
+
     if (hadamard)
     {
+        // List of TIs to skip in Hadamard encoding
+        // FIXME Could this be implemented using masked timepoints?
+        vector<int> skip_list = args.GetIntList("skip");
+
+        if (repeats.size() > 1)
+        {
+            throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
+                "Cannot specify more than one set of repeats with Hadmard encoding");
+        }
         if (pld_list.size() != 1)
         {
             throw InvalidOptionValue("Number of PLDs", stringify(pld_list.size()),
                 "Hadamard time encoding requires exactly one PLD");
         }
+
+        // Size must be power of 2 or 12 (special case). Note clever
+        // bitwise method for identifying powers of 2!
         HadamardSize = args.GetInt("hadamard");
-        if (((HadamardSize % 2) != 0) && (HadamardSize != 12))
+        if (((HadamardSize & (HadamardSize-1)) != 0) && (HadamardSize != 12))
         {
-            // check that we have a sensible hadamard scheme
-            throw invalid_argument("Hadamard encoding is only possible "
-                                   "with a number of encodings that are "
-                                   "modulo 2 (2,4,8,16...) or number of "
-                                   "encodings equal to 12");
+            throw InvalidOptionValue("hadamard", stringify(HadamardSize), 
+                                     "Hadamard encoding is only possible "
+                                     "with a number of encodings that are "
+                                     "modulo 2 (2,4,8,16...) or number of "
+                                     "encodings equal to 12");
         }
 
-        // in some cases the full Hadamard matrix is needed,
-        // i.e. all N rows (and not only N-1). This is activated by this command.
-        bool FullHad = hadamard || args.ReadBool("fullhad");
-        if (FullHad)
-            NumberOfSubBoli = HadamardSize;
-        else
-            NumberOfSubBoli = HadamardSize - 1;
-        HadEncMatrix = HadamardMatrix(HadamardSize);
+        NumberOfSubBoli = HadamardSize;
+        if (!FullHad) NumberOfSubBoli--;
+    
+        HadEncMatrix = HadamardMatrix(HadamardSize, FullHad, Walsh, NonHadamardMatrix, skip_list);
 
         // we will usually ingore the first column (all control), unless we are doing FullHad
-        HadEncMatrix = HadEncMatrix.SubMatrix(
-            1, HadamardSize, HadamardSize - (NumberOfSubBoli - 1), HadamardSize);
+        int start_col = HadamardSize - (NumberOfSubBoli - 1);
+        HadEncMatrix = HadEncMatrix.SubMatrix(1, HadamardSize, start_col, HadamardSize);
+
+        // FIXME skip list?
+        HadEncMatrix = HadEncMatrix.SubMatrix(1, HadamardSize - skip_list.size(), 1, NumberOfSubBoli);
 
         // calculate the TIs corresponding to the indiviual subboli
-        tis.ReSize(1);
-        tis(1) = NumberOfSubBoli * seqtau + pld_list[0];
-        for (int i = 1; i < NumberOfSubBoli; i++)
+        tis.ReSize(NumberOfSubBoli);
+        for (int i = 0; i < NumberOfSubBoli; i++)
         {
             ColumnVector tmp(1);
-            tmp = pld_list[0] + (NumberOfSubBoli - i) * seqtau;
-            tis &= tmp; // vertical concatenation
+            if (multitau) 
+                tis(i+1) = pld_list[0] + (NumberOfSubBoli - i) * taus_list[i];
+            else
+                tis(i+1) = pld_list[0] + (NumberOfSubBoli - i) * seqtau;
         }
     }
     else
@@ -1114,6 +1177,13 @@ void ASLFwdModel::Initialize(ArgsType &args)
         }
     }
 
+    // total number of time points in data
+    tpoints = 0;
+    for (int it = 0; it < tis.Nrows(); it++)
+    {
+        tpoints += repeats[it];
+    }
+
     timax = tis.Maximum(); // dtermine the final TI
 
     // vascular crushing
@@ -1121,9 +1191,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
     string crush_temp = args.ReadWithDefault("crush1", "notsupplied");
     // if crush_temp = none then we assume all data has same crushing
     // parameters we will represent this as no crushers
-    crush.ReSize(num_times);
+    crush.ReSize(tis.Nrows());
     crush = 0.0; // default is no crusher
-    crushdir.ReSize(num_times, 3);
+    crushdir.ReSize(tis.Nrows(), 3);
     crushdir = 0.0;
     crushdir.Column(3) = 1.0; // default (which should remain ignored normally) is z-only
     if (crush_temp != "notsupplied")
@@ -1263,7 +1333,8 @@ void ASLFwdModel::Initialize(ArgsType &args)
     else if (exchtype == "2cpt")
     {
         resid_model = new ResidModel_twocpt();
-        if (disptype == "none") {
+        if (disptype == "none")
+        {
             string solution = args.GetStringDefault("2cpt-solution", "slow");
             double mtt_prior = args.GetDoubleDefault("mtt", 1.0, 0);
             tiss_model = new TissueModel_nodisp_2cpt(solution, mtt_prior);
@@ -1296,13 +1367,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
             tiss_model = new TissueModel_aif_residue(art_model, resid_model);
         }
     }
+
     // include dispersion parameters if the model has them
     if ((art_model->NumDisp() > 0) | (tiss_model->NumDisp() > 0))
     {
         incdisp = true;
     }
-    // include resdue function (i.e. exchange) parameters is the model has
-    // them
+
+    // include resdue function (i.e. exchange) parameters is the model has them
     if (tiss_model->NumResid() > 0)
     {
         incexch = true;
@@ -1314,11 +1386,12 @@ void ASLFwdModel::Initialize(ArgsType &args)
         string priormean = args.ReadWithDefault("disp_prior_mean_" + stringify(i), "null");
         if (priormean != "null")
         {
-            art_model->SetPriorMean(i, convertTo<double>(priormean));
-            tiss_model->SetDispPriorMean(i, convertTo<double>(priormean)); // ASSUME that dispersion
+            // ASSUME that dispersion
             // model same for arterial
             // and tissue model (and they
             // share the same priors)
+            art_model->SetPriorMean(i, convertTo<double>(priormean));
+            tiss_model->SetDispPriorMean(i, convertTo<double>(priormean)); 
         }
     }
 
@@ -1413,14 +1486,18 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (hadamard)
     {
         LOG << "Hadamard time encoding:" << endl;
-        // if (FullHad)
-        //    LOG << "  Full nxn-Hadamard matrix is used." << endl;
+        if (FullHad)
+            LOG << "  Full nxn-Hadamard matrix is used." << endl;
+        if (Walsh)
+            LOG << "  Walsh-sorted Hadamard matrix is used." << endl;
+        if (NonHadamardMatrix)
+            LOG << "  Non-Hadamard matrix is used." << endl;
         LOG << "  Number of Hadamard encoded images: " << HadamardSize << endl;
         LOG << "  Number of Hadamard subboli: " << NumberOfSubBoli << endl;
         LOG << "  Subbolus length: " << seqtau << endl;
-        LOG << "  Post labeling delay (PLD): " << pld_list[0] << endl;
+        LOG << "  Post labeling delay (PLD): " << pld_list[1] << endl;
     }
-
+    
     if (doard)
     {
         LOG << "ARD has been set on arterial compartment " << endl;
@@ -1532,17 +1609,54 @@ void ASLFwdModel::NameParams(vector<string> &names) const
         names.push_back("stattiss");
     }
 }
+
+// Short functions used for Walsh ordering of the Hadamard matrix
+
+static long BitReverse(long input, int maxInt)
+{
+    long result = 0;
+    for (int i = 0; i < maxInt; ++i)
+    {
+        if (1 << (maxInt - 1 - i) & input)
+            result |= 1 << i;
+    }
+    return result;
+}
+
+static long GrayCode(long input)
+{
+    long result = 0;
+    result = input ^ (input >> 1);
+    return result;
+}
+
+static long WalshSorting(long input, int maxInt)
+{
+    long result = 0;
+    result = BitReverse(GrayCode(input), maxInt);
+    return result;
+}
+
+static long ComplementaryMatrix(long input)
+{
+    long result = 0;
+    result = long(input / 2);
+    return result;
+}
+
 // Useful other functions
-Matrix ASLFwdModel::HadamardMatrix(const int size) const
+Matrix ASLFwdModel::HadamardMatrix(const int size, const bool FullHad, const bool Walsh,
+    const bool NonHadamardMatrix, const vector<int> &skip_list) const
 {
     // generate a Hadamard matrix
-    // This has zeros (for control) and ones (for label) in place of the classic
-    // +1 and -1
-    Matrix matrix;
+    // This has zeros (for control) and ones (for label) in place of the classic +1 and -1
+
+    Matrix matrix, matrix_temp, norm_matrix, comp_matrix;
 
     if (size == 12)
-    {
-        // special case
+    { 
+        // the 12x12 Hadamard matrix cannot be generated by  Sylvester's costruction and is therefore
+        // hardcoded here as a special case
         Real b[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1,
             1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1,
             0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0,
@@ -1552,24 +1666,109 @@ Matrix ASLFwdModel::HadamardMatrix(const int size) const
         matrix.ReSize(12, 12);
         matrix << b;
     }
-    else if ((size % 2) == 0)
+    else if (NonHadamardMatrix)
     {
-        // build the hadamard matrix - using Sylvester's construction
+        Real b[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1,
+            1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1 };
+        matrix.ReSize(size, size);
+        matrix << b;
+    }
+    else
+    {
+        // Build the Hadamard matrix - using Sylvester's construction
         Matrix H2k(2, 2);
         H2k << 1.0 << 1.0 << 1.0 << -1.0;
-        matrix = H2k;
+        matrix_temp = H2k;
         // TODO check that size is a power of 2 first
         for (int i = 4; i <= size; i *= 2)
         {
-            // matrix.ReSize(i,i);
-            matrix = KP(H2k, matrix);
-            // H2k=matrix; - not required
+            matrix_temp = KP(matrix_temp, H2k);
         }
-        // get the matrix into the form we want for ASL
-        matrix = -0.5 * (matrix - 1.0);
+
+        matrix.ReSize(size, size);
+
+        if (Walsh)
+        {
+            // Walsh-sorting of the Hadamard matrix
+            int Nbits = log2(matrix_temp.Nrows());
+            for (long l = 0; l < matrix_temp.Nrows(); l++)
+            {
+                matrix.Row(l + 1) << matrix_temp.Row(WalshSorting(l, Nbits) + 1);
+            }
+        }
+        else
+        {
+            matrix << matrix_temp;
+        }
+
+        norm_matrix.ReSize(size, size);
+        norm_matrix = abs(0.5 * (matrix - 1.0));
+
+        if (FullHad)
+        {
+            // For the case, when a mirrored, interleaved, 2NxN matrix was used for encoding
+            // (FullHad==true), the normal matrix norm_matrix and the mirrored matrix mirr_matrix have to
+            // be taken into account
+            matrix.ReSize(2 * size, size);
+            comp_matrix.ReSize(size, size);
+            comp_matrix = abs(0.5 * (-matrix - 1.0));
+            for (int k = 1; k <= matrix.Nrows(); k++)
+            {
+                if (k % 2 == 1)
+                {
+                    matrix.Row(k) << norm_matrix.Row(ComplementaryMatrix(k + 1));
+                }
+                else
+                {
+                    matrix.Row(k) << comp_matrix.Row(ComplementaryMatrix(k + 1));
+                }
+            }
+        }
+        else 
+        {
+            // Otherwise the mirrored matrix is not used
+            if (skip_list.size() > 0)
+            {
+                std::cout << "Skipped images: " << std::endl;
+                std::cout << skip_list << std::endl;
+                matrix.ReSize(size - skip_list.size(), size);
+
+                int i = 0;
+                int k = 0;
+                while (i < size - skip_list.size())
+                {
+                    if (k < skip_list.size())
+                    {
+                        if ((i + k + 1) == skip_list[k])
+                        {
+                            k++;
+                        }
+                        else
+                        {
+                            matrix.Row(i+1) << norm_matrix.Row(i + k + 1);
+                            std::cout << i+1 << "  " << i + k + 1 << std::endl;
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        matrix.Row(i+1) << norm_matrix.Row(i + k + 1);
+                        std::cout << i+1 << "  " << i + k - 1 << std::endl;
+                        i++;
+                    }
+                }
+            }
+            else
+            {
+                matrix << norm_matrix;
+            }
+        }
     }
+
     return matrix;
 }
+
 void ASLFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     int ardindex = ard_index();
@@ -1589,8 +1788,8 @@ void ASLFwdModel::SetupARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fa
         Fard = -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
             - 0.5 * log(b); // taking c as 0.5 - which it will be!
     }
-    return;
 }
+
 void ASLFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &Fard) const
 {
     int ardindex = ard_index();
@@ -1610,5 +1809,4 @@ void ASLFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, double &F
         Fard = -1.5 * (log(b) + digamma(0.5)) - 0.5 - gammaln(0.5)
             - 0.5 * log(b); // taking c as 0.5 - which it will be!
     }
-    return;
 }

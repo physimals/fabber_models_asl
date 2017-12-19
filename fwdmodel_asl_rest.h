@@ -166,8 +166,9 @@ protected:
     int NumberOfSubBoli;                         // number of sub boli (might just different from
                                                  // HadamardSize)
     Matrix HadEncMatrix;                         // stores the Hadamard encoding matrix
-    Matrix HadamardMatrix(const int size) const; // function to generate the hadamard matrix
-
+   
+    Matrix HadamardMatrix(const int size, const bool FullHad, const bool Walsh,
+                          const bool NonHadamardMatrix, const vector<int> &skip_list) const;
     // inference/inclusion
     // -components
     bool inctiss; // tissue component (used for GM)
