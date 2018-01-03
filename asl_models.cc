@@ -11,6 +11,7 @@
 
 #include <algorithm>
 
+#include "fwdmodel_asl_2compartment.h"
 #include "fwdmodel_asl_grase.h"
 #include "fwdmodel_asl_multiphase.h"
 #include "fwdmodel_asl_quasar.h"
@@ -19,7 +20,7 @@
 #include "fwdmodel_asl_turboquasar.h"
 
 extern "C" {
-int CALL get_num_models() { return 5; }
+int CALL get_num_models() { return 6; }
 const char *CALL get_model_name(int index)
 {
     switch (index)
@@ -38,6 +39,9 @@ const char *CALL get_model_name(int index)
         break;
     case 4:
         return "turboquasar";
+        break;
+    case 5:
+        return "asl_2comp";
         break;
     default:
         return NULL;
@@ -65,6 +69,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     if (string(name) == "turboquasar")
     {
         return TurboQuasarFwdModel::NewInstance;
+    }
+    if (string(name) == "asl_2comp")
+    {
+        return ASL2CompartmentModel::NewInstance;
     }
     else
     {
@@ -567,7 +575,6 @@ double TissueModel_nodisp_wellmix::kctissue(const double ti, const double fcalib
     // Tissue kinetic curve no dispersion
     // Buxton (1998) model
     double kctissue = 0.0;
-
     double T_1app = 1 / (1 / T_1 + fcalib / lambda);
     double R = 1 / T_1app - 1 / T_1b;
     double F = 2 * exp(-ti / T_1app);
@@ -659,33 +666,50 @@ double TissueModel_nodisp_2cpt::kctissue(const double ti, const double fcalib,
     // extract residue function parameters
     double kw; // exchange rate = PS/vb
     kw = (residparam.Row(1)).AsScalar();
-    // double PS; double vb;
-    // PS = (residparam.Row(1)).AsScalar();
-    // vb = (residparam.Row(2)).AsScalar();
 
     // calculate the residue function
-    double a = kw + 1 / T_1b;                                        // alpha
-    double b = (kw * T_1 * T_1b) / (kw * T_1 * T_1b + (T_1 - T_1b)); // beta
-    double S;
+    double a, b, S, T;
     if (casl)
+    {
+        // For CASL, the following parameter substitutions makes the equations
+        // for kctissue below equivalent to equations [22] and [23] in Parkes/Tofts 2002
+        // taking J->T, A->kw, C->S and D->1/T1b and also assuming T1e = T1
+        switch (m_solution)
+        {
+        case SLOW:
+            T = kw + 1 / T_1b;
+            break;
+        case FAST:
+            T = kw + 1 / T_1b + 1 / residparam(2);
+            break;
+        case DIST:
+            T = kw + 1 / T_1b;
+            if (ti >= residparam(2))
+                T += 1 / residparam(2);
+        }
         S = 1 / T_1;
+        a = T;
+        b = kw / (T - S);
+    }
     else
+    {
         S = 1 / T_1 - 1 / T_1b;
-    double T;
-    if (casl)
-        T = a;
-    else
-        T = a - 1 / T_1b;
+        T = kw;
+        a = kw + 1 / T_1b;
+        b = (kw * T_1 * T_1b) / (kw * T_1 * T_1b + (T_1 - T_1b));
+    }
 
-    assert(!casl); // we only have pASL at the moment
-
-    double kctissue = 0.0;
-    if (ti >= delttiss && ti <= (delttiss + tau))
+    double kctissue;
+    if (ti <= delttiss)
+    {
+        kctissue = 0;
+    }
+    else if (ti <= (delttiss + tau))
     {
         kctissue = 2 * (b / S * exp(-ti / T_1) * (exp(S * ti) - exp(S * delttiss))
                            + (1 - b) / T * exp(-a * ti) * (exp(T * ti) - exp(T * delttiss)));
     }
-    else if (ti > delttiss + tau)
+    else
     {
         kctissue = 2 * (b / S * exp(-ti / T_1) * (exp(S * (delttiss + tau)) - exp(S * delttiss))
                            + (1 - b) / T * exp(-a * ti)
