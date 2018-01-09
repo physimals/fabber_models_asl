@@ -43,6 +43,9 @@ static OptionSpec OPTIONS[] = {
     { "incwm", OPT_BOOL, "Include white matter parameters", OPT_NONREQ, "" },
     { "incbat", OPT_BOOL, "Include bolus arrival time parameter", OPT_NONREQ, "" },
     { "inferbat", OPT_BOOL, "Infer bolus arrival time parameter", OPT_NONREQ, "" },
+    { "auto-init-bat", OPT_BOOL,
+        "Automatically initialize BAT posterior (only if inferring BAT and number of TIs > 1)",
+        OPT_NONREQ, "" },
     { "incpc", OPT_BOOL, "Include pre-capillary parameters", OPT_NONREQ, "" },
     { "inferpc", OPT_BOOL, "Infer pre-capillary parameters", OPT_NONREQ, "" },
     { "inctau", OPT_BOOL, "Include bolus duration parameter", OPT_NONREQ, "" },
@@ -103,7 +106,6 @@ void ASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
 }
 
 std::string ASLFwdModel::GetDescription() const { return "Resting state ASL model"; }
-
 void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
@@ -454,15 +456,14 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             // init the aBV - use max value in data
             posterior.means(flow_index() + artidx) = data.Maximum();
         }
-        // initialise BAT
-        if (inferbat)
+        if (inferbat && auto_init_bat)
         {
             // Time of maximum signal minus the bolus duration (only for differenced data)
             int ind;
             data.Maximum1(ind); // find the point of maximum
             // need a list of all TIs (i.e. deal with the case where repeats>1)
             // FIXME what if repeats variable?
-            ColumnVector alltis; 
+            ColumnVector alltis;
             alltis = tis;
             for (int rpt = 2; rpt <= repeats[0]; rpt++)
             {
@@ -470,20 +471,23 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             }
 
             // Calculate the actual TI of the data given slice timing
-            double batinitval = alltis(ind) + slicedt * coord_z; 
+            double batinitval = alltis(ind) + slicedt * coord_z;
 
             // Subtract bolus duration, unless we are assuming it is 'infinite'
-            if (seqtau < 10) batinitval -= seqtau;
+            if (seqtau < 10)
+                batinitval -= seqtau;
 
             // Don't allow the BAT to get too long or too short
-            if (batinitval > (timax - 0.5)) batinitval = timax - 0.5; 
-            if (batinitval < 0.01) batinitval = 0.01;
+            if (batinitval > (timax - 0.5))
+                batinitval = timax - 0.5;
+            if (batinitval < 0.01)
+                batinitval = 0.01;
 
             double tissbatinit = setdelt;
             if (inferart)
             {
                 // arterial component is earliest
-                posterior.means(bat_index() + artidx) = batinitval; 
+                posterior.means(bat_index() + artidx) = batinitval;
                 if (infertiss)
                 {
                     tissbatinit = batinitval + 0.3;
@@ -779,7 +783,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
         // crushers
         double artweight = 1.0;
         artweight = 1.0 - crush(it); // arterial weight is opposte of crsuh extent
-       
+
         // Tissue
         if (inctiss)
             kctissue = pvgm * ftiss
@@ -809,7 +813,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
                     * pc_model->kctissue(ti, f_calibwm, deltwm - taupcwm, tauwm, T_1b, T_1, lamwm,
                           casl, dispwm, pcvecwm);
         }
-        
+
         // total kinetic contribution
         kctotal(it) = kctissue + kcblood + kcwm + kcpc + kcpcwm;
         // static tissue contribution
@@ -876,7 +880,6 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
 }
 
 FwdModel *ASLFwdModel::NewInstance() { return new ASLFwdModel(); }
-
 void ASLFwdModel::Initialize(ArgsType &args)
 {
     // set the AIF dispersion type
@@ -904,6 +907,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // common things
     incbat = args.ReadBool("incbat");
     inferbat = args.ReadBool("inferbat");
+    auto_init_bat = args.ReadBool("auto-init-bat") && inferbat;
     inferpc = args.ReadBool("inferpc");
     incpc = args.ReadBool("incpc") || inferpc;
 
@@ -1089,9 +1093,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // FIXME this looks wrong, why the OR?
     bool FullHad = hadamard || args.ReadBool("fullhad");
     // indicates if a Walsh-sorted Hadamard matrix was used for encoding.
-    bool Walsh = args.ReadBool("walsh"); 
+    bool Walsh = args.ReadBool("walsh");
     // indicates if a non-hadamard matrix was used for encoding.
-    bool NonHadamardMatrix = args.ReadBool("NonHadamardMatrix"); 
+    bool NonHadamardMatrix = args.ReadBool("NonHadamardMatrix");
 
     if (hadamard)
     {
@@ -1113,18 +1117,19 @@ void ASLFwdModel::Initialize(ArgsType &args)
         // Size must be power of 2 or 12 (special case). Note clever
         // bitwise method for identifying powers of 2!
         HadamardSize = args.GetInt("hadamard");
-        if (((HadamardSize & (HadamardSize-1)) != 0) && (HadamardSize != 12))
+        if (((HadamardSize & (HadamardSize - 1)) != 0) && (HadamardSize != 12))
         {
-            throw InvalidOptionValue("hadamard", stringify(HadamardSize), 
-                                     "Hadamard encoding is only possible "
-                                     "with a number of encodings that are "
-                                     "modulo 2 (2,4,8,16...) or number of "
-                                     "encodings equal to 12");
+            throw InvalidOptionValue("hadamard", stringify(HadamardSize),
+                "Hadamard encoding is only possible "
+                "with a number of encodings that are "
+                "modulo 2 (2,4,8,16...) or number of "
+                "encodings equal to 12");
         }
 
         NumberOfSubBoli = HadamardSize;
-        if (!FullHad) NumberOfSubBoli--;
-    
+        if (!FullHad)
+            NumberOfSubBoli--;
+
         HadEncMatrix = HadamardMatrix(HadamardSize, FullHad, Walsh, NonHadamardMatrix, skip_list);
 
         // we will usually ingore the first column (all control), unless we are doing FullHad
@@ -1132,17 +1137,18 @@ void ASLFwdModel::Initialize(ArgsType &args)
         HadEncMatrix = HadEncMatrix.SubMatrix(1, HadamardSize, start_col, HadamardSize);
 
         // FIXME skip list?
-        HadEncMatrix = HadEncMatrix.SubMatrix(1, HadamardSize - skip_list.size(), 1, NumberOfSubBoli);
+        HadEncMatrix
+            = HadEncMatrix.SubMatrix(1, HadamardSize - skip_list.size(), 1, NumberOfSubBoli);
 
         // calculate the TIs corresponding to the indiviual subboli
         tis.ReSize(NumberOfSubBoli);
         for (int i = 0; i < NumberOfSubBoli; i++)
         {
             ColumnVector tmp(1);
-            if (multitau) 
-                tis(i+1) = pld_list[0] + (NumberOfSubBoli - i) * taus_list[i];
+            if (multitau)
+                tis(i + 1) = pld_list[0] + (NumberOfSubBoli - i) * taus_list[i];
             else
-                tis(i+1) = pld_list[0] + (NumberOfSubBoli - i) * seqtau;
+                tis(i + 1) = pld_list[0] + (NumberOfSubBoli - i) * seqtau;
         }
     }
     else
@@ -1176,6 +1182,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
         }
     }
+
+    // Auto-init BAT only if number of TIs > 1
+    auto_init_bat = auto_init_bat && (tis.Nrows() > 1);
 
     // total number of time points in data
     tpoints = 0;
@@ -1391,7 +1400,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             // and tissue model (and they
             // share the same priors)
             art_model->SetPriorMean(i, convertTo<double>(priormean));
-            tiss_model->SetDispPriorMean(i, convertTo<double>(priormean)); 
+            tiss_model->SetDispPriorMean(i, convertTo<double>(priormean));
         }
     }
 
@@ -1497,7 +1506,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         LOG << "  Subbolus length: " << seqtau << endl;
         LOG << "  Post labeling delay (PLD): " << pld_list[1] << endl;
     }
-    
+
     if (doard)
     {
         LOG << "ARD has been set on arterial compartment " << endl;
@@ -1654,8 +1663,9 @@ Matrix ASLFwdModel::HadamardMatrix(const int size, const bool FullHad, const boo
     Matrix matrix, matrix_temp, norm_matrix, comp_matrix;
 
     if (size == 12)
-    { 
-        // the 12x12 Hadamard matrix cannot be generated by  Sylvester's costruction and is therefore
+    {
+        // the 12x12 Hadamard matrix cannot be generated by  Sylvester's costruction and is
+        // therefore
         // hardcoded here as a special case
         Real b[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1,
             1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1,
@@ -1708,7 +1718,8 @@ Matrix ASLFwdModel::HadamardMatrix(const int size, const bool FullHad, const boo
         if (FullHad)
         {
             // For the case, when a mirrored, interleaved, 2NxN matrix was used for encoding
-            // (FullHad==true), the normal matrix norm_matrix and the mirrored matrix mirr_matrix have to
+            // (FullHad==true), the normal matrix norm_matrix and the mirrored matrix mirr_matrix
+            // have to
             // be taken into account
             matrix.ReSize(2 * size, size);
             comp_matrix.ReSize(size, size);
@@ -1725,7 +1736,7 @@ Matrix ASLFwdModel::HadamardMatrix(const int size, const bool FullHad, const boo
                 }
             }
         }
-        else 
+        else
         {
             // Otherwise the mirrored matrix is not used
             if (skip_list.size() > 0)
@@ -1746,15 +1757,15 @@ Matrix ASLFwdModel::HadamardMatrix(const int size, const bool FullHad, const boo
                         }
                         else
                         {
-                            matrix.Row(i+1) << norm_matrix.Row(i + k + 1);
-                            std::cout << i+1 << "  " << i + k + 1 << std::endl;
+                            matrix.Row(i + 1) << norm_matrix.Row(i + k + 1);
+                            std::cout << i + 1 << "  " << i + k + 1 << std::endl;
                             i++;
                         }
                     }
                     else
                     {
-                        matrix.Row(i+1) << norm_matrix.Row(i + k + 1);
-                        std::cout << i+1 << "  " << i + k - 1 << std::endl;
+                        matrix.Row(i + 1) << norm_matrix.Row(i + k + 1);
+                        std::cout << i + 1 << "  " << i + k - 1 << std::endl;
                         i++;
                     }
                 }
