@@ -161,13 +161,14 @@ protected:
     double dg; // flip angle correction term (for slice profile)
 
     // Hadamard time encoding
-    bool hadamard;                               // indicates that we are modelling hadamard data
-    int HadamardSize;                            // Size of the hadamard encoding
-    int NumberOfSubBoli;                         // number of sub boli (might just different from
-                                                 // HadamardSize)
-    Matrix HadEncMatrix;                         // stores the Hadamard encoding matrix
-    Matrix HadamardMatrix(const int size) const; // function to generate the hadamard matrix
+    bool hadamard;       // indicates that we are modelling hadamard data
+    int HadamardSize;    // Size of the hadamard encoding
+    int NumberOfSubBoli; // number of sub boli (might just different from
+                         // HadamardSize)
+    Matrix HadEncMatrix; // stores the Hadamard encoding matrix
 
+    Matrix HadamardMatrix(const int size, const bool FullHad, const bool Walsh,
+        const bool NonHadamardMatrix, const vector<int> &skip_list) const;
     // inference/inclusion
     // -components
     bool inctiss; // tissue component (used for GM)
@@ -180,6 +181,7 @@ protected:
     // -common things
     bool incbat; // bolus arrival time
     bool inferbat;
+    bool auto_init_bat;
     bool incpc; // pre-capiliary (this can be GM and WM) - separated (different
                 // values for different components)
     bool inferpc;
