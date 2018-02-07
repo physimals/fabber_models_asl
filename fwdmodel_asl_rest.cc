@@ -984,7 +984,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // By default choose delt WM longer then GM
     setdeltwm = args.GetDoubleDefault("batwm", setdelt + 0.3);
     // By default choose delt blood shorter then GM
-    double deltart = args.GetDoubleDefault("batart", setdelt - 0.3);
+    setdeltart = args.GetDoubleDefault("batart", setdelt - 0.3);
 
     // std dev for delt prior (same for all tissue BAT)
     double deltsd = args.GetDoubleDefault("batsd", 0.316);
