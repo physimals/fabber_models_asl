@@ -1165,7 +1165,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             tis.ReSize(pld_list.size());
             if (casl)
             {
-                for (int i = 0; i < ti_list.size(); i++)
+                for (int i = 0; i < pld_list.size(); i++)
                 {
                     if (multitau)
                         tis(i + 1) = pld_list[i] + taus_list[i];
@@ -1177,7 +1177,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             {
                 // unlikely to happen, but permits the user to supply PLDs
                 // for a pASL acquisition
-                for (int i = 0; i < ti_list.size(); i++)
+                for (int i = 0; i < pld_list.size(); i++)
                     tis(i + 1) = pld_list[i];
             }
         }
