@@ -417,14 +417,14 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     {
         prior.means(tau_index()) = seqtau;
         // precisions(tau_index(),tau_index()) = 1;
-        precisions(tau_index(), tau_index()) = 1;
+        precisions(tau_index(), tau_index()) = 10;
     }
 
     if (infertaub)
     {
         prior.means(taub_index()) = seqtau;
         // precisions(taub_index(),taub_index()) = 1;
-        precisions(taub_index(), taub_index()) = 1;
+        precisions(taub_index(), taub_index()) = 10;
     }
 
     // Arterial Perfusion & bolus delay
@@ -702,7 +702,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         tauset = paramcpy(tau_index());
         // tauset = (dti * 0.5) * (tanh(tauset) + 1);
         // tauset = 0.1 * tanh(tauset) + dti - 0.1;
-        tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
+        //tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
         // cout << "tanh function used" << endl;
         // tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
         // cout << tauset << endl;
