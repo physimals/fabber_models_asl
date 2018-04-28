@@ -417,14 +417,14 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     {
         prior.means(tau_index()) = seqtau;
         // precisions(tau_index(),tau_index()) = 1;
-        precisions(tau_index(), tau_index()) = 10;
+        precisions(tau_index(), tau_index()) = 100;
     }
 
     if (infertaub)
     {
         prior.means(taub_index()) = seqtau;
         // precisions(taub_index(),taub_index()) = 1;
-        precisions(taub_index(), taub_index()) = 10;
+        precisions(taub_index(), taub_index()) = 100;
     }
 
     // Arterial Perfusion & bolus delay
