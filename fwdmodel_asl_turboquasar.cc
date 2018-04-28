@@ -469,7 +469,7 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
         {
             prior.means(wmi + 2) = seqtau;
             // precisions(wmi+2,wmi+2) = 1;
-            precisions(wmi + 2, wmi + 2) = 1;
+            precisions(wmi + 2, wmi + 2) = 100;
         }
 
         if (infert1)
