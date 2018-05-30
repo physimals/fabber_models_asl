@@ -195,7 +195,8 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result
     // if (g<0.5) g=0.5;
     // if (g>1.5) g=1.5;
 
-    FA = (g + dg) * FAnom;
+    //FA = (g + dg) * FAnom;
+    FA = (g) * FAnom; // Moss Edit
     lFA = (g + dg) * LFA;
 
     float T1tp = T1t;
