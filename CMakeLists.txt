@@ -9,7 +9,7 @@ endif(APPLE)
 
 set(MODELS_NAME asl)
 set(MODELS_SRC fwdmodel_asl_rest.cc fwdmodel_asl_grase.cc fwdmodel_asl_multiphase.cc 
-               fwdmodel_asl_quasar.cc fwdmodel_asl_satrecov.cc fwdmodel_asl_turboquasar.cc
+               fwdmodel_asl_quasar.cc fwdmodel_asl_satrecov.cc fwdmodel_asl_satrecovdualfa.cc  fwdmodel_asl_turboquasar.cc
                fwdmodel_asl_2compartment.cc asl_models.cc)
 
 add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC})
