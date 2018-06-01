@@ -1,4 +1,4 @@
-/*  fwdmodel_asl_satrecov.cc - Saturation Recovery curve calibration for ASL
+/*  fwdmodel_asl_satrecovdualfa.cc - Saturation Recovery curve Dual Flip Angle calibration for ASL
 
  Michael Chappell, IBME & FMRIB Image Analysis Group
 
@@ -23,7 +23,7 @@ using namespace std;
 
 FactoryRegistration<FwdModelFactory, SatrecovDualFAFwdModel> SatrecovDualFAFwdModel::registration("satrecovdualfa");
 
-FwdModel *SatrecovDualFAFwdModel::NewInstance() { return new SatrecovFwdModel(); }
+FwdModel *SatrecovDualFAFwdModel::NewInstance() { return new SatrecovDualFAFwdModel(); }
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
@@ -45,7 +45,7 @@ void SatrecovDualFAFwdModel::GetOptions(vector<OptionSpec> &opts) const
 
 string SatrecovDualFAFwdModel::ModelVersion() const
 {
-    string version = "fwdmodel_asl_satrecov.cc";
+    string version = "fwdmodel_asl_satrecovdualfa.cc";
 #ifdef GIT_SHA1
     version += string(" Revision ") + GIT_SHA1;
 #endif
@@ -55,7 +55,7 @@ string SatrecovDualFAFwdModel::ModelVersion() const
     return version;
 }
 
-string SatrecovDualFAFwdModel::GetDescription() const { return "Saturation recovery ASL model"; }
+string SatrecovDualFAFwdModel::GetDescription() const { return "Saturation recovery dual flip angle ASL model"; }
 void SatrecovDualFAFwdModel::Initialize(ArgsType &args)
 {
     repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
