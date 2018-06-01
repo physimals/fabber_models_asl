@@ -1,4 +1,4 @@
-/*  fwdmodel_asl_satrecov.h - Saturation Recovery curve calibration for ASL
+/*  fwdmodel_asl_satrecovdualfa.h - Saturation Recovery curve Dual Flip Angle calibration for ASL
 
  Michael Chappell, IBME & FMRIB Image Analysis Group
 
@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-class SatrecovFwdModel : public FwdModel
+class SatrecovDualFAFwdModel : public FwdModel
 {
 public:
     static FwdModel *NewInstance();
@@ -56,5 +56,5 @@ protected:
 
 private:
     /** Auto-register with forward model factory. */
-    static FactoryRegistration<FwdModelFactory, SatrecovFwdModel> registration;
+    static FactoryRegistration<FwdModelFactory, SatrecovDualFAFwdModel> registration;
 };

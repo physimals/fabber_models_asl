@@ -6,7 +6,7 @@
 
 /*  CCOPYRIGHT */
 
-#include "fwdmodel_asl_satrecov.h"
+#include "fwdmodel_asl_satrecovdualfa.h"
 
 #include "fabber_core/fwdmodel.h"
 
@@ -21,9 +21,9 @@
 
 using namespace std;
 
-FactoryRegistration<FwdModelFactory, SatrecovFwdModel> SatrecovFwdModel::registration("satrecov");
+FactoryRegistration<FwdModelFactory, SatrecovDualFAFwdModel> SatrecovDualFAFwdModel::registration("satrecovdualfa");
 
-FwdModel *SatrecovFwdModel::NewInstance() { return new SatrecovFwdModel(); }
+FwdModel *SatrecovDualFAFwdModel::NewInstance() { return new SatrecovFwdModel(); }
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
@@ -35,7 +35,7 @@ static OptionSpec OPTIONS[] = {
     { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" }, { "" },
 };
 
-void SatrecovFwdModel::GetOptions(vector<OptionSpec> &opts) const
+void SatrecovDualFAFwdModel::GetOptions(vector<OptionSpec> &opts) const
 {
     for (int i = 0; OPTIONS[i].name != ""; i++)
     {
@@ -43,7 +43,7 @@ void SatrecovFwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-string SatrecovFwdModel::ModelVersion() const
+string SatrecovDualFAFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_satrecov.cc";
 #ifdef GIT_SHA1
@@ -55,8 +55,8 @@ string SatrecovFwdModel::ModelVersion() const
     return version;
 }
 
-string SatrecovFwdModel::GetDescription() const { return "Saturation recovery ASL model"; }
-void SatrecovFwdModel::Initialize(ArgsType &args)
+string SatrecovDualFAFwdModel::GetDescription() const { return "Saturation recovery ASL model"; }
+void SatrecovDualFAFwdModel::Initialize(ArgsType &args)
 {
     repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
@@ -107,7 +107,7 @@ void SatrecovFwdModel::Initialize(ArgsType &args)
     coord_z = 0;
 }
 
-void SatrecovFwdModel::NameParams(vector<string> &names) const
+void SatrecovDualFAFwdModel::NameParams(vector<string> &names) const
 {
     names.clear();
 
@@ -120,7 +120,7 @@ void SatrecovFwdModel::NameParams(vector<string> &names) const
     }
 }
 
-void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
+void SatrecovDualFAFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
 {
     assert(prior.means.Nrows() == NumParams());
 
@@ -161,7 +161,7 @@ void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior)
     posterior.SetPrecisions(precisions);
 }
 
-void SatrecovFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
+void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // ensure that values are reasonable
     // negative check
