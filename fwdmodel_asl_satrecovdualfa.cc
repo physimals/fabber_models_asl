@@ -190,7 +190,8 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     // negative check
     ColumnVector paramcpy = params;
     for (int i = 1; i <= NumParams(); i++)
-    {
+    {   
+        printf("hahahahahahahhaha!!!!!");
         if (params(i) < 0)
         {
             paramcpy(i) = 0;
@@ -255,8 +256,6 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     double ti;
 
     /* Here we implement the generic saturation recovery model */
-    cout << "hahahaha" << endl;
-    cout << M0_initial_high_FA << endl;
 
     for (int ph = 1; ph <= nphases; ph++)
     {
