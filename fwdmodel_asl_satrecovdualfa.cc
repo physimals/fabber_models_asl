@@ -191,7 +191,7 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     ColumnVector paramcpy = params;
     for (int i = 1; i <= NumParams(); i++)
     {   
-        printf("hahahahahahahhaha!!!!!");
+        //printf("hahahahahahahhaha!!!!!");
         if (params(i) < 0)
         {
             paramcpy(i) = 0;
