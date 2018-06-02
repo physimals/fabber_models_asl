@@ -29,6 +29,8 @@ static OptionSpec OPTIONS[] = {
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
     { "phases", OPT_INT, "Number of phases", OPT_NONREQ, "1" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
+    { "t_initial_high_FA", OPT_FLOAT, "Initial time point of the starting poitn of the high FA saturation recovery ", OPT_NONREQ, "0.0" },
+    { "t_initial_high_FA", OPT_FLOAT, "Initial time point of the starting poitn of the low FA saturation recovery ", OPT_NONREQ, "0.0" },
     { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous", OPT_NONREQ, "" },
     { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
     { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
@@ -62,6 +64,9 @@ void SatrecovDualFAFwdModel::Initialize(ArgsType &args)
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
     slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+
+    t_initial_high_FA = convertTo<double>(args.ReadWithDefault("t_initial_high_FA", "0.0")); // Initial time point of the starting poitn of the high FA saturation recovery 
+    t_initial_low_FA = convertTo<double>(args.ReadWithDefault("t_initial_low_FA", "0.0")); // Initial time point of the starting poitn of the low FA saturation recovery
 
     fixA = args.ReadBool("fixa"); // to fix the A parameter where it will be ambiguous
 
@@ -185,8 +190,8 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     float M0_initial_high_FA = 0;
     float M0_initial_low_FA = 0;
 
-    float t_initial_high_FA = 0;
-    float t_initial_low_FA = 0;
+    //float t_initial_high_FA = 0;
+    //float t_initial_low_FA = 0;
 
     M0t = paramcpy(1);
     T1t = paramcpy(2);

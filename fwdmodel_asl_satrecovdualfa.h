@@ -47,6 +47,9 @@ protected:
     double dti;
     float dg;
 
+    double t_initial_high_FA;
+    double t_initial_low_FA;
+
     bool looklocker;
     bool LFAon;
     bool fixA;
