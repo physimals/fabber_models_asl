@@ -124,6 +124,8 @@ void SatrecovDualFAFwdModel::NameParams(vector<string> &names) const
         names.push_back("g");
     }
     // Here you need to insert initial values of the saturation recovery model
+    names.push_back("M0_initial_high_fa");
+    names.push_back("M0_initial_low_fa");
 }
 
 void SatrecovDualFAFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
@@ -132,11 +134,17 @@ void SatrecovDualFAFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &post
 
     SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
 
+    // Order of parameters. Must be in this order (Can Martin fix this?)
+    // M0t, T1, A, g, M0_initial_high_fa, M0_initial_low_fa
+
+    // M0t
     prior.means(1) = 0;
 
+    // T1
     prior.means(2) = t1;
     precisions(2, 2) = 10; // 1e-12;
 
+    // A
     prior.means(3) = 1;
     if (fixA)
     {
@@ -147,11 +155,20 @@ void SatrecovDualFAFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &post
         precisions(3, 3) = 10;
     }
 
+    // g
     if (LFAon)
     {
         prior.means(4) = 1;
         precisions(4, 4) = 100;
     }
+
+    // M0_initial_high_fa
+    prior.means(5) = 1;
+    precisions(5, 5) = 100000000; // (precisions are big as we treat PV parameters as correct
+
+    // M0_initial_low_fa
+    prior.means(6) = 1;
+    precisions(6, 6) = 100000000; // (precisions are big as we treat PV parameters as correct
 
     // Set precsions on priors
     prior.SetPrecisions(precisions);
@@ -187,8 +204,8 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     float lFA;
     float g;
 
-    float M0_initial_high_FA = 0;
-    float M0_initial_low_FA = 0;
+    float M0_initial_high_FA;
+    float M0_initial_low_FA;
 
     //float t_initial_high_FA = 0;
     //float t_initial_low_FA = 0;
@@ -203,6 +220,9 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     }
     else
         g = 1.0;
+
+    M0_initial_high_FA = paramcpy(5);
+    M0_initial_low_FA = paramcpy(6);
 
     // if (g<0.5) g=0.5;
     // if (g>1.5) g=1.5;
