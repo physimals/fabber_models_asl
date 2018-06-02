@@ -164,11 +164,11 @@ void SatrecovDualFAFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &post
 
     // M0_initial_high_fa
     prior.means(5) = 1;
-    precisions(5, 5) = 100000000; // (precisions are big as we treat PV parameters as correct
+    precisions(5, 5) = 100000000; // precisions are big as we treat M0_initial_high_FA parameters as correct
 
     // M0_initial_low_fa
     prior.means(6) = 1;
-    precisions(6, 6) = 100000000; // (precisions are big as we treat PV parameters as correct
+    precisions(6, 6) = 100000000; // precisions are big as we treat M0_initial_low_FA parameters as correct
 
     // Set precsions on priors
     prior.SetPrecisions(precisions);
@@ -255,6 +255,8 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     double ti;
 
     /* Here we implement the generic saturation recovery model */
+    cout << "hahahaha" << endl;
+    cout << M0_initial_high_FA << endl;
 
     for (int ph = 1; ph <= nphases; ph++)
     {
