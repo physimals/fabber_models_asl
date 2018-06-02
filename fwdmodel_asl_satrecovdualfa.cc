@@ -118,6 +118,7 @@ void SatrecovDualFAFwdModel::NameParams(vector<string> &names) const
     {
         names.push_back("g");
     }
+    // Here you need to insert initial values of the saturation recovery model
 }
 
 void SatrecovDualFAFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
@@ -181,6 +182,12 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     float lFA;
     float g;
 
+    float M0_initial_high_FA = 0;
+    float M0_initial_low_FA = 0;
+
+    float t_initial_high_FA = 0;
+    float t_initial_low_FA = 0;
+
     M0t = paramcpy(1);
     T1t = paramcpy(2);
     A = paramcpy(3);
@@ -222,6 +229,8 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     int nti = tis.Nrows();
     double ti;
 
+    /* Here we implement the generic saturation recovery model */
+
     for (int ph = 1; ph <= nphases; ph++)
     {
         for (int it = 1; it <= tis.Nrows(); it++)
@@ -231,8 +240,12 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
                 ti = tis(it) + slicedt * coord_z; // account here for an
                                                   // increase in delay between
                                                   // slices
+                /*
                 result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
                     = M0tp * (1 - A * exp(-ti / T1tp));
+                */
+                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
+                    = M0tp * sin(FA) - (M0tp * sin(FA) - M0_initial_high_FA) * A * exp((-1) * (ti - t_initial_high_FA) / T1tp)
             }
         }
     }
@@ -248,10 +261,15 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
                 ti = tis(it) + slicedt * coord_z; // account here for an
                                                   // increase in delay between
                                                   // slices
+                /*
                 result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
                     = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(-tis(it) / T1tp));
                 // note the sin(LFA)/sin(FA) term since the M0 we estimate is
                 // actually MOt*sin(FA)
+                */
+                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
+                    = M0tp * sin(lFA) - (M0tp * sin(lFA) - M0_initial_low_FA) * A * exp((-1) * (ti - t_initial_low_FA) / T1tp)
+
             }
         }
     }
