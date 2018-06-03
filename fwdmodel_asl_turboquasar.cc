@@ -861,8 +861,9 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
 
     // flip angle correction (only if calibon)
     float FAtrue = FA;
-    float dg = 0.023;
+    //float dg = 0.023; // We only use dg to correct low flip angle of the saturation recovery, which is excluded in CBF quantification
     if (calibon)
+        //FAtrue = (g + dg) * FA;
         FAtrue = (g + dg) * FA;
 
     // cout << T_1 << " " << FAtrue << " ";
@@ -1668,12 +1669,26 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
             ti = tis(it);
             float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
 
+            // You should insert T1 of MT effects here
+            // Issue here: we label seven boluses, but only see six MT effects? :(
+            // Need to confirm with Esben
+            /*
+            if(it < n_bolus_total) {
+                T1_detected = T_1app_MT;
+            } 
+            else {
+                T1_detected = T_1app;
+            }
+            */
+
+
             if (ti < deltll)
                 T_1b = T_1bin;
             else
                 T_1b = T_1ll;
 
             R = 1 / T_1app - 1 / T_1b;
+            //R = 1 / T1_detected - 1 / T_1b;
 
             if (ti < current_arrival_time)
             {
