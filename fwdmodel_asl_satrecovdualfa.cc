@@ -294,7 +294,7 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
                 // actually MOt*sin(FA)
                 */
                 result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
-                    = M0tp * sin(lFA) / sin(lFA) - (M0tp * sin(lFA) / sin(lFA) - M0_initial_low_FA) * A * exp((-1) * (ti - t_initial_low_FA) / T1tp);
+                    = M0tp * sin(lFA) / sin(FA) - (M0tp * sin(lFA) / sin(lFA) - M0_initial_low_FA) * A * exp((-1) * (ti - t_initial_low_FA) / T1tp);
 
             }
         }
