@@ -40,7 +40,9 @@ static OptionSpec OPTIONS[] = {
     { "disp", OPT_STR, "AIF dispersion type", OPT_NONREQ, "gamma" },
     { "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
     { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
+    { "t1_MT", OPT_FLOAT, "T1 value under MT effects", OPT_NONREQ, "1.3" },
     { "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
+    { "t1wm_MT", OPT_FLOAT, "T1wm value under MT effects", OPT_NONREQ, "1.1" },
     { "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
     { "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
     { "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
@@ -96,7 +98,9 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     repeats = convertTo<int>(args.Read("repeats")); // number of repeats in data
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
     t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
+    t1_MT = convertTo<double>(args.ReadWithDefault("t1_MT", "1.3")); // T1 under MT effects
     t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
+    t1wm_MT = convertTo<double>(args.ReadWithDefault("t1wm_MT", "1.1")); // T1 under MT effects
     lambda = convertTo<double>(
         args.ReadWithDefault("lambda", "0.9")); // NOTE that this parameter is not used!!
     // n_bolus = convertTo<int>(args.Read("n_bolus")); // total number of
@@ -336,6 +340,7 @@ void TurboQuasarFwdModel::NameParams(vector<string> &names) const
     {
         names.push_back("T_1");
         names.push_back("T_1b");
+        names.push_back("T_1_MT");
     }
     if (infertaub)
     {
@@ -352,8 +357,10 @@ void TurboQuasarFwdModel::NameParams(vector<string> &names) const
 
         if (infertau)
             names.push_back("tauwm");
-        if (infert1)
+        if (infert1) {
             names.push_back("T_1wm");
+            names.push_back("T_1wm_MT");
+        }
 
         if (usepve)
         {
@@ -446,9 +453,11 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
         int tidx = t1_index();
         prior.means(tidx) = t1;
         prior.means(tidx + 1) = t1b;
+        prior.means(tidx + 2) = t1_MT;
         precisions(tidx, tidx) = 100;
         // if (calibon) precisions(tidx,tidx) = 1e99;
         precisions(tidx + 1, tidx + 1) = 100;
+        precisions(tidx + 2, tidx + 2) = 100;
     }
 
     /* if (inferart) {
@@ -476,6 +485,8 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
         {
             prior.means(wmi + 3) = t1wm;
             precisions(wmi + 3, wmi + 3) = 100;
+            prior.means(wmi + 4) = t1wm_MT;
+            precisions(wmi + 4, wmi + 4) = 100;
         }
 
         if (usepve)
@@ -648,6 +659,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     float fblood;
     float deltblood;
     float T_1;
+    float T_1_MT;
     float T_1b;
 
     float pv_gm;
@@ -657,6 +669,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     float deltwm;
     float tauwmset;
     float T_1wm;
+    float T_1wm_MT;
 
     float p;
     float s;
@@ -739,17 +752,21 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     {
         T_1 = paramcpy(t1_index());
         T_1b = paramcpy(t1_index() + 1);
+        T_1_MT = paramcpy(t1_index() + 2);
 
         // T1 cannot be zero!
         if (T_1 < 0.01)
             T_1 = 0.01;
         if (T_1b < 0.01)
             T_1b = 0.01;
+        if (T_1_MT < 0.01)
+            T_1_MT = 0.01;
     }
     else
     {
         T_1 = t1;
         T_1b = t1b;
+        T_1_MT = t1_MT;
     }
 
     /*if (inferart) {
@@ -773,11 +790,15 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         if (infert1)
         {
             T_1wm = paramcpy(wm_index() + 3);
-            if (T_1 < 0.01)
-                T_1 = 0.01;
+            T_1wm_MT = paramcpy(wm_index() + 4);
+            if (T_1wm < 0.01)
+                T_1wm = 0.01;            
+            if (T_1wm_MT < 0.01)
+                T_1wm_MT = 0.01;
         }
         else
             T_1wm = t1wm;
+            T_1wm_MT = t1wm_MT;
 
         if (usepve)
         {
@@ -869,19 +890,29 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     // cout << T_1 << " " << FAtrue << " ";
 
     float T_1app = 1 / (1 / T_1 + 0.01 / lambdagm - log(cos(FAtrue)) / dti);
+    float T_1app_MT = 1 / (1 / T_1_MT + 0.01 / lambdagm - log(cos(FAtrue)) / dti);
     float T_1appwm = 1 / (1 / T_1wm + 0.01 / lambdawm - log(cos(FAtrue)) / dti);
+    float T_1appwm_MT = 1 / (1 / T_1wm_MT + 0.01 / lambdawm - log(cos(FAtrue)) / dti);
 
     // Need to be careful with T1 values
     if (T_1b < 0.1)
         T_1b = 0.1;
     if (T_1app < 0.1)
         T_1app = 0.1;
+    if (T_1app_MT < 0.1)
+        T_1app_MT = 0.1;
     if (fabs(T_1app - T_1b) < 0.01)
         T_1app += 0.01;
+    if (fabs(T_1app_MT - T_1b) < 0.01)
+        T_1app_MT += 0.01;
     if (T_1appwm < 0.1)
         T_1appwm = 0.1;
+    if (T_1appwm_MT < 0.1)
+        T_1appwm_MT = 0.1;
     if (fabs(T_1appwm - T_1b) < 0.01)
         T_1appwm += 0.01;
+    if (fabs(T_1appwm_MT - T_1b) < 0.01)
+        T_1appwm_MT += 0.01;
 
     // calculate the 'LL T1' of the blood
     float T_1ll = 1 / (1 / T_1b - log(cos(FAtrue)) / dti);
@@ -916,15 +947,16 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             T_1b = 1.60;
             T_1 = 1.3;
             T_1app = T_1;
+            T_1app_MT = T_1;
             T_1ll = T_1b;
         }
 
         if (infertiss)
-            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll, n_bolus,
+            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, T_1app_MT, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll, n_bolus,
+            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, T_1appwm_MT, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
         if (inferart)
             kcblood = kcblood_nodisp(
@@ -1624,7 +1656,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, flo
 
 // Tissue
 ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss,
-    float tau, float T_1bin, float T_1app, float deltll, float T_1ll, int n_bolus_total,
+    float tau, float T_1bin, float T_1app, float T1_app_MT, float deltll, float T_1ll, int n_bolus_total,
     float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
