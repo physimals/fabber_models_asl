@@ -1705,8 +1705,10 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
             // Before the end of labeling, we have MT effects
             float T1_detected;
             if(it < n_bolus_total || it == n_bolus_total) {
-                cout << T1_app_MT << endl;
-                getchar();
+                if(T1_app_MT > 0.5) {
+                    cout << T1_app_MT << endl;
+                    getchar();
+                }
                 T1_detected = T1_app_MT;
             } // After end of labeling, there is no MT effects
             else {
