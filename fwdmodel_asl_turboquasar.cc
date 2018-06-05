@@ -1712,7 +1712,6 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
                 T1_detected = T1_app_MT;
             } // After end of labeling, there is no MT effects
             else {
-                cout << T_1app << endl;
                 T1_detected = T_1app;
             }
             
