@@ -1701,17 +1701,14 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
             ti = tis(it);
             float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
 
-            // You should insert T1 of MT effects here
-            // Issue here: we label seven boluses, but only see six MT effects? :(
-            // Need to confirm with Esben
-            /*
+            // Before the end of labeling, we have MT effects
             if(it < n_bolus_total) {
                 T1_detected = T_1app_MT;
-            } 
+            } // After end of labeling, there is no MT effects
             else {
                 T1_detected = T_1app;
             }
-            */
+            
 
 
             if (ti < deltll)
