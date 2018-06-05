@@ -950,8 +950,8 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             T_1app_MT = T_1;
             T_1ll = T_1b;
         }
-        int T_1b_MT = T_1b_MT; // remove this part
-        
+        float T_1b_MT = T_1b_MT; // remove this part
+
         if (infertiss)
             kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1b_MT, T_1app, T_1app_MT, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
@@ -1703,8 +1703,9 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
             float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
 
             // Before the end of labeling, we have MT effects
+            float T1_detected;
             if(it < n_bolus_total) {
-                T1_detected = T_1app_MT;
+                T1_detected = T1_app_MT;
             } // After end of labeling, there is no MT effects
             else {
                 T1_detected = T_1app;
