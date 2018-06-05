@@ -957,7 +957,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
                 delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, T_1appwm_MT, deltll, T_1ll, n_bolus,
+            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1b_MT, T_1appwm, T_1appwm_MT, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
         if (inferart)
             kcblood = kcblood_nodisp(
