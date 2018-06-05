@@ -885,7 +885,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     //float dg = 0.023; // We only use dg to correct low flip angle of the saturation recovery, which is excluded in CBF quantification
     if (calibon)
         //FAtrue = (g + dg) * FA;
-        FAtrue = (g) * FA;
+        FAtrue = (g + dg) * FA;
 
     // cout << T_1 << " " << FAtrue << " ";
 
