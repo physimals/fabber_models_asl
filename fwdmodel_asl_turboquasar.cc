@@ -950,9 +950,10 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             T_1app_MT = T_1;
             T_1ll = T_1b;
         }
-
+        int T_1b_MT = T_1b_MT; // remove this part
+        
         if (infertiss)
-            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, T_1app_MT, deltll, T_1ll, n_bolus,
+            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1b_MT, T_1app, T_1app_MT, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
         // cout << kctissue << endl;
         if (inferwm)
@@ -1656,7 +1657,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, flo
 
 // Tissue
 ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss,
-    float tau, float T_1bin, float T_1app, float T1_app_MT, float deltll, float T_1ll, int n_bolus_total,
+    float tau, float T_1bin, float T1_bin_MT, float T_1app, float T1_app_MT, float deltll, float T_1ll, int n_bolus_total,
     float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
@@ -1716,7 +1717,7 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
             else
                 T_1b = T_1ll;
 
-            R = 1 / T_1app - 1 / T_1b;
+            R = 1 / T1_detected - 1 / T_1b;
             //R = 1 / T1_detected - 1 / T_1b;
 
             if (ti < current_arrival_time)

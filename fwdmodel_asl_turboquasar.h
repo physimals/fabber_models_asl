@@ -181,7 +181,7 @@ protected: // Constants
         int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     // Tissue
     NEWMAT::ColumnVector kctissue_nodisp(const NEWMAT::ColumnVector &tis, float delttiss, float tau,
-        float T1_b, float T1_app, float T1_app_MT, float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
+        float T1_b, float T1_b_MT, float T1_app, float T1_app_MT, float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
         const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kctissue_gammadisp(const NEWMAT::ColumnVector &tis, float delttiss,
         float tau, float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll,
