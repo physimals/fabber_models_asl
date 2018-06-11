@@ -28,7 +28,7 @@ public:
     virtual int NumParams() const
     {
         return (infertiss ? 2 : 0) - (singleti ? 1 : 0) + (infertiss ? (infertau ? 1 : 0) : 0)
-            + (inferart ? 2 : 0) + (infert1 ? 3 : 0) + (infertaub ? 1 : 0)
+            + (inferart ? 2 : 0) + (infert1 ? 4 : 0) + (infertaub ? 1 : 0)
             + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 2 : 0) + (usepve ? 2 : 0)) : 0) + 2
             + (inferart ? (artdir ? 3 : 4) : 0) + (calibon ? 1 : 0);
 
@@ -73,38 +73,38 @@ protected: // Constants
     int taub_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0) + (inferart ? 2 : 0)
-            + (infert1 ? 3 : 0) + (infertaub ? 1 : 0);
+            + (infert1 ? 4 : 0) + (infertaub ? 1 : 0);
     }
     // int R_index() const { return 2 + (infertau?1:0) + (inferart?2:0) +
     // (infert1?2:0) + (infertaub?1:0) + (inferart?1:0);}
     int wm_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0) + (inferart ? 2 : 0)
-            + (infert1 ? 3 : 0) + (infertaub ? 1 : 0) + (inferwm ? 1 : 0);
+            + (infert1 ? 2 : 0) + (infertaub ? 1 : 0) + (inferwm ? 1 : 0);
     }
     int pv_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0) + (inferart ? 2 : 0)
-            + (infert1 ? 3 : 0) + (infertaub ? 1 : 0)
-            + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 2 : 0)) : 0) + (usepve ? 1 : 0);
+            + (infert1 ? 2 : 0) + (infertaub ? 1 : 0)
+            + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 1 : 0)) : 0) + (usepve ? 1 : 0);
     }
     int disp_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0) + (inferart ? 2 : 0)
-            + (infert1 ? 3 : 0) + (infertaub ? 1 : 0)
-            + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 2 : 0)) : 0) + (usepve ? 2 : 0) + 1;
+            + (infert1 ? 2 : 0) + (infertaub ? 1 : 0)
+            + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 1 : 0)) : 0) + (usepve ? 2 : 0) + 1;
     }
     int crush_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0) + (inferart ? 2 : 0)
-            + (infert1 ? 3 : 0) + (infertaub ? 1 : 0)
-            + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 2 : 0)) : 0) + (usepve ? 2 : 0) + 2
+            + (infert1 ? 2 : 0) + (infertaub ? 1 : 0)
+            + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 1 : 0)) : 0) + (usepve ? 2 : 0) + 2
             + (inferart ? 1 : 0);
     }
     int calib_index() const
     {
         return (infertiss ? 2 : 0) + (infertiss ? (infertau ? 1 : 0) : 0) + (inferart ? 2 : 0)
-            + (infert1 ? 3 : 0) + (infertaub ? 1 : 0)
+            + (infert1 ? 4 : 0) + (infertaub ? 1 : 0)
             + (inferwm ? (2 + (infertau ? 1 : 0) + (infert1 ? 2 : 0)) : 0) + (usepve ? 2 : 0) + 2
             + (inferart ? (artdir ? 3 : 4) : 0) + (calibon ? 1 : 0);
     }
@@ -122,6 +122,7 @@ protected: // Constants
     int slice_shifting_factor;
     int delta_ti_gap_factor;
     double t1;
+    double t1_MT;
     double t1b;
     double t1b_MT;
     double t1wm;
@@ -167,7 +168,7 @@ protected: // Constants
 
     // kinetic curve functions
     NEWMAT::ColumnVector kcblood_nodisp(const NEWMAT::ColumnVector &tis, float deltblood,
-        float taub, float T_1b, float deltll, float T_1ll, int n_bolus_total, float delta_bolus,
+        float taub, float T_1b, float deltll, float T_1b_MT_ll, float T_1ll, int n_bolus_total, float delta_bolus,
         const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kcblood_gammadisp(const NEWMAT::ColumnVector &tis, float deltblood,
         float taub, float T_1bin, float s, float p, float deltll, float T_1ll, int n_bolus_total,
@@ -180,7 +181,7 @@ protected: // Constants
         int n_bolus_total, float delta_bolus, const NEWMAT::ColumnVector &bolus_order) const;
     // Tissue
     NEWMAT::ColumnVector kctissue_nodisp(const NEWMAT::ColumnVector &tis, float delttiss, float tau,
-        float T1_b, float T1_app, float deltll, float T_1b_MT_ll, float T_1ll, int n_bolus_total, float delta_bolus,
+        float T1_b, float T_1app, float T_1app_MT, float deltll, float T_1b_MT_ll, float T_1ll, int n_bolus_total, float delta_bolus,
         const NEWMAT::ColumnVector &bolus_order) const;
     NEWMAT::ColumnVector kctissue_gammadisp(const NEWMAT::ColumnVector &tis, float delttiss,
         float tau, float T_1bin, float T_1app, float s, float p, float deltll, float T_1ll,
