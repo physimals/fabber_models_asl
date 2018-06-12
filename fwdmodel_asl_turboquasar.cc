@@ -86,7 +86,7 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     if (simulation)
     {
         // Warning message
-        cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded "
+        cout << "Warming: T1_blood=1.6, T1_blood_MT= 1.4, T1_tissue=1.3, T1_tissue_MT=1.1 are harded coded "
                 "values!!!!!"
              << endl;
     }
@@ -945,6 +945,8 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             T_1 = 1.3;
             T_1app = T_1;
             T_1ll = T_1b;
+            T_1b_MT_ll = 1.4;
+            T_1app_MT = 1.1;
         }
 
         if (infertiss)
