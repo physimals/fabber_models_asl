@@ -181,9 +181,9 @@ protected:
     // -common things
     bool incbat; // bolus arrival time
     bool inferbat;
-    bool auto_init_bat;
-    bool incpc; // pre-capiliary (this can be GM and WM) - separated (different
-                // values for different components)
+    std::string bat_init; // Posterior initialisation for BAT
+    bool incpc;           // pre-capiliary (this can be GM and WM) - separated (different
+                          // values for different components)
     bool inferpc;
     bool inctau; // bolus duration (art,GM,WM) - seperable
     bool infertau;

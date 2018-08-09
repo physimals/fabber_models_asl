@@ -71,7 +71,10 @@ static OptionSpec OPTIONS[] = {
     { "batwm", OPT_FLOAT, "Bolus arrival time (white matter)", OPT_NONREQ, "bat+0.3" },
     { "batart", OPT_FLOAT, "Bolus arrival time (arterial)", OPT_NONREQ, "bat-0.3" },
     { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
-
+    { "bat-init", OPT_FLOAT, "Initial value of BAT to use in optimisation procedure. If not "
+                             "specified use prior. Special values: step=use step function "
+                             "auto-estimation, max=use max signal auto-estimation",
+        OPT_NONREQ, "0.7" },
     { "iaf", OPT_STR, "Data information", OPT_NONREQ, "diff" },
     { "calib", OPT_BOOL, "Data has already been subjected to calibration", OPT_NONREQ, "" },
     { "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
@@ -422,6 +425,43 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
     posterior.SetPrecisions(precisions);
 }
 
+/**
+ * Fit a step function to data vector
+ *
+ * @return the data index (starting at 0) of the data point after which the data
+ *         increases in a step-wise fashion giving the best fit
+ */
+static int fit_step(const ColumnVector &data)
+{
+    // MSC method - fit a step function
+    double best_ssq = -1;
+    int step_pos = 0;
+    for (int pos = 1; pos < data.Nrows(); pos++)
+    {
+        double mean_left = data.Rows(1, pos).Sum() / pos;
+        double mean_right = data.Rows(pos + 1, data.Nrows()).Sum() / (data.Nrows() - pos);
+        if (mean_right > mean_left)
+        {
+            double ssq = 0;
+            for (int t = 1; t <= pos; t++)
+            {
+                ssq += (data(t) - mean_left) * (data(t) - mean_left);
+            }
+            for (int t = pos + 1; t <= data.Nrows(); t++)
+            {
+                ssq += (data(t) - mean_right) * (data(t) - mean_right);
+            }
+            if ((ssq < best_ssq) || (best_ssq < 0))
+            {
+                best_ssq = ssq;
+                step_pos = pos - 1;
+            }
+        }
+    }
+
+    return step_pos;
+}
+
 void ASLFwdModel::InitParams(MVNDist &posterior) const
 {
     if (inferstattiss)
@@ -456,55 +496,111 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             // init the aBV - use max value in data
             posterior.means(flow_index() + artidx) = data.Maximum();
         }
-        if (inferbat && auto_init_bat)
+        if (inferbat)
         {
-            // Time of maximum signal minus the bolus duration (only for differenced data)
-            int ind;
-            data.Maximum1(ind); // find the point of maximum
-            // need a list of all TIs (i.e. deal with the case where repeats>1)
-            // FIXME what if repeats variable?
-            ColumnVector alltis;
-            alltis = tis;
-            for (int rpt = 2; rpt <= repeats[0]; rpt++)
+            if (bat_init == "step")
             {
-                alltis &= tis;
-            }
-
-            // Calculate the actual TI of the data given slice timing
-            double batinitval = alltis(ind) + slicedt * coord_z;
-
-            // Subtract bolus duration, unless we are assuming it is 'infinite'
-            if (seqtau < 10)
-                batinitval -= seqtau;
-
-            // Don't allow the BAT to get too long or too short
-            if (batinitval > (timax - 0.5))
-                batinitval = timax - 0.5;
-            if (batinitval < 0.01)
-                batinitval = 0.01;
-
-            double tissbatinit = setdelt;
-            if (inferart)
-            {
-                // arterial component is earliest
-                posterior.means(bat_index() + artidx) = batinitval;
-                if (infertiss)
+                // MSC method: Average data across TIs and fit a step function to estimate BAT
+                ColumnVector data_mean(tis.Nrows());
+                data_mean = 0;
+                int ti_start = 1;
+                for (int ti = 0; ti < tis.Nrows(); ti++)
                 {
-                    tissbatinit = batinitval + 0.3;
-                    posterior.means(bat_index()) = tissbatinit;
+                    for (int rpt = 0; rpt < repeats[ti]; rpt++)
+                    {
+                        data_mean(ti + 1) += data(ti_start + rpt);
+                    }
+                    data_mean(ti + 1) /= repeats[ti];
+                    ti_start += repeats[ti];
                 }
+                int step_pos = fit_step(data_mean) + 1;
+
+                double bat_post = (tis(step_pos) + tis(step_pos + 1)) / 2;
+                if (multitau)
+                {
+                    bat_post -= (taus(step_pos) + taus(step_pos + 1)) / 2;
+                }
+                else if (seqtau < 10)
+                {
+                    bat_post -= seqtau;
+                }
+
+                posterior.means(bat_index()) = bat_post;
+            }
+            else if (bat_init == "max")
+            {
+                // Federico's method - Time of maximum signal minus the bolus duration (only for
+                // differenced data)
+                int ind;
+                data.Maximum1(ind); // find the point of maximum
+
+                // Find the corresponding TI for this index
+                double ti = 0;
+                int idx = 1;
+                for (int ti_num = 1; ti_num <= tis.Nrows(); ti_num++)
+                {
+                    for (int rpt = 0; rpt < repeats[ti]; rpt++)
+                    {
+                        if (idx == ind)
+                            ti = tis(ti_num);
+                        idx++;
+                    }
+                }
+
+                // Calculate the actual TI of the data given slice timing
+                double batinitval = ti + slicedt * coord_z;
+
+                // Subtract bolus duration, unless we are assuming it is 'infinite'
+                if (multitau)
+                {
+                    batinitval -= taus(ind);
+                }
+                else if (seqtau < 10)
+                {
+                    batinitval -= seqtau;
+                }
+
+                // Don't allow the BAT to get too long or too short
+                if (batinitval > (timax - 0.5))
+                    batinitval = timax - 0.5;
+                if (batinitval < 0.01)
+                    batinitval = 0.01;
+                double tissbatinit = setdelt;
+                if (inferart)
+                {
+                    // arterial component is earliest
+                    posterior.means(bat_index() + artidx) = batinitval;
+                    if (infertiss)
+                    {
+                        tissbatinit = batinitval + 0.3;
+                        posterior.means(bat_index()) = tissbatinit;
+                    }
+                }
+                else
+                {
+                    if (infertiss)
+                    {
+                        tissbatinit = batinitval;
+                        posterior.means(bat_index()) = tissbatinit;
+                    }
+                }
+                if (inferwm)
+                {
+                    posterior.means(bat_index() + wmidx) = tissbatinit + 0.3;
+                }
+            }
+        }
+        else if (bat_init != "")
+        {
+            double bat_post = atof(bat_init.c_str());
+            if (bat_post > 0)
+            {
+                posterior.means(bat_index()) = bat_post;
             }
             else
             {
-                if (infertiss)
-                {
-                    tissbatinit = batinitval;
-                    posterior.means(bat_index()) = tissbatinit;
-                }
-            }
-            if (inferwm)
-            {
-                posterior.means(bat_index() + wmidx) = tissbatinit + 0.3;
+                throw InvalidOptionValue(
+                    "bat-init", bat_init, "Must be 'step', 'max' or a number > 0");
             }
         }
     }
@@ -907,7 +1003,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // common things
     incbat = args.ReadBool("incbat");
     inferbat = args.ReadBool("inferbat");
-    auto_init_bat = args.ReadBool("auto-init-bat") && inferbat;
+    bat_init = args.GetStringDefault("bat-init", "");
     inferpc = args.ReadBool("inferpc");
     incpc = args.ReadBool("incpc") || inferpc;
 
@@ -1183,8 +1279,11 @@ void ASLFwdModel::Initialize(ArgsType &args)
         }
     }
 
-    // Auto-init BAT only if number of TIs > 1
-    auto_init_bat = auto_init_bat && (tis.Nrows() > 1);
+    // Initialise BAT only if number of TIs > 1
+    if (tis.Nrows() == 1)
+    {
+        bat_init = "";
+    }
 
     // total number of time points in data
     tpoints = 0;
