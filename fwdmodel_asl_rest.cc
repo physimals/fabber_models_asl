@@ -813,6 +813,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     double f_calib;
     double f_calibwm;
     // if we are using calibrated data then we can use ftiss to calculate T_1app
+    // otherwise assume sensible value (units of s^-1)
     if (calib)
     {
         f_calib = ftiss;
@@ -822,14 +823,8 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     {
         f_calib = 0.01;
         f_calibwm = 0.003;
-    } // otherwise assume sensible value (units of s^-1)
+    }
 
-    /*
-  ColumnVector artdir(3);
-  artdir(1) = sin(bloodphi)*cos(bloodth);
-  artdir(2) = sin(bloodphi)*sin(bloodth);
-  artdir(3) = cos(bloodphi);
-  */
     double kctissue;
     kctissue = 0.0;
     double kcblood;
@@ -976,6 +971,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
 }
 
 FwdModel *ASLFwdModel::NewInstance() { return new ASLFwdModel(); }
+
 void ASLFwdModel::Initialize(ArgsType &args)
 {
     // set the AIF dispersion type
@@ -1053,7 +1049,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (incwm)
         artidx++;
 
-    // deal with ARD selection for aBV
+    // ARD selection for aBV
     bool ardoff = false;
     ardoff = args.ReadBool("ardoff");
     doard = false;
@@ -1064,7 +1060,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
 
     // Scan parameters
 
-    // Deal with saturation of the bolus a fixed time pre TI measurement
+    // Saturation of the bolus a fixed time pre TI measurement
     pretisat = args.GetDoubleDefault("pretisat", 0);
 
     // Increase in TI per slice
@@ -1073,20 +1069,22 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // Number of slices in a band in a multi-band setup (zero implies single band)
     sliceband = args.GetIntDefault("sliceband", 0);
 
-    // Set if the data is CASL or PASL (default)
+    // Data is CASL or PASL (default)
     casl = args.GetBool("casl");
 
+    // Bolus arrival time
     setdelt = args.GetDoubleDefault("bat", 0.7);
-    // By default choose delt WM longer then GM
+
+    // By default BAT in WM is longer then GM
     setdeltwm = args.GetDoubleDefault("batwm", setdelt + 0.3);
-    // By default choose delt blood shorter then GM
+    // By default BAT in blood is shorter then GM
     setdeltart = args.GetDoubleDefault("batart", setdelt - 0.3);
 
-    // std dev for delt prior (same for all tissue BAT)
+    // BAT std dev (same for all tissue)
     double deltsd = args.GetDoubleDefault("batsd", 0.316);
     deltprec = 1 / (deltsd * deltsd);
 
-    // Arterial BAT precision - by default the arterial BAT SD is same as tissue
+    // Arterial BAT std dev - by default the arterial BAT SD is same as tissue
     deltsd = args.GetDoubleDefault("batartsd", deltsd);
     deltartprec = 1 / (deltsd * deltsd);
 
@@ -1126,6 +1124,8 @@ void ASLFwdModel::Initialize(ArgsType &args)
 
     if (ti_set && pld_set)
         throw FabberRunDataError("Cannot specify TIs and PLDs at the same time");
+    else if (num_times == 0)
+        throw FabberRunDataError("No TIs/PLDs specified");
 
     // Repeats - may be single repeat or multiple (one per TI/PLD)
     if (args.HaveKey("rpt1"))
@@ -1148,8 +1148,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     }
 
     // Bolus durations - may be single value or multiple (one per TI/PLD)
-
-    // Bolus length as set by sequence (default of 1000 is effectively infinite
+    // Default of 1000 is effectively infinite
     seqtau = args.GetDoubleDefault("tau", 1000);
     vector<double> taus_list = args.GetDoubleList("tau");
     multitau = taus_list.size() > 1;
@@ -1180,35 +1179,41 @@ void ASLFwdModel::Initialize(ArgsType &args)
             taus(i + 1) = taus_list[i];
     }
 
-    // Hadamard time encoding
-    // if nothing is stated, no Hadamard encoding is assumed.
-    // If it is set to an integer N, N encoding lines are assumed.
+    // Time encoded data
+    // if nothing is stated, no time encoding is assumed.
+
+    // If hadamard option is set to an integer N, N Hadamard encoding lines are assumed.
     hadamard = args.HaveKey("hadamard");
+
     // In some cases the full Hadamard matrix is needed,
     // i.e. all N rows (and not only N-1). This is activated by this command.
     // FIXME this looks wrong, why the OR?
     bool FullHad = hadamard || args.ReadBool("fullhad");
-    // indicates if a Walsh-sorted Hadamard matrix was used for encoding.
+
+    // Indicates if a Walsh-sorted Hadamard matrix was used for encoding.
     bool Walsh = args.ReadBool("walsh");
-    // indicates if a non-hadamard matrix was used for encoding.
+
+    // Indicates if a non-hadamard matrix was used for encoding.
     bool NonHadamardMatrix = args.ReadBool("NonHadamardMatrix");
 
+    // Initialize the TIs list
+    
     if (hadamard)
     {
-        // List of TIs to skip in Hadamard encoding
-        // FIXME Could this be implemented using masked timepoints?
-        vector<int> skip_list = args.GetIntList("skip");
-
         if (repeats.size() > 1)
         {
             throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
                 "Cannot specify more than one set of repeats with Hadmard encoding");
         }
-        if (pld_list.size() != 1)
+        if (num_times != 1)
         {
-            throw InvalidOptionValue("Number of PLDs", stringify(pld_list.size()),
-                "Hadamard time encoding requires exactly one PLD");
+            throw InvalidOptionValue("Number of TIs/PLDs", stringify(num_times),
+                "Hadamard time encoding requires exactly one TI/PLD");
         }
+
+        // List of TIs to skip in Hadamard encoding
+        // FIXME Could this be implemented using masked timepoints?
+        vector<int> skip_list = args.GetIntList("skip");
 
         // Size must be power of 2 or 12 (special case). Note clever
         // bitwise method for identifying powers of 2!
@@ -1250,15 +1255,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
     else
     {
         // normal ASL data
+        tis.ReSize(num_times);
         if (ti_set)
         {
-            tis.ReSize(ti_list.size());
             for (int i = 0; i < ti_list.size(); i++)
                 tis(i + 1) = ti_list[i];
         }
         if (pld_set)
         {
-            tis.ReSize(pld_list.size());
             if (casl)
             {
                 for (int i = 0; i < pld_list.size(); i++)
@@ -1271,8 +1275,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
             else
             {
-                // unlikely to happen, but permits the user to supply PLDs
-                // for a pASL acquisition
+                // unlikely to happen, but permits the user to supply PLDs for a pASL acquisition
                 for (int i = 0; i < pld_list.size(); i++)
                     tis(i + 1) = pld_list[i];
             }
@@ -1289,7 +1292,12 @@ void ASLFwdModel::Initialize(ArgsType &args)
     tpoints = 0;
     for (int it = 0; it < tis.Nrows(); it++)
     {
-        tpoints += repeats[it];
+        if (repeats.size() > 1) {
+            tpoints += repeats[it];
+        }
+        else {
+            tpoints += repeats[0];
+        }
     }
 
     timax = tis.Maximum(); // dtermine the final TI
