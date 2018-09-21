@@ -90,36 +90,39 @@ double AIFModel_nodisp::kcblood(const double ti, const double deltblood, const d
     const double T_1b, const bool casl, const ColumnVector dispparam) const
 {
     // Non dispersed arterial curve
-    double kcblood = 0.0;
+    //
+    // To avoid problems with the discontinuous gradient at ti=deltblood
+    // and ti=deltblood+taub, we smooth the transition at these points
+    // using a Gaussian convolved step function. The sigma value could
+    // be exposed as a parameter (small value = less smoothing). This is
+    // similar to the effect of Gaussian dispersion, but can be computed
+    // without numerical integration
+    double kcblood;
+    if (casl)
+        kcblood = 2 * exp(-deltblood / T_1b);
+    else
+        kcblood = 2 * exp(-ti / T_1b);
 
-    if (ti < deltblood)
+    if (ti < (deltblood + taub / 2))
     {
-        kcblood = 2 * exp(-deltblood / T_1b)
-            * (0.98 * exp((ti - deltblood) / 0.05) + 0.02 * ti / deltblood);
-        // use a arti�fical lead in period for arterial bolus to improve model
-        // fitting
+        // If deltblood is smaller than the lead in scale, we could 'lose' some
+        // of the bolus, so reduce degree of lead in as deltblood -> 0. We
+        // don't really need it in this case anyway since there will be no
+        // gradient discontinuity
+        double leadscale = min(deltblood, m_leadscale);
+        if (leadscale > 0)
+        {
+            kcblood *= 0.5 * (1 + erf((ti - deltblood) / leadscale));
+        }
+        else if (ti < deltblood)
+        {
+            kcblood = 0;
+        }
     }
-    else if (ti >= deltblood && ti <= (deltblood + taub))
+    else
     {
-        if (casl)
-            kcblood = 2 * exp(-deltblood / T_1b);
-        else
-            kcblood = 2 * exp(-ti / T_1b);
-    }
-    else //(ti > deltblood + tau)
-    {
-        // artifical lead out period for taub model fitting
-        if (casl)
-            kcblood = 2 * exp(-deltblood / T_1b);
-        else
-            kcblood = 2 * exp(-(deltblood + taub) / T_1b);
-
-        kcblood *= (0.98 * exp(-(ti - deltblood - taub) / 0.05)
-            + 0.02 * (1 - (ti - deltblood - taub) / 5));
-
-        if (kcblood < 0)
-            kcblood = 0; // negative values are possible with the lead out
-                         // period equation
+        // 'lead out' rather than immediate drop to zero
+        kcblood *= 0.5 * (1 + erf(-(ti - deltblood - taub) / m_leadscale));
     }
 
     return kcblood;
@@ -134,10 +137,10 @@ double AIFModel_gammadisp::kcblood(const double ti, const double deltblood, cons
     // Gamma dispersed arterial curve (pASL)
     double kcblood = 0.0;
 
-    // extract dispersion parameters
+    // extract dispersion parameters - stored as the log of the true value
     double s;
     double p;
-    s = (dispparam.Row(1)).AsScalar();
+    s = dispparam(1);
     s = exp(s);
     double sp = (dispparam.Row(2)).AsScalar();
     sp = exp(sp);
@@ -158,6 +161,7 @@ double AIFModel_gammadisp::kcblood(const double ti, const double deltblood, cons
         else
             kcblood = 2 * exp(-ti / T_1b);
 
+        // This part is specific to the gamma dispersion model
         kcblood *= (1 - igamc(k, s * (ti - deltblood)));
     }
     else //(ti > deltblood + taub)
@@ -166,6 +170,8 @@ double AIFModel_gammadisp::kcblood(const double ti, const double deltblood, cons
             kcblood = 2 * exp(-deltblood / T_1b);
         else
             kcblood = 2 * exp(-ti / T_1b);
+
+        // This part is specific to the gamma dispersion model
         kcblood *= (igamc(k, s * (ti - deltblood - taub)) - igamc(k, s * (ti - deltblood)));
     }
 
@@ -461,7 +467,6 @@ double ResidModel_simple::resid(const double ti, const double fcalib, const doub
     // Simple impermeable comparment
     // decays with T1b
     return exp(-ti / T_1b);
-    ;
 }
 
 double ResidModel_imperm::resid(const double ti, const double fcalib, const double T_1,
@@ -487,9 +492,6 @@ double ResidModel_twocpt::resid(const double ti, const double fcalib, const doub
     // extract residue function parameters
     double kw; // exchange rate = PS/vb
     kw = (residparam.Row(1)).AsScalar();
-    // double PS; double vb;
-    // PS = (residparam.Row(1)).AsScalar();
-    // vb = (residparam.Row(2)).AsScalar();
 
     // calculate the residue function
     double a = kw + 1 / T_1b;
@@ -532,10 +534,9 @@ double ResidModel_spa::resid(const double ti, const double fcalib, const double 
 double TissueModel_nodisp_simple::kctissue(const double ti, const double fcalib,
     const double delttiss, const double tau, const double T_1b, const double T_1,
     const double lambda, const bool casl, const ColumnVector dispparam,
-    const ColumnVector residparam) const
+    const ColumnVector residparam)
 {
-    // Tissue kinetic curve - well mixed, but no outflow and decay with T1 blood
-    // only
+    // Tissue kinetic curve - well mixed, but no outflow and decay with T1 blood only
     // (This is just the impermeable model with infinite residence time)
     double kctissue = 0.0;
 
@@ -570,7 +571,7 @@ double TissueModel_nodisp_simple::kctissue(const double ti, const double fcalib,
 double TissueModel_nodisp_wellmix::kctissue(const double ti, const double fcalib,
     const double delttiss, const double tau, const double T_1b, const double T_1,
     const double lambda, const bool casl, const ColumnVector dispparam,
-    const ColumnVector residparam) const
+    const ColumnVector residparam)
 {
     // Tissue kinetic curve no dispersion
     // Buxton (1998) model
@@ -604,7 +605,7 @@ double TissueModel_nodisp_wellmix::kctissue(const double ti, const double fcalib
 double TissueModel_nodisp_imperm::kctissue(const double ti, const double fcalib,
     const double delttiss, const double tau, const double T_1b, const double T_1,
     const double lambda, const bool casl, const ColumnVector dispparam,
-    const ColumnVector residparam) const
+    const ColumnVector residparam)
 {
     // Tissue kinetic curve no dispersion impermeable vessel
     double kctissue = 0.0;
@@ -656,7 +657,7 @@ double TissueModel_nodisp_imperm::kctissue(const double ti, const double fcalib,
 double TissueModel_nodisp_2cpt::kctissue(const double ti, const double fcalib,
     const double delttiss, const double tau, const double T_1b, const double T_1,
     const double lambda, const bool casl, const ColumnVector dispparam,
-    const ColumnVector residparam) const
+    const ColumnVector residparam)
 {
     // Two compartment model - the simplest form of the two cpt model
     // No backflow from tissue to blood
@@ -724,12 +725,11 @@ double TissueModel_nodisp_2cpt::kctissue(const double ti, const double fcalib,
 
 double TissueModel_nodisp_spa::kctissue(const double ti, const double fcalib, const double delttiss,
     const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-    const ColumnVector dispparam, const ColumnVector residparam) const
+    const ColumnVector dispparam, const ColumnVector residparam)
 {
     // Two compartment model
     // No backflow from tissue to blood
-    // venous outflow (alhtough we dont model a venous component to the signal
-    // here)
+    // venous outflow (alhtough we dont model a venous component to the signal here)
     // St. Lawrence 2000
     assert(!casl);
 
@@ -806,7 +806,7 @@ double TissueModel_nodisp_spa::R(const double t1, const double t2, const double 
 double TissueModel_gammadisp_wellmix::kctissue(const double ti, const double fcalib,
     const double delttiss, const double tau, const double T_1b, const double T_1,
     const double lambda, const bool casl, const ColumnVector dispparam,
-    const ColumnVector residparam) const
+    const ColumnVector residparam)
 {
     double kctissue = 0.0;
 
@@ -835,8 +835,6 @@ double TissueModel_gammadisp_wellmix::kctissue(const double ti, const double fca
         C = 1e-12; // really shouldn't happen, but combination of parameters may
                    // arise in artefactual voxels?
 
-    // cout << T_1app << " " << A << " " << B << " "<< C << " " << endl ;
-
     if (ti < delttiss)
     {
         kctissue = 0;
@@ -862,11 +860,7 @@ double TissueModel_gammadisp_wellmix::kctissue(const double ti, const double fca
                              - exp(-A / (T_1app * T_1b) * (ti - delttiss - tau)) * C * B
                                  * (igamc(k, s * (ti - delttiss - tau))
                                        - igamc(k, s * (ti - delttiss)))));
-
-        // if (isnan(kctissue(it))) { kctissue(it)=0.0; cout << "Warning NaN in
-        // tissue KC"; }
     }
-    // cout << kctissue.t() << endl;
     return kctissue;
 }
 
@@ -926,91 +920,42 @@ double TissueModel_gammadisp_wellmix::kctissue(const double ti, const double fca
  }
  */
 
+/**
+ * Calculate Kc using numerical convolution integral of AIF and residue functions
+ */
 double TissueModel_aif_residue::kctissue(const double ti, const double fcalib,
     const double delttiss, const double tau, const double T_1b, const double T_1,
     const double lambda, const bool casl, const ColumnVector dispparam,
-    const ColumnVector residparam) const
+    const ColumnVector residparam)
 {
-    double kctissue = 0.0;
+    // Number of time point required, including one at zero
+    int nt = floor(ti / m_delta) + 1;
 
-    // calculate the appropraite time series for the aif and residue
-    // assume that the aif is zero before TI=0 (true of most aif models under
-    // sensible parameter values)
+    // Extra time interval required to reach the TI
+    double dti = ti - (nt - 1) * m_delta;
 
-    // OLD fixed number of discrete time points
-    // int nint = 10; //number of intervals for simpsons rule;
-    // int niti = 2*nint+1; //the number of time points to use in the
-    // integration - for simpsons rule follow the patttern (2*x)+1
-    // double delti = ti/(niti-1);
-
-    // fixed time intervals for discretization (these discrete time points are
-    // termed iti)
-    double delti = 0.1;           // time interval for the iti
-    double dti = fmod(ti, delti); // the time not covered by the iti
-    // double maxiti = ti - dti; //largest iti
-    int niti = floor(ti / delti) + 1; // number of iti (include the itit at 0)
-
-    ColumnVector aifts(niti);
-    ColumnVector rests(niti);
-    double iti;
-    // calacute aif and residue function for all the iti
-    for (int i = 0; i < niti; i++)
-    { // start from iTI = 0 and go up to iTI=niti*delti)
-        iti = i * delti;
-        aifts(i + 1) = aifmodel->kcblood(iti, delttiss, tau, T_1b, casl, dispparam);
-        rests(i + 1) = residmodel->resid(iti + dti, fcalib, T_1, T_1b, lambda,
-            residparam); // NB offset on this ready for when we reverse it
-    }
-    // cacualte the aif and residue at the TI
-    double aifti = aifmodel->kcblood(ti, delttiss, tau, T_1b, casl, dispparam);
-    // double resti = residmodel->resid(ti,fcalib,T_1,lambda,residparam);
-
-    // do convolution to get the value at this TI
-    ColumnVector prod(niti);
-    prod = SP(aifts, rests.Reverse());
-    double prodti = aifti; // becasue resti at time zero is 1
-
-    string integrate = "trapezoid";
-    // if (integrate == "rect") {}
-    // rect intergration
-    // nothing to do here - this is essentially done as the default option
-    if (integrate == "trapezoid")
+    // Calculate the convolution integral of AIF(t)*RESID(TI-t) from 0 to TI
+    // using the trapezium rule
+    double kctissue = 0;
+    double integrand = 0;
+    if (nt > 1)
     {
-        ColumnVector trap(niti);
-        trap = 1;
-        trap(1) = 0.5;
-        trap(niti) = 0.5;
-        prod = SP(prod, trap);
-    }
-    else if (integrate == "simpson")
-    {
-        // simpson
-        // work out how many time points we can apply simpson to
-        int nsimp = floor((niti - 1) / 2) * 2 + 1;
-
-        ColumnVector simpson(niti);
-        simpson(1) = 1 / 3;
-        for (int h = 2; h < nsimp; h += 2)
+        for (int i = 0; i < nt; i++)
         {
-            simpson(h) = 4 / 3;
-            simpson(h + 1) = 2 / 3;
+            double t = i * m_delta;
+            double aif = aifmodel->kcblood(t, delttiss, tau, T_1b, casl, dispparam);
+            double resid = residmodel->resid(ti - t, fcalib, T_1, T_1b, lambda, residparam);
+            integrand = aif * resid;
+            if ((i == 0) || (i == (nt - 1)))
+                kctissue += integrand / 2;
+            else
+                kctissue += integrand;
         }
-        simpson(nsimp) = 1 / 3;
-
-        if (nsimp < niti)
-        {
-            // we still have another time point to incorporate do this using
-            // trapezium rule
-            assert(niti - nsimp == 1);
-            simpson(nsimp) = simpson(nsimp) + 0.5;
-            simpson(niti) = 0.5;
-        }
-        prod = SP(prod, simpson);
+        kctissue *= m_delta;
     }
-
-    kctissue = prod.Sum() * delti; // NB must be multiplied by the timespacing
-    kctissue += (0.5 * prodti + 0.5 * prod(niti))
-        * dti; // plus the last bit (which we will do with trapezium rule)
+    // Last bit of integral to get from nt * m_delta to TI. Note that resid(0) = 1
+    double final_integrand = aifmodel->kcblood(ti, delttiss, tau, T_1b, casl, dispparam);
+    kctissue += (0.5 * final_integrand + 0.5 * integrand) * dti;
 
     return kctissue;
 }
@@ -1018,8 +963,7 @@ double TissueModel_aif_residue::kctissue(const double ti, const double fcalib,
 // --- useful general functions ---
 double icgf(const double a, const double x)
 {
-    // incomplete gamma function with a=k, based on the incomplete gamma
-    // integral
+    // incomplete gamma function with a=k, based on the incomplete gamma integral
 
     return MISCMATHS::gamma(a) * igamc(a, x);
 }
@@ -1029,7 +973,6 @@ double gvf(const double t, const double s, const double p)
     // The Gamma Variate Function (correctly normalised for area under curve)
     // Form of Rausch 2000
     // NB this is basically a gamma pdf
-
     if (t < 0)
         return 0.0;
     else

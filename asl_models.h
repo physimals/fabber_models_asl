@@ -56,11 +56,17 @@ protected:
 // Specific AIF models
 class AIFModel_nodisp : public AIFModel
 {
-    // AIFModel_nodisp() {}
+public:
+    AIFModel_nodisp(double leadscale=0.1)
+        : m_leadscale(leadscale)
+    {
+    }
     virtual double kcblood(const double ti, const double deltblood, const double taub,
         const double T_1b, bool casl, const ColumnVector dispparam) const;
     virtual int NumDisp() const { return 0; }
     virtual string Name() const { return "None"; }
+private:
+    double m_leadscale;
 };
 
 class AIFModel_gammadisp : public AIFModel
@@ -229,7 +235,8 @@ public:
     // evalute the model
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const = 0;
+        const ColumnVector dispparam, const ColumnVector residparam)
+        = 0;
     // report the number of dipersion parameters
     virtual int NumDisp() const = 0;
     // report the number of residue function parameters (beyond the normal ones)
@@ -252,7 +259,7 @@ class TissueModel_nodisp_simple : public TissueModel
 {
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const;
+        const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return 0; }
     virtual int NumResid() const { return 0; }
     virtual string Name() const { return "No dispersion | Simple"; }
@@ -263,7 +270,7 @@ class TissueModel_nodisp_wellmix : public TissueModel
 public:
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const;
+        const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return 0; }
     virtual int NumResid() const { return 0; }
     virtual string Name() const { return "No dispersion | Well mixed"; }
@@ -279,7 +286,7 @@ public:
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const;
+        const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return 0; }
     virtual int NumResid() const { return 1; }
     virtual string Name() const { return "No dispersion | Impermeable"; }
@@ -328,7 +335,7 @@ public:
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const;
+        const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return 0; }
     virtual int NumResid() const { return (m_solution == SLOW) ? 1 : 2; }
     virtual string Name() const
@@ -361,7 +368,7 @@ public:
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const;
+        const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return 0; }
     virtual int NumResid() const { return 3; }
     virtual string Name() const
@@ -387,7 +394,7 @@ public:
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1, const double lambda, const bool casl,
-        const ColumnVector dispparam, const ColumnVector residparam) const;
+        const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return 2; }
     virtual int NumResid() const { return 0; }
     virtual string Name() const { return "Gamma kernel dispersion | Well mixed"; }
@@ -403,16 +410,17 @@ public:
 class TissueModel_aif_residue : public TissueModel
 {
 public:
-    TissueModel_aif_residue(AIFModel *paifmodel, ResidModel *presidmodel)
+    TissueModel_aif_residue(AIFModel *paifmodel, ResidModel *presidmodel, double delta = 0.1)
+        : aifmodel(paifmodel)
+        , residmodel(presidmodel)
+        , m_delta(delta)
     {
-        aifmodel = paifmodel;
-        residmodel = presidmodel;
         disppriors << aifmodel->Priors();
         residpriors << residmodel->Priors();
     }
     virtual double kctissue(const double ti, const double fcalib, const double delttiss,
         const double tau, const double T_1b, const double T_1app, const double lambda,
-        const bool casl, const ColumnVector dispparam, const ColumnVector residparam) const;
+        const bool casl, const ColumnVector dispparam, const ColumnVector residparam);
     virtual int NumDisp() const { return aifmodel->NumDisp(); }
     virtual int NumResid() const { return residmodel->NumResid(); }
     virtual string Name() const
@@ -425,6 +433,7 @@ public:
 protected:
     AIFModel *aifmodel;
     ResidModel *residmodel;
+    double m_delta;
 };
 
 // useful functions
