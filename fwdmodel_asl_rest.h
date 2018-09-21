@@ -215,8 +215,6 @@ protected:
     TissueModel *tiss_model;
     TissueModel *pc_model; // the model for pre-capilliary component
     ResidModel *resid_model;
-    string disptype;
-    string exchtype;
 
 private:
     /** Auto-register with forward model factory. */
