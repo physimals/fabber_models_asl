@@ -5,7 +5,7 @@ PROJNAME = fabber_asl
 USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_BOOST} -I..
 USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core
 
-LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lfslio -lniftiio -lznz -lz -lfabbercore -ldl
+LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lNewNifti -lznz -lz -lfabbercore -ldl
 
 XFILES = fabber_asl
 
