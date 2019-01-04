@@ -305,15 +305,16 @@ double AIFModel_spatialgaussdisp_alternate::kcblood(const double ti, const doubl
 
     if (casl)
     {
-        double a = 1 / (k * k * ti);
+        double a = 1 / (k * k * max(1e-6, ti));
         double b = 1 / T_1b;
 
         double Q = (2 * a * (deltblood - ti) - b) / (2 * a);
         double S = (a * (deltblood - ti) * (deltblood - ti) + b * ti) / a;
 
         kcblood = 2 * exp(-deltblood / T_1b) * exp(Q * Q - S);
-
-        erf1 = sqrt(a) * (taub + Q);
+        double tau = min(taub, ti);
+        
+        erf1 = sqrt(a) * (tau + Q);
         erf2 = sqrt(a) * Q;
     }
     else
@@ -341,13 +342,9 @@ double AIFModel_spatialgaussdisp_alternate::kcblood(const double ti, const doubl
 double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltblood,
     const double taub, const double T_1b, const bool casl, const ColumnVector dispparam) const
 {
-    // Gaussian dispersion arterial curve - in spatial rather than temporal
-    // domain
+    // Gaussian dispersion arterial curve - in spatial rather than temporal domain
     // after Ozyurt ISMRM 2010 (p4065) for pASL
-    // using derrivation from Thijs van Osch for cASL, but developed into closed
-    // form solution
-    // This is the (orignal, now) alternate version that assumes that dispersion
-    // happens with TI
+    // using derrivation from Thijs van Osch for cASL
 
     double kcblood = 0.0;
 
@@ -367,7 +364,7 @@ double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltbloo
             lambda = ti - (i - 1) * dt;
             if (lambda < 1e-12)
             {
-                integrand = 0;
+                integrand(i) = 0;
             }
             else
             {
@@ -376,6 +373,7 @@ double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltbloo
                     * exp(-lambda / T_1b);
             }
         }
+
         // final bit
         lambda = max(1e-12, ti - taub);
         double finalintegrand;
@@ -387,7 +385,7 @@ double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltbloo
         double integral;
         integral = numerical_integration(integrand, dt, finalintegrand, finaldel, "trapezium");
 
-        kcblood = integral * dt * 1 / sqrt(M_PI) * 1 / k;
+        kcblood = 2 * integral / sqrt(M_PI) / k;
     }
     else
     {
