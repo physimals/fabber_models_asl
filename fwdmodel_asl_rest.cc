@@ -609,7 +609,14 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
     }
 }
 
-void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
+void ASLFwdModel::GetOutputs(std::vector<std::string> &outputs) const
+{
+    outputs.push_back("aif");
+}
+
+void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params, 
+                                NEWMAT::ColumnVector &result,
+                                const std::string &key) const
 {
     // ensure that values are reasonable
     // negative check
@@ -919,7 +926,32 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     }
 
     // Assemble result
-    if (hadamard)
+    if (key == "aif") 
+    {
+        result.ReSize(tis.Nrows());
+        int thisz = coord_z; // the slice number
+        if (sliceband > 0)
+        {
+            // multiband setup in which we have specified the number of slices
+            // per band
+            div_t divresult;
+            divresult = div(coord_z, sliceband);
+            thisz = divresult.rem; // the number of sluices above the base of
+                                   // this band (lowest slice in volume for
+                                   // normal (non multi-band) data)
+        }
+
+        for (int it = 1; it <= tis.Nrows(); it++)
+        {
+            ti = tis(it) + slicedt * coord_z; // calcualte the actual TI for this
+            result(it) = art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
+        }
+    }
+    else if (key != "") 
+    {
+        throw InvalidOptionValue("output name", key, "No such output supported");
+    }
+    else if (hadamard)
     {
         // Hadamard encoded ASL data
         ColumnVector signal;
