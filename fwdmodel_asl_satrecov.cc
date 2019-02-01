@@ -147,6 +147,8 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
         result.ReSize(m_tis.size() * m_nphases * m_repeats);
 
     int nti = m_tis.size();
+    if (nti != data.Nrows()) throw InvalidOptionValue("ti<n>", stringify(nti), "Number of TIs does not match number of volumes in data");
+
     for (int ph = 1; ph <= m_nphases; ph++)
     {
         for (int it = 0; it < nti; it++)
