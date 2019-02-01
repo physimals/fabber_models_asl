@@ -57,7 +57,7 @@ protected:
 class AIFModel_nodisp : public AIFModel
 {
 public:
-    AIFModel_nodisp(double leadscale=0.1)
+    AIFModel_nodisp(double leadscale=0.01)
         : m_leadscale(leadscale)
     {
     }
