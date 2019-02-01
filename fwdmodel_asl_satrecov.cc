@@ -24,6 +24,7 @@ using namespace std;
 FactoryRegistration<FwdModelFactory, SatrecovFwdModel> SatrecovFwdModel::registration("satrecov");
 
 FwdModel *SatrecovFwdModel::NewInstance() { return new SatrecovFwdModel(); }
+
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
@@ -31,7 +32,7 @@ static OptionSpec OPTIONS[] = {
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
     { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous", OPT_NONREQ, "" },
     { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
-    { "LFA", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
+    { "m_lfa", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
     { "ti<n>", OPT_FLOAT, "List of TI values", OPT_NONREQ, "" }, { "" },
 };
 
@@ -55,116 +56,62 @@ string SatrecovFwdModel::ModelVersion() const
     return version;
 }
 
-string SatrecovFwdModel::GetDescription() const { return "Saturation recovery ASL model"; }
+string SatrecovFwdModel::GetDescription() const 
+{ 
+    return "Saturation recovery ASL model"; 
+}
+
 void SatrecovFwdModel::Initialize(ArgsType &args)
 {
-    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
-    t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
-    nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
-    slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
+    // Basic acquisition parameters
+    m_tis = args.GetDoubleList("ti", 0);
+    m_repeats = args.GetIntDefault("repeats", 1);
+    m_t1 = args.GetDoubleDefault("t1", 1.3);
+    m_nphases = args.GetIntDefault("phases", 1);
+    m_slicedt = args.GetDoubleDefault("slicedt", 0);
 
-    fixA = args.ReadBool("fixa"); // to fix the A parameter where it will be ambiguous
+    // Assuming even sampling - this only applies to LL acquisitions
+    if (m_tis.size() < 2) throw InvalidOptionValue("Number of TIs", stringify(m_tis.size()), "Need at least 2 TIs");
+    m_dti = m_tis[1] - m_tis[0]; 
 
-    // with a look locker readout
-    FAnom = convertTo<double>(args.ReadWithDefault("FA", "0"));
-    looklocker = false;
-    if (FAnom > 0.1)
-        looklocker = true;
-    cout << "Looklocker" << looklocker << endl;
-    FAnom = FAnom * M_PI / 180; // convert to radians
-    LFA = convertTo<double>(args.ReadWithDefault("LFA", "0"));
-    LFA = LFA * M_PI / 180; // convert to radians
-    LFAon = false;
-    if (LFA > 0)
-        LFAon = true;
+    // To fix the A parameter where it will be ambiguous
+    m_fix_a = args.GetBool("fixa");
 
-    dg = 0.023;
-
-    // Deal with tis
-    tis.ReSize(1); // will add extra values onto end as needed
-    tis(1) = atof(args.Read("ti1").c_str());
-
-    while (true) // get the rest of the tis
+    // With a look locker readout
+    double fa_deg = args.GetDoubleDefault("FA", 0);
+    m_look_locker = (fa_deg > 0.1);
+    m_fa = fa_deg * M_PI / 180; // convert to radians
+        
+    double lfa_deg = args.GetDoubleDefault("LFA", 0);
+    m_lfa_on = (m_lfa > 0);
+    m_lfa = lfa_deg * M_PI / 180; // convert to radians
+    m_dg = 0.023;
+    if (m_look_locker)
     {
-        int N = tis.Nrows() + 1;
-        string tiString = args.ReadWithDefault("ti" + stringify(N), "stop!");
-        if (tiString == "stop!")
-            break; // we have run out of tis
-
-        // append the new ti onto the end of the list
-        ColumnVector tmp(1);
-        tmp = convertTo<double>(tiString);
-        tis &= tmp; // vertical concatenation
-    }
-    timax = tis.Maximum(); // dtermine the final TI
-    dti = tis(2) - tis(1); // assuming even sampling!! - this only applies to LL
-                           // acquisitions
-
-    // need to set the voxel coordinates to a deafult of 0 (for the times we
-    // call the model before we start handling data)
-    coord_x = 0;
-    coord_y = 0;
-    coord_z = 0;
-}
-
-void SatrecovFwdModel::NameParams(vector<string> &names) const
-{
-    names.clear();
-
-    names.push_back("M0t");
-    names.push_back("T1t");
-    names.push_back("A");
-    if (LFAon)
-    {
-        names.push_back("g");
+        LOG << "SatrecovFwdModel::Look-Locker mode" << endl;
+        LOG << "SatrecovFwdModel::FA (degrees)=" << fa_deg << endl;
+        if (m_lfa_on) LOG << "SatrecovFwdModel::LFA (degrees)=" << lfa_deg << endl;
     }
 }
 
-void SatrecovFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
+void SatrecovFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
 {
-    assert(prior.means.Nrows() == NumParams());
+    params.clear();
 
-    SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e-12;
-
-    prior.means(1) = 0;
-
-    prior.means(2) = t1;
-    precisions(2, 2) = 10; // 1e-12;
-
-    prior.means(3) = 1;
-    if (fixA)
-    {
-        precisions(3, 3) = 1e12;
+    int p=0;
+    params.push_back(Parameter(p++, "M0t", DistParams(0, 1e12), DistParams(10, 10)));
+    params.push_back(Parameter(p++, "T1t", DistParams(m_t1, 0.1), DistParams(m_t1, 0.1)));
+    double a_var = 0.1;
+    if (m_fix_a) a_var = 1e-12;
+    params.push_back(Parameter(p++, "A", DistParams(1, a_var), DistParams(1, a_var)));
+    if (m_lfa_on) {
+        params.push_back(Parameter(p++, "g", DistParams(1, 0.01), DistParams(1, 0.01)));
     }
-    else
-    {
-        precisions(3, 3) = 10;
-    }
-
-    if (LFAon)
-    {
-        prior.means(4) = 1;
-        precisions(4, 4) = 100;
-    }
-
-    // Set precsions on priors
-    prior.SetPrecisions(precisions);
-
-    // Set initial posterior
-    posterior = prior;
-
-    // For parameters with uniformative prior chosoe more sensible inital
-    // posterior
-    posterior.means(1) = 10;
-    precisions(1, 1) = 0.1;
-
-    posterior.SetPrecisions(precisions);
 }
 
-void SatrecovFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
+void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &result, const std::string &key) const
 {
-    // ensure that values are reasonable
-    // negative check
+    // Ensure that values are reasonable - negative check
     ColumnVector paramcpy = params;
     for (int i = 1; i <= NumParams(); i++)
     {
@@ -174,84 +121,61 @@ void SatrecovFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result
         }
     }
 
-    float M0t;
-    float T1t;
-    float A;
-    float FA;
-    float lFA;
-    float g;
+    float M0t = paramcpy(1);
+    float T1t = paramcpy(2);
+    float A = paramcpy(3);
 
-    M0t = paramcpy(1);
-    T1t = paramcpy(2);
-    A = paramcpy(3);
-
-    if (LFAon)
-    {
-        g = paramcpy(4);
-    }
-    else
-        g = 1.0;
-
-    // if (g<0.5) g=0.5;
-    // if (g>1.5) g=1.5;
-
-    FA = (g + dg) * FAnom;
-    lFA = (g + dg) * LFA;
+    float g = 1.0;
+    if (m_lfa_on) g = paramcpy(4);
+    float FA = (g + m_dg) * m_fa;
+    float lFA = (g + m_dg) * m_lfa;
 
     float T1tp = T1t;
     float M0tp = M0t;
 
-    if (looklocker)
+    if (m_look_locker)
     {
-        T1tp = 1 / (1 / T1t - log(cos(FA)) / dti); // FA is in radians
-        M0tp = M0t * (1 - exp(-dti / T1t)) / (1 - cos(FA) * exp(-dti / T1t));
-        // note that we do not have sin(FA) here - we actually estiamte the M0
+        // Note that we do not have sin(FA) here - we actually estiamte the M0
         // at the flip angle used for the readout!
+        T1tp = 1 / (1 / T1t - log(cos(FA)) / m_dti); // FA is in radians
+        M0tp = M0t * (1 - exp(-m_dti / T1t)) / (1 - cos(FA) * exp(-m_dti / T1t));
     }
 
-    // loop over tis
-    // float ti;
-    if (LFAon)
-        result.ReSize(tis.Nrows() * (nphases + 1) * repeats);
+    if (m_lfa_on)
+        result.ReSize(m_tis.size() * (m_nphases + 1) * m_repeats);
     else
-        result.ReSize(tis.Nrows() * nphases * repeats);
+        result.ReSize(m_tis.size() * m_nphases * m_repeats);
 
-    int nti = tis.Nrows();
-    double ti;
-
-    for (int ph = 1; ph <= nphases; ph++)
+    int nti = m_tis.size();
+    for (int ph = 1; ph <= m_nphases; ph++)
     {
-        for (int it = 1; it <= tis.Nrows(); it++)
+        for (int it = 0; it < nti; it++)
         {
-            for (int rpt = 1; rpt <= repeats; rpt++)
+            for (int rpt = 1; rpt <= m_repeats; rpt++)
             {
-                ti = tis(it) + slicedt * coord_z; // account here for an
-                                                  // increase in delay between
-                                                  // slices
-                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
+                double ti = m_tis[it] + m_slicedt * coord_z;
+                result((ph - 1) * (nti * m_repeats) + it * m_repeats + rpt)
                     = M0tp * (1 - A * exp(-ti / T1tp));
             }
         }
     }
-    if (LFAon)
+
+    if (m_lfa_on)
     {
-        int ph = nphases + 1;
-        T1tp = 1 / (1 / T1t - log(cos(lFA)) / dti);
-        M0tp = M0t * (1 - exp(-dti / T1t)) / (1 - cos(lFA) * exp(-dti / T1t));
-        for (int it = 1; it <= tis.Nrows(); it++)
+        int ph = m_nphases + 1;
+        T1tp = 1 / (1 / T1t - log(cos(lFA)) / m_dti);
+        M0tp = M0t * (1 - exp(-m_dti / T1t)) / (1 - cos(lFA) * exp(-m_dti / T1t));
+        for (int it = 0; it < nti; it++)
         {
-            for (int rpt = 1; rpt <= repeats; rpt++)
+            for (int rpt = 1; rpt <= m_repeats; rpt++)
             {
-                ti = tis(it) + slicedt * coord_z; // account here for an
-                                                  // increase in delay between
-                                                  // slices
-                result((ph - 1) * (nti * repeats) + (it - 1) * repeats + rpt)
-                    = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(-tis(it) / T1tp));
-                // note the sin(LFA)/sin(FA) term since the M0 we estimate is
+                // slicedt accounts for increase in delay between slices
+                double ti = m_tis[it] + m_slicedt * coord_z;
+                // Note the sin(m_lfa)/sin(FA) term since the M0 we estimate is
                 // actually MOt*sin(FA)
+                result((ph - 1) * (nti * m_repeats) + it * m_repeats + rpt)
+                    = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(-m_tis[it] / T1tp));
             }
         }
     }
-
-    return;
 }
