@@ -1489,6 +1489,10 @@ void ASLFwdModel::Initialize(ArgsType &args)
     {
         art_model = new AIFModel_spatialgaussdisp();
     }
+    else if (disptype == "sgauss_alt")
+    {
+        art_model = new AIFModel_spatialgaussdisp_alternate();
+    }
     else
     {
         throw InvalidOptionValue("disptype", disptype, "Dispersion type not recognized");

@@ -284,59 +284,50 @@ double AIFModel_gaussdisp::kcblood(const double ti, const double deltblood, cons
     return kcblood;
 }
 
+double AIFModel_spatialgaussdisp_alternate::integral(double t, double k, double A, double B, double C) const
+{
+    // This implements the indefinite integral from wolfram
+    double erf1 = (C - A*t)/sqrt(t);
+    double erf2 = (C + A*t)/sqrt(t);
+    erf1 = max(min(erf1, 5.0), -5.0);
+    erf2 = max(min(erf2, 5.0), -5.0);
+    double P1 = -erf(erf1);
+    double P2 = erf(erf2) - 1;
+    // Check P2 because when P2 -> 0 4AC -> inf and we get overflow
+    if (P2 > 1e-6)
+    {
+        P2 *= exp(4*A*C);
+    }
+
+    return exp(-2*A*C - B) / (2*A*k) * (P1 + P2 + 1);
+}
+
 double AIFModel_spatialgaussdisp_alternate::kcblood(const double ti, const double deltblood,
     const double taub, const double T_1b, const bool casl, const ColumnVector dispparam) const
 {
-    // Gaussian dispersion arterial curve - in spatial rather than temporal
-    // domain
+    // Gaussian dispersion arterial curve - in spatial rather than temporal domain
     // after Ozyurt ISMRM 2010 (p4065) for pASL
-    // using derrivation from Thijs van Osch for cASL, but developed into closed
+    // Using derivation from Thijs van Osch for cASL, but developed into closed
     // form solution
-    // This is the (orignal, now) alternate version that assumes that dispersion
-    // happens with TI
-    // NB pASl case is same for both versions
-
-    double kcblood = 0.0;
-
-    double k;
-    k = exp((dispparam.Row(1)).AsScalar());
-    double erf1;
-    double erf2;
+    double k = exp((dispparam.Row(1)).AsScalar());
 
     if (casl)
     {
-        double a = 1 / (k * k * max(1e-6, ti));
-        double b = 1 / T_1b;
-
-        double Q = (2 * a * (deltblood - ti) - b) / (2 * a);
-        double S = (a * (deltblood - ti) * (deltblood - ti) + b * ti) / a;
-
-        kcblood = 2 * exp(-deltblood / T_1b) * exp(Q * Q - S);
-        double tau = min(taub, ti);
-        
-        erf1 = sqrt(a) * (tau + Q);
-        erf2 = sqrt(a) * Q;
+        double A = sqrt(1 / (k*k) + (1/T_1b));
+        double B = -2*deltblood / (k*k);
+        double C = deltblood / k;
+        return 2 * (integral(max(1e-6, ti), k, A, B, C) - integral(max(1e-6, ti-taub), k, A, B, C));
     }
     else
     {
-        kcblood = 2 * exp(-ti / T_1b);
+        double kcblood = 0.5 * exp(-ti / T_1b);
 
-        erf1 = (ti - deltblood) / (k * sqrt(ti));
-        erf2 = (ti - deltblood - taub) / (k * sqrt(ti));
+        double erf1 = (ti - deltblood) / (k * sqrt(ti));
+        double erf2 = (ti - deltblood - taub) / (k * sqrt(ti));
+        erf1 = max(min(erf1, 5.0), -5.0);
+        erf2 = max(min(erf2, 5.0), -5.0);
+        return 2 * kcblood * (MISCMATHS::erf(erf1) - MISCMATHS::erf(erf2));
     }
-
-    if (erf1 > 5)
-        erf1 = 5;
-    if (erf2 > 5)
-        erf2 = 5;
-    if (erf1 < -5)
-        erf1 = -5;
-    if (erf2 < -5)
-        erf2 = -5;
-
-    kcblood *= 0.5 * (MISCMATHS::erf(erf1) - MISCMATHS::erf(erf2));
-
-    return kcblood;
 }
 
 double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltblood,
