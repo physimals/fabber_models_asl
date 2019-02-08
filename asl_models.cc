@@ -20,7 +20,7 @@
 #include "fwdmodel_asl_turboquasar.h"
 
 extern "C" {
-int CALL get_num_models() { return 6; }
+int CALL get_num_models() { return 7; }
 const char *CALL get_model_name(int index)
 {
     switch (index)
@@ -42,6 +42,9 @@ const char *CALL get_model_name(int index)
         break;
     case 5:
         return "asl_2comp";
+        break;
+    case 6:
+        return "satrecov";
         break;
     default:
         return NULL;
@@ -73,6 +76,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     if (string(name) == "asl_2comp")
     {
         return ASL2CompartmentModel::NewInstance;
+    }
+    if (string(name) == "satrecov")
+    {
+        return SatrecovFwdModel::NewInstance;
     }
     else
     {
