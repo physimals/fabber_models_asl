@@ -139,6 +139,9 @@ public:
         const double T_1b, bool casl, const ColumnVector dispparam) const;
     virtual int NumDisp() const { return 1; }
     virtual string Name() const { return "Spatial gauss dispersion kernel (alternate)"; }
+private:
+    double integral(double t, double k, double A, double B, double C) const;
+
 };
 
 //  double kcblood_gallichan(const double ti, const double deltblood, const
