@@ -25,9 +25,13 @@ public:
 
     // Virtual function overrides
     virtual void Initialize(ArgsType &args);
-    virtual void Evaluate(const ColumnVector &params, ColumnVector &result) const;
+
+    virtual void EvaluateModel(const NEWMAT::ColumnVector &params, 
+                               NEWMAT::ColumnVector &result,
+                               const std::string &key = "") const;
     virtual std::string ModelVersion() const;
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
+    virtual void GetOutputs(std::vector<std::string> &outputs) const;
     virtual std::string GetDescription() const;
 
     virtual void NameParams(vector<string> &names) const;
@@ -215,8 +219,6 @@ protected:
     TissueModel *tiss_model;
     TissueModel *pc_model; // the model for pre-capilliary component
     ResidModel *resid_model;
-    string disptype;
-    string exchtype;
 
 private:
     /** Auto-register with forward model factory. */

@@ -36,6 +36,9 @@ static OptionSpec OPTIONS[] = {
     { "exch", OPT_STR, "Type of exchange in tissue compartment", OPT_NONREQ, "mix" },
     { "forceconv", OPT_BOOL, "Force numerical convolution for evaluation of model", OPT_NONREQ,
         "" },
+    { "conv-delta", OPT_FLOAT,
+        "Time interval for numerical convolution (used if disp=none or forceconv specified",
+        OPT_NONREQ, "0.1" },
     { "inctiss", OPT_BOOL, "Include tissue parameters", OPT_NONREQ, "" },
     { "infertiss", OPT_BOOL, "Infer tissue parameters", OPT_NONREQ, "" },
     { "incart", OPT_BOOL, "Include arterial parameters", OPT_NONREQ, "" },
@@ -606,7 +609,14 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
     }
 }
 
-void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
+void ASLFwdModel::GetOutputs(std::vector<std::string> &outputs) const
+{
+    outputs.push_back("aif");
+}
+
+void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params, 
+                                NEWMAT::ColumnVector &result,
+                                const std::string &key) const
 {
     // ensure that values are reasonable
     // negative check
@@ -813,6 +823,7 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     double f_calib;
     double f_calibwm;
     // if we are using calibrated data then we can use ftiss to calculate T_1app
+    // otherwise assume sensible value (units of s^-1)
     if (calib)
     {
         f_calib = ftiss;
@@ -822,14 +833,8 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
     {
         f_calib = 0.01;
         f_calibwm = 0.003;
-    } // otherwise assume sensible value (units of s^-1)
+    }
 
-    /*
-  ColumnVector artdir(3);
-  artdir(1) = sin(bloodphi)*cos(bloodth);
-  artdir(2) = sin(bloodphi)*sin(bloodth);
-  artdir(3) = cos(bloodphi);
-  */
     double kctissue;
     kctissue = 0.0;
     double kcblood;
@@ -919,8 +924,34 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
             statcont(it) = stattiss;
         }
     }
+
     // Assemble result
-    if (hadamard)
+    if (key == "aif") 
+    {
+        result.ReSize(tis.Nrows());
+        int thisz = coord_z; // the slice number
+        if (sliceband > 0)
+        {
+            // multiband setup in which we have specified the number of slices
+            // per band
+            div_t divresult;
+            divresult = div(coord_z, sliceband);
+            thisz = divresult.rem; // the number of sluices above the base of
+                                   // this band (lowest slice in volume for
+                                   // normal (non multi-band) data)
+        }
+
+        for (int it = 1; it <= tis.Nrows(); it++)
+        {
+            ti = tis(it) + slicedt * coord_z; // calcualte the actual TI for this
+            result(it) = art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
+        }
+    }
+    else if (key != "") 
+    {
+        throw InvalidOptionValue("output name", key, "No such output supported");
+    }
+    else if (hadamard)
     {
         // Hadamard encoded ASL data
         ColumnVector signal;
@@ -978,14 +1009,11 @@ void ASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) con
 FwdModel *ASLFwdModel::NewInstance() { return new ASLFwdModel(); }
 void ASLFwdModel::Initialize(ArgsType &args)
 {
-    // set the AIF dispersion type
-    disptype = args.ReadWithDefault("disp", "none");
-    // set the type of exchange in tissue compartment
-    exchtype = args.ReadWithDefault("exch", "mix");
-    // force numerical convolution for the evaluation of the model
-    bool forceconv = args.ReadBool("forceconv");
+    //
+    // Parameter inference and inclusion
+    //
 
-    // inference/inclusion
+    // Tissue and arterial components - at least one is required
     inctiss = args.ReadBool("inctiss");
     infertiss = args.ReadBool("infertiss");
     inferart = args.ReadBool("inferart");
@@ -996,40 +1024,47 @@ void ASLFwdModel::Initialize(ArgsType &args)
                                  "At least one of --inctiss and --incart must be set");
     }
 
+    // We only infer WM if we are doing PV correction (below)
     incwm = args.ReadBool("incwm");
-    // we only infer WM if we are doing PV correction (below)
     inferwm = false;
 
-    // common things
+    // Bolus arrival time (ATT)
     incbat = args.ReadBool("incbat");
     inferbat = args.ReadBool("inferbat");
+
+    // Method to use when automatically initializing the BAT posterior
     bat_init = args.GetStringDefault("bat-init", "");
+
+    // Pre-capillary component
     inferpc = args.ReadBool("inferpc");
     incpc = args.ReadBool("incpc") || inferpc;
 
+    // Bolus duration
     infertau = args.ReadBool("infertau");
     inctau = args.ReadBool("inctau") || infertau;
 
+    // Separate values of tau for tissue, WM and blood components
     septau = args.ReadBool("septau");
+
+    // Tissue T1 value
     infert1 = args.ReadBool("infert1");
     inct1 = args.ReadBool("inct1") || infert1;
 
     // incdisp is set based on whether there are dispersion parameters in the model
     inferdisp = args.ReadBool("inferdisp");
+
+    // Separate dispersion parameters for tissue, WM and blood components
     sepdisp = args.ReadBool("sepdisp");
 
     // incexch is set based on whether there are residue function parameters in the model
     inferexch = args.ReadBool("inferexch");
 
-    // special
+    // Partial volume estimates - make sure we have a WM component in the model
     incpve = args.ReadBool("incpve");
-    // make sure if we include PVE that we always have WM component in the model
-    if (incpve)
-    {
-        incwm = true;
-    }
+    incwm = incwm || incpve;
 
-    // PV correction
+    // Partial volume correction - seems to be just a shorthand for including partial
+    // volume estimates and inferring the WM partial volume
     pvcorr = args.ReadBool("pvcorr");
     if (pvcorr)
     {
@@ -1038,11 +1073,11 @@ void ASLFwdModel::Initialize(ArgsType &args)
         inferwm = true;
     }
 
-    // include the static tissue
+    // Static tissue contribution - constant at all times
     incstattiss = args.ReadBool("incstattiss");
     inferstattiss = args.ReadBool("inferstattiss");
 
-    // some useful (relative) indices for WM and arterial components
+    // Parameter indices, relative to flow_index(), for WM and arterial components
     ncomps = (inctiss ? 1 : 0) + (incart ? 1 : 0) + (incwm ? 1 : 0);
     wmidx = 0;
     if (inctiss)
@@ -1053,7 +1088,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (incwm)
         artidx++;
 
-    // deal with ARD selection for aBV
+    // ARD selection for aBV. ARD seems to be disabled currently?
     bool ardoff = false;
     ardoff = args.ReadBool("ardoff");
     doard = false;
@@ -1062,46 +1097,26 @@ void ASLFwdModel::Initialize(ArgsType &args)
         ardindices.push_back(flow_index() + artidx);
     }
 
-    // Scan parameters
+    //
+    // Tissue parameters
+    //
 
-    // Deal with saturation of the bolus a fixed time pre TI measurement
-    pretisat = args.GetDoubleDefault("pretisat", 0);
-
-    // Increase in TI per slice
-    slicedt = args.GetDoubleDefault("slicedt", 0);
-
-    // Number of slices in a band in a multi-band setup (zero implies single band)
-    sliceband = args.GetIntDefault("sliceband", 0);
-
-    // Set if the data is CASL or PASL (default)
-    casl = args.GetBool("casl");
-
+    // Bolus arrival time (ATT)
     setdelt = args.GetDoubleDefault("bat", 0.7);
-    // By default choose delt WM longer then GM
+
+    // By default BAT in WM is longer then GM
     setdeltwm = args.GetDoubleDefault("batwm", setdelt + 0.3);
-    // By default choose delt blood shorter then GM
+
+    // By default BAT in blood is shorter then GM
     setdeltart = args.GetDoubleDefault("batart", setdelt - 0.3);
 
-    // std dev for delt prior (same for all tissue BAT)
+    // BAT std dev (same for all tissue)
     double deltsd = args.GetDoubleDefault("batsd", 0.316);
     deltprec = 1 / (deltsd * deltsd);
 
-    // Arterial BAT precision - by default the arterial BAT SD is same as tissue
+    // Arterial BAT std dev - by default the arterial BAT SD is same as tissue
     deltsd = args.GetDoubleDefault("batartsd", deltsd);
     deltartprec = 1 / (deltsd * deltsd);
-
-    // Whether data has been tag-control subtracted or not
-    string iaf = args.GetStringDefault("iaf", "diff");
-    raw = false;
-    if ((iaf == "tc") | (iaf == "ct"))
-    {
-        // data is in raw (non-subtracted) form
-        raw = true;
-    }
-    tagfirst = (iaf != "ct");
-
-    // data has already been subjected to calibration
-    calib = args.GetBool("calib");
 
     // Possible different default for T1 if we have a WM component (since then the 'tissue' is
     // GM only rather than mixed WM/GM)
@@ -1109,10 +1124,39 @@ void ASLFwdModel::Initialize(ArgsType &args)
     t1b = args.GetDoubleDefault("t1b", 1.65);
     t1wm = args.GetDoubleDefault("t1wm", 1.1);
 
-    // Different default for labda if we have a WM component (since then the 'tissue' is
+    // Different default for lambda if we have a WM component (since then the 'tissue' is
     // GM only rather than mixed WM/GM)
     lambda = args.GetDoubleDefault("lambda", incwm ? 0.98 : 0.9);
     lamwm = 0.82;
+
+    //
+    // Data acquisition parameters
+    //
+
+    // Whether data has been tag-control subtracted or not
+    string iaf = args.GetStringDefault("iaf", "diff");
+    raw = false;
+    if ((iaf == "tc") || (iaf == "ct"))
+    {
+        // data is in raw (non-subtracted) form
+        raw = true;
+    }
+    tagfirst = (iaf != "ct");
+
+    // Data is CASL or PASL (default)
+    casl = args.GetBool("casl");
+
+    // data has already been subjected to calibration
+    calib = args.GetBool("calib");
+
+    // Increase in TI per slice
+    slicedt = args.GetDoubleDefault("slicedt", 0);
+
+    // Number of slices in a band in a multi-band setup (zero implies single band)
+    sliceband = args.GetIntDefault("sliceband", 0);
+
+    // Saturation of the bolus a fixed time pre TI measurement
+    pretisat = args.GetDoubleDefault("pretisat", 0);
 
     // Timing parameters (TIs / PLDs)
     vector<double> ti_list = args.GetDoubleList("ti");
@@ -1126,6 +1170,8 @@ void ASLFwdModel::Initialize(ArgsType &args)
 
     if (ti_set && pld_set)
         throw FabberRunDataError("Cannot specify TIs and PLDs at the same time");
+    else if (num_times == 0)
+        throw FabberRunDataError("No TIs/PLDs specified");
 
     // Repeats - may be single repeat or multiple (one per TI/PLD)
     if (args.HaveKey("rpt1"))
@@ -1148,8 +1194,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     }
 
     // Bolus durations - may be single value or multiple (one per TI/PLD)
-
-    // Bolus length as set by sequence (default of 1000 is effectively infinite
+    // Default of 1000 is effectively infinite
     seqtau = args.GetDoubleDefault("tau", 1000);
     vector<double> taus_list = args.GetDoubleList("tau");
     multitau = taus_list.size() > 1;
@@ -1180,35 +1225,40 @@ void ASLFwdModel::Initialize(ArgsType &args)
             taus(i + 1) = taus_list[i];
     }
 
-    // Hadamard time encoding
-    // if nothing is stated, no Hadamard encoding is assumed.
-    // If it is set to an integer N, N encoding lines are assumed.
+    // Time encoded data
+    // if nothing is stated, no time encoding is assumed.
+
+    // If hadamard option is set to an integer N, N Hadamard encoding lines are assumed.
     hadamard = args.HaveKey("hadamard");
+
     // In some cases the full Hadamard matrix is needed,
     // i.e. all N rows (and not only N-1). This is activated by this command.
     // FIXME this looks wrong, why the OR?
     bool FullHad = hadamard || args.ReadBool("fullhad");
-    // indicates if a Walsh-sorted Hadamard matrix was used for encoding.
+
+    // Indicates if a Walsh-sorted Hadamard matrix was used for encoding.
     bool Walsh = args.ReadBool("walsh");
-    // indicates if a non-hadamard matrix was used for encoding.
+
+    // Indicates if a non-hadamard matrix was used for encoding.
     bool NonHadamardMatrix = args.ReadBool("NonHadamardMatrix");
 
+    // Initialize the TIs list
     if (hadamard)
     {
-        // List of TIs to skip in Hadamard encoding
-        // FIXME Could this be implemented using masked timepoints?
-        vector<int> skip_list = args.GetIntList("skip");
-
         if (repeats.size() > 1)
         {
             throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
                 "Cannot specify more than one set of repeats with Hadmard encoding");
         }
-        if (pld_list.size() != 1)
+        if (num_times != 1)
         {
-            throw InvalidOptionValue("Number of PLDs", stringify(pld_list.size()),
-                "Hadamard time encoding requires exactly one PLD");
+            throw InvalidOptionValue("Number of TIs/PLDs", stringify(num_times),
+                "Hadamard time encoding requires exactly one TI/PLD");
         }
+
+        // List of TIs to skip in Hadamard encoding
+        // FIXME Could this be implemented using masked timepoints?
+        vector<int> skip_list = args.GetIntList("skip");
 
         // Size must be power of 2 or 12 (special case). Note clever
         // bitwise method for identifying powers of 2!
@@ -1250,15 +1300,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
     else
     {
         // normal ASL data
+        tis.ReSize(num_times);
         if (ti_set)
         {
-            tis.ReSize(ti_list.size());
             for (int i = 0; i < ti_list.size(); i++)
                 tis(i + 1) = ti_list[i];
         }
         if (pld_set)
         {
-            tis.ReSize(pld_list.size());
             if (casl)
             {
                 for (int i = 0; i < pld_list.size(); i++)
@@ -1271,8 +1320,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             }
             else
             {
-                // unlikely to happen, but permits the user to supply PLDs
-                // for a pASL acquisition
+                // unlikely to happen, but permits the user to supply PLDs for a pASL acquisition
                 for (int i = 0; i < pld_list.size(); i++)
                     tis(i + 1) = pld_list[i];
             }
@@ -1285,19 +1333,30 @@ void ASLFwdModel::Initialize(ArgsType &args)
         bat_init = "";
     }
 
-    // total number of time points in data
+    // Total number of time points in data
     tpoints = 0;
     for (int it = 0; it < tis.Nrows(); it++)
     {
-        tpoints += repeats[it];
+        if (repeats.size() > 1)
+        {
+            tpoints += repeats[it];
+        }
+        else
+        {
+            tpoints += repeats[0];
+        }
     }
 
-    timax = tis.Maximum(); // dtermine the final TI
+    // The final TI
+    timax = tis.Maximum();
 
-    // vascular crushing
-    // to specify a custom combination of vascular crushing
+    // Vascular crushing
+    // FIXME use GetStringList
+
+    // To specify a custom combination of vascular crushing
     string crush_temp = args.ReadWithDefault("crush1", "notsupplied");
-    // if crush_temp = none then we assume all data has same crushing
+
+    // If crush_temp = none then we assume all data has same crushing
     // parameters we will represent this as no crushers
     crush.ReSize(tis.Nrows());
     crush = 0.0; // default is no crusher
@@ -1352,6 +1411,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             N++;
         }
     }
+
     // Look-Locker correction
     string FAin = args.ReadWithDefault("FA", "none");
     if (FAin == "none")
@@ -1360,25 +1420,58 @@ void ASLFwdModel::Initialize(ArgsType &args)
     {
         looklocker = true;
         FA = convertTo<double>(FAin);
-        FA *= M_PI / 180;      // convert to radians
-        dti = tis(2) - tis(1); // NOTE LL correction is only valid with
-                               // evenly spaced TIs
+        // FA required in radians
+        FA *= M_PI / 180;
+        // NOTE LL correction is only valid with evenly spaced TIs
+        dti = tis(2) - tis(1);
     }
-    incfacorr = args.ReadBool("facorr"); // indicate that we want to do FA
-                                         // correction - the g image will
-                                         // need to be separately loaded in
-                                         // as an image prior
+    // Indicate that we want to do FA correction - the g image will
+    // need to be separately loaded in as an image prior
+    incfacorr = args.ReadBool("facorr");
     dg = convertTo<double>(args.ReadWithDefault("dg", "0.0"));
-    // need to set the voxel coordinates to a default of 0 (for the times we
-    // call the model before we start handling data)
-    coord_x = 0;
-    coord_y = 0;
-    coord_z = 0;
-    // setup the models
-    // same tissue model for GM and WM
+
+    // Kinetic model definition
+    //
+    // Up to three kinetic models are used - one for the arterial component,
+    // one for the pre-capillary component and one for the tissue component.
+    // Each kinetic model is a convolution of an input function (AIF) and a
+    // residue function.
+    //
+    // The 'disp' option controls the residue function for the arterial
+    // component - no dispersion is the default. The input function for
+    // the arterial component is the ASL bolus - this is accounted for in
+    // the AIF model.
+    //
+    // The pre-capillary model uses the arterial component as an input and
+    // impermeable residue model. This is used to model a separate pre-capillary
+    // transit time. Note that the ATT (tau) remains the tissue transit time.
+    //
+    // The input function for the tissue component is the arterial component.
+    // The 'exch' option controls the residue function. The default is 'mix'
+    // for a well-mixed model.
+    //
+    // Without dispersion, analytic solutions are available for the tissue
+    // and pre-capillary models. An analytic solution for the tissue model
+    // is also available for disp=gamma and exch=mix. If an analytic solution
+    // is not available a numerical model is used which is provided directly
+    // with the input and residue functions.
+    //
+    // The same tissue model is uesd for GM and WM
+    //
     // NB it is feasible to have different dispersion for arterial and
-    // tissue models, but not implemented
-    // > Arterial Model (only depend upon dispersion type)
+    // tissue models, but this is not implemented
+
+    // Set the AIF dispersion type
+    string disptype = args.ReadWithDefault("disp", "none");
+
+    // Set the type of exchange in tissue compartment
+    string exchtype = args.ReadWithDefault("exch", "mix");
+
+    // Force numerical convolution for the evaluation of the model
+    bool forceconv = args.ReadBool("forceconv");
+    double conv_delta = args.GetDoubleDefault("conv-delta", 0.1);
+
+    // Arterial Model (only depends upon dispersion type)
     art_model = NULL;
     if (disptype == "none")
     {
@@ -1396,27 +1489,37 @@ void ASLFwdModel::Initialize(ArgsType &args)
     {
         art_model = new AIFModel_spatialgaussdisp();
     }
-    // > PC models
+    else if (disptype == "sgauss_alt")
+    {
+        art_model = new AIFModel_spatialgaussdisp_alternate();
+    }
+    else
+    {
+        throw InvalidOptionValue("disptype", disptype, "Dispersion type not recognized");
+    }
+
+    // PC model
     pc_model = NULL;
     if (disptype == "none")
     {
         pc_model = new TissueModel_nodisp_imperm();
     }
-    // default is to use convolution model with the impermeable residue
-    // function
-    if ((pc_model == NULL) | forceconv)
+    // Default is to use convolution model with the impermeable residue function
+    if ((pc_model == NULL) || forceconv)
     {
-        ResidModel *imperm_resid;
-        imperm_resid = new ResidModel_imperm();
-        pc_model = new TissueModel_aif_residue(art_model, imperm_resid);
+        ResidModel *imperm_resid = new ResidModel_imperm();
+        pc_model = new TissueModel_aif_residue(art_model, imperm_resid, conv_delta);
     }
-    // > Tissue model
+
+    // Tissue model
+    //
+    // This should ALWAYS set a residual model and maybe a MATCHING tissue model
     tiss_model = NULL;
     resid_model = NULL;
-    // This should ALWAYS set a resid_model and maybe a MATCHING tiss_model
-    //   - well mixed single compartment
+
     if (exchtype == "mix")
     {
+        // Well mixed single compartment
         resid_model = new ResidModel_wellmix();
         if (disptype == "none")
         {
@@ -1427,19 +1530,18 @@ void ASLFwdModel::Initialize(ArgsType &args)
             tiss_model = new TissueModel_gammadisp_wellmix();
         }
     }
-    //    - simple single impermeable compartment that decays with T1b
-    if (exchtype == "simple")
+    else if (exchtype == "simple")
     {
+        // Simple single impermeable compartment that decays with T1b
         resid_model = new ResidModel_simple();
         if (disptype == "none")
         {
             tiss_model = new TissueModel_nodisp_simple();
         }
     }
-    //    - 2 compartment exchange (simplest model - no backflow, no venous
-    //    outflow)
     else if (exchtype == "2cpt")
     {
+        // 2 compartment exchange (simplest model - no backflow, no venous outflow)
         resid_model = new ResidModel_twocpt();
         if (disptype == "none")
         {
@@ -1448,18 +1550,19 @@ void ASLFwdModel::Initialize(ArgsType &args)
             tiss_model = new TissueModel_nodisp_2cpt(solution, mtt_prior);
         }
     }
-    //    - SPA 2 compartment model
     else if (exchtype == "spa")
     {
+        // SPA 2 compartment model
         resid_model = new ResidModel_spa();
         if ((disptype == "none") && !casl)
         {
             tiss_model = new TissueModel_nodisp_spa();
         }
     }
-    // > default is to use the convolution model with the residue function
+
+    // Default is to use the convolution model with the residue function
     // if no analytical tissue model can be found
-    if ((tiss_model == NULL) | args.ReadBool("forceconv"))
+    if ((tiss_model == NULL) || args.ReadBool("forceconv"))
     {
         // note the 'forceconv' option, this forces the model to use the
         // convolution formulation voer any analytic form it has
@@ -1467,28 +1570,29 @@ void ASLFwdModel::Initialize(ArgsType &args)
         {
             // we cannot do a convolution in this case as a residue function
             // has not been found either!
-            throw invalid_argument("A residue function model for this "
-                                   "exchange type cannot be found");
+            throw InvalidOptionValue("exch", exchtype,
+                "A residue function model for this exchange type cannot be found");
         }
         else
         {
-            tiss_model = new TissueModel_aif_residue(art_model, resid_model);
+            tiss_model = new TissueModel_aif_residue(art_model, resid_model, conv_delta);
         }
     }
 
-    // include dispersion parameters if the model has them
+    // Include dispersion parameters if the model has them
     if ((art_model->NumDisp() > 0) | (tiss_model->NumDisp() > 0))
     {
         incdisp = true;
     }
 
-    // include resdue function (i.e. exchange) parameters is the model has them
+    // Include resdue function (i.e. exchange) parameters is the model has them
     if (tiss_model->NumResid() > 0)
     {
         incexch = true;
     }
 
-    // dispersion model - load priors from command line
+    // Dispersion model - load priors from command line
+    // NB this could now be replaced with PSP_byname_mean etc
     for (int i = 1; i <= art_model->NumDisp(); i++)
     {
         string priormean = args.ReadWithDefault("disp_prior_mean_" + stringify(i), "null");
@@ -1502,6 +1606,12 @@ void ASLFwdModel::Initialize(ArgsType &args)
             tiss_model->SetDispPriorMean(i, convertTo<double>(priormean));
         }
     }
+
+    // Set default voxel coordinates to a default of 0 (for the times we
+    // call the model before we start handling data)
+    coord_x = 0;
+    coord_y = 0;
+    coord_z = 0;
 
     // Write information about the parameters to the log
     LOG << "Inference using resting state ASL model" << endl;

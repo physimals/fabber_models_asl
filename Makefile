@@ -5,7 +5,14 @@ PROJNAME = fabber_asl
 USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_BOOST} -I..
 USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core
 
-LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat -lfslio -lniftiio -lznz -lz -lfabbercore -ldl
+FSLVERSION= $(shell cat ${FSLDIR}/etc/fslversion | head -c 1)
+ifeq ($(FSLVERSION), 5) 
+  NIFTILIB = -lfslio -lniftiio 
+else 
+  NIFTILIB = -lNewNifti
+endif
+
+LIBS = -lutils -lnewimage -lmiscmaths -lprob -lnewmat ${NIFTILIB} -lznz -lz -ldl
 
 XFILES = fabber_asl
 
@@ -15,8 +22,7 @@ OBJS =  fwdmodel_asl_multiphase.o fwdmodel_asl_grase.o asl_models.o fwdmodel_asl
 		fwdmodel_asl_2compartment.o
 
 # For debugging:
-OPTFLAGS = -ggdb
-#OPTFLAGS =
+#OPTFLAGS = -ggdb
 
 # Pass Git revision details
 GIT_SHA1:=$(shell git describe --dirty)
