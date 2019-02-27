@@ -125,32 +125,13 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
     float T1t = paramcpy(2);
     float A = paramcpy(3);
 
-<<<<<<< HEAD
-    M0t = paramcpy(1);
-    T1t = paramcpy(2);
-    A = paramcpy(3);
-
-    if (LFAon)
-    {
-        g = paramcpy(4);
-    }
-    else
-        g = 1.0;
-
-    // if (g<0.5) g=0.5;
-    // if (g>1.5) g=1.5;
-
-    //FA = (g + dg) * FAnom;
-    // Duo flip angle correction
-    // Details refer to Moss's Turbo QUASAR methodology paper or Esben's thesis p122
-    FA = (g) * FAnom;
-    lFA = (g + dg) * LFA; // dg only corrects for the low flip angle.
-=======
     float g = 1.0;
     if (m_lfa_on) g = paramcpy(4);
-    float FA = (g + m_dg) * m_fa;
-    float lFA = (g + m_dg) * m_lfa;
->>>>>>> master
+
+    // Duo flip angle correction
+    // Details refer to Moss's Turbo QUASAR methodology paper or Esben's thesis p122
+    float FA = g * m_fa;
+    float lFA = (g + dg) * m_lfa; // dg only corrects for the low flip angle.
 
     float T1tp = T1t;
     float M0tp = M0t;
