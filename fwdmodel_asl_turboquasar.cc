@@ -39,9 +39,7 @@ static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_REQ, "" },
     { "disp", OPT_STR, "AIF dispersion type", OPT_NONREQ, "gamma" },
     { "t1", OPT_FLOAT, "T1 value", OPT_NONREQ, "1.3" },
-    { "t1_MT", OPT_FLOAT, "T1 under MT effects value", OPT_NONREQ, "1.3" },
     { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
-    { "t1b_MT", OPT_FLOAT, "T1b under MT effects value", OPT_NONREQ, "1.65" },
     { "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
     { "infert1", OPT_BOOL, "Infer T1 parameter", OPT_NONREQ, "" },
     { "infertau", OPT_BOOL, "Infer bolus duration parameter", OPT_NONREQ, "" },
@@ -86,7 +84,7 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     if (simulation)
     {
         // Warning message
-        cout << "Warming: T1_blood=1.6, T1_blood_MT= 1.4, T1_tissue=1.3, T1_tissue_MT=1.1 are harded coded "
+        cout << "Warming: T1_blood=1.6 and T1_tissue=1.3 are harded coded "
                 "values!!!!!"
              << endl;
     }
@@ -97,9 +95,7 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
 
     repeats = convertTo<int>(args.Read("repeats")); // number of repeats in data
     t1 = convertTo<double>(args.ReadWithDefault("t1", "1.3"));
-    t1_MT = convertTo<double>(args.ReadWithDefault("t1_MT", "1.3"));
     t1b = convertTo<double>(args.ReadWithDefault("t1b", "1.65"));
-    t1b_MT = convertTo<double>(args.ReadWithDefault("t1b_MT", "1.65"));
     t1wm = convertTo<double>(args.ReadWithDefault("t1wm", "1.1"));
     lambda = convertTo<double>(
         args.ReadWithDefault("lambda", "0.9")); // NOTE that this parameter is not used!!
@@ -309,7 +305,7 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     }
     if (infert1)
     {
-        LOG << "Infering on T1 values and Look-locker and MT effects" << endl;
+        LOG << "Infering on T1 values " << endl;
     }
     LOG << "TIs: ";
     for (int i = 1; i <= tis.Nrows(); i++)
@@ -339,9 +335,7 @@ void TurboQuasarFwdModel::NameParams(vector<string> &names) const
     if (infert1)
     {
         names.push_back("T_1");
-        names.push_back("T_1_MT");
         names.push_back("T_1b");
-        names.push_back("T_1b_MT");
     }
     if (infertaub)
     {
@@ -451,13 +445,10 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     {
         int tidx = t1_index();
         prior.means(tidx) = t1;
-        prior.means(tidx + 1) = t1_MT;
-        prior.means(tidx + 2) = t1b;
-        prior.means(tidx + 3) = t1b_MT;
+        prior.means(tidx + 1) = t1b;
         precisions(tidx, tidx) = 100;
-        precisions(tidx + 1, tidx + 1) = 1e12; // We assume the input T1 tissue under MT effects is correct
-        precisions(tidx + 2, tidx + 2) = 100;
-        precisions(tidx + 3, tidx + 3) = 1e12; // We assume the input T1 blood under MT effects is correct
+        // if (calibon) precisions(tidx,tidx) = 1e99;
+        precisions(tidx + 1, tidx + 1) = 100;
     }
 
     /* if (inferart) {
@@ -657,9 +648,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     float fblood;
     float deltblood;
     float T_1;
-    float T_1_MT;
     float T_1b;
-    float T_1b_MT;
 
     float pv_gm;
     float pv_wm;
@@ -749,26 +738,18 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
     if (infert1)
     {
         T_1 = paramcpy(t1_index());
-        T_1_MT = paramcpy(t1_index() + 1);
-        T_1b = paramcpy(t1_index() + 2);
-        T_1b_MT = paramcpy(t1_index() + 3);
+        T_1b = paramcpy(t1_index() + 1);
 
         // T1 cannot be zero!
         if (T_1 < 0.01)
             T_1 = 0.01;
-        if (T_1_MT < 0.01)
-            T_1_MT = 0.01;
         if (T_1b < 0.01)
             T_1b = 0.01;
-        if (T_1b_MT < 0.01)
-            T_1b_MT = 0.01;
     }
     else
     {
         T_1 = t1;
-        T_1 = t1_MT;
         T_1b = t1b;
-        T_1b_MT = t1b_MT;
     }
 
     /*if (inferart) {
@@ -880,30 +861,22 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
 
     // flip angle correction (only if calibon)
     float FAtrue = FA;
-    //float dg = 0.023; // We only use dg to correct low flip angle of the saturation recovery, which is excluded in CBF quantification
+    float dg = 0.023;
     if (calibon)
-        //FAtrue = (g + dg) * FA;
-        FAtrue = (g) * FA;
+        FAtrue = (g + dg) * FA;
 
     // cout << T_1 << " " << FAtrue << " ";
 
     float T_1app = 1 / (1 / T_1 + 0.01 / lambdagm - log(cos(FAtrue)) / dti);
-    float T_1app_MT = 1 / (1 / T_1_MT + 0.01 / lambdagm - log(cos(FAtrue)) / dti);
     float T_1appwm = 1 / (1 / T_1wm + 0.01 / lambdawm - log(cos(FAtrue)) / dti);
 
     // Need to be careful with T1 values
     if (T_1b < 0.1)
         T_1b = 0.1;
-    if (T_1b_MT < 0.1)
-        T_1b_MT = 0.1;
     if (T_1app < 0.1)
         T_1app = 0.1;
-    if (T_1app_MT < 0.1)
-        T_1app_MT = 0.1;
     if (fabs(T_1app - T_1b) < 0.01)
         T_1app += 0.01;
-    if (fabs(T_1app_MT - T_1b_MT) < 0.01)
-        T_1app_MT += 0.01;
     if (T_1appwm < 0.1)
         T_1appwm = 0.1;
     if (fabs(T_1appwm - T_1b) < 0.01)
@@ -911,8 +884,6 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
 
     // calculate the 'LL T1' of the blood
     float T_1ll = 1 / (1 / T_1b - log(cos(FAtrue)) / dti);
-    // calculate the 'LL and MT T1' of the blood
-    float T_1b_MT_ll = 1 / (1 / T_1b_MT - log(cos(FAtrue)) / dti);
     float deltll = deltblood; // the arrival time of the blood within the
                               // readout region i.e. where it sees the LL
                               // pulses.
@@ -945,23 +916,19 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             T_1 = 1.3;
             T_1app = T_1;
             T_1ll = T_1b;
-            T_1b_MT_ll = 1.4;
-            T_1app_MT = 1.1;
         }
 
         if (infertiss)
-            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, T_1app_MT, deltll, T_1b_MT_ll, T_1ll, n_bolus,
+            kctissue = kctissue_nodisp(thetis, delttiss, tau, T_1b, T_1app, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
-        // WM not working
-        // Need to implement WM MT effects
-        /*
+        // cout << kctissue << endl;
         if (inferwm)
-            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, T_1appwm_MT, deltll, T_1b_MT_ll, T_1ll, n_bolus,
+            kcwm = kctissue_nodisp(thetis, deltwm, tauwm, T_1b, T_1appwm, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
-        */
         if (inferart)
             kcblood = kcblood_nodisp(
-                thetis, deltblood, taub, T_1b, deltll, T_1b_MT_ll, T_1ll, n_bolus, delta_bolus, bolus_order);
+                thetis, deltblood, taub, T_1b, deltll, T_1ll, n_bolus, delta_bolus, bolus_order);
+        // cout << kcblood << endl;
     }
     else if (disptype == "gamma")
     {
@@ -969,6 +936,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             kctissue = kctissue_gammadisp(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
 
+        // cout << kctissue << endl;
         if (inferwm)
             kcwm = kctissue_gammadisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
@@ -976,6 +944,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             kcblood = kcblood_gammadisp(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
 
+        // cout << kcblood << endl;
     }
     else if (disptype == "gvf")
     {
@@ -983,6 +952,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             kctissue = kctissue_gvf(thetis, delttiss, tau, T_1b, T_1app, s, p, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
 
+        // cout << kctissue << endl;
         if (inferwm)
             kcwm = kctissue_gvf(thetis, deltwm, tauwm, T_1b, T_1appwm, s, p, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
@@ -990,6 +960,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             kcblood = kcblood_gvf(thetis, deltblood, taub, T_1b, s, p, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
 
+        // cout << kcblood << endl;
     }
     else if (disptype == "gauss")
     {
@@ -997,12 +968,15 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
             kctissue = kctissue_gaussdisp(thetis, delttiss, tau, T_1b, T_1app, s, s, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
 
+        // cout << kctissue << endl;
         if (inferwm)
             kcwm = kctissue_gaussdisp(thetis, deltwm, tauwm, T_1b, T_1appwm, s, s, deltll, T_1ll,
                 n_bolus, delta_bolus, bolus_order);
         if (inferart)
             kcblood = kcblood_gaussdisp(thetis, deltblood, tau, T_1b, s, s, deltll, T_1ll, n_bolus,
                 delta_bolus, bolus_order);
+
+        // cout << kcblood << endl;
     }
     else
     {
@@ -1228,7 +1202,7 @@ void TurboQuasarFwdModel::UpdateARD(const MVNDist &theta, MVNDist &thetaPrior, d
 
 // Arterial
 ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float deltblood,
-    float taub, float T_1bin, float deltll, float T_1b_MT_ll, float T_1ll, int n_bolus_total, float delta_bolus,
+    float taub, float T_1bin, float deltll, float T_1ll, int n_bolus, float delta_bolus,
     const ColumnVector &bolus_order) const
 {
     ColumnVector kcblood(tis.Nrows());
@@ -1258,26 +1232,7 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float 
         {
             ti = tis(it);
 
-            // Here we deal with T1 blood of MT effects
-            // Before the last bolus arrived and before bolus arrival time
-            if( (it < n_bolus_total) || (it == n_bolus_total) ) {
-                // Before the arrival time, no Look-lock effects
-                if (ti < deltll) {
-                    T_1b = T_1bin;
-                }
-                // After arrival time and before end of labeling
-                // MT and Look-locker effects
-                else {
-                    T_1b = T_1b_MT_ll;
-                }
-            }
-            // After labeling, no MT effects, only Look-locker effects
-            else {
-                T_1b = T_1ll;
-            }
-
             // correct Look-locker T1
-            /* old code
             if (ti < deltll)
             {
                 T_1b = T_1bin;
@@ -1286,7 +1241,6 @@ ColumnVector TurboQuasarFwdModel::kcblood_nodisp(const ColumnVector &tis, float 
             {
                 T_1b = T_1ll;
             }
-            */
 
             // start model fitting
             if (ti < current_arrival_time)
@@ -1669,15 +1623,13 @@ ColumnVector TurboQuasarFwdModel::kcblood_gaussdisp(const ColumnVector &tis, flo
 
 // Tissue
 ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float delttiss,
-    float tau, float T_1bin, float T_1app, float T_1app_MT, float deltll, float T_1b_MT_ll, float T_1ll, int n_bolus_total,
+    float tau, float T_1bin, float T_1app, float deltll, float T_1ll, int n_bolus_total,
     float delta_bolus, const ColumnVector &bolus_order) const
 {
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
     float ti = 0.0;
     float T_1b;
-
-    float T1_detected = 0;
 
     // hardcoded parameters
     // int n_bolus_total = 4; // total number of boluses
@@ -1714,50 +1666,14 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
             // cout << tau << "hahaha" << endl;
 
             ti = tis(it);
+            float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
 
-
-            // T1 of tissue experiences two effects
-            // Before the end of labeling, both MT and Looklocker effects
-            // After labeling, only Look-locker effects
-            if( (it < n_bolus_total) || (it == n_bolus_total) ) {
-                T1_detected = T_1app_MT;
-            } 
-            else {
-                T1_detected = T_1app;
-            }
-
-            //float F = 2 * exp(-(ti - bolus_time_passed) / T_1app);
-            float F = 2 * exp(-(ti - bolus_time_passed) / T1_detected);
-
-            // Here we deal with T1 blood of MT effects
-            // Before the last bolus arrived and before bolus arrival time
-            if( (it < n_bolus_total) || (it == n_bolus_total) ) {
-                // Before the arrival time, no Look-lock effects
-                if (ti < deltll) {
-                    T_1b = T_1bin;
-                }
-                // After arrival time and before end of labeling
-                // MT and Look-locker effects
-                else {
-                    T_1b = T_1b_MT_ll;
-                }
-            }
-            // After labeling, no MT effects, only Look-locker effects
-            else {
-                T_1b = T_1ll;
-            }
-
-            // Old code here
-            /*
             if (ti < deltll)
                 T_1b = T_1bin;
             else
                 T_1b = T_1ll;
-            */
-            // End of old code
 
-            //R = 1 / T_1app - 1 / T_1b;
-            R = 1 / T1_detected - 1 / T_1b;
+            R = 1 / T_1app - 1 / T_1b;
 
             if (ti < current_arrival_time)
             {
@@ -1784,6 +1700,33 @@ ColumnVector TurboQuasarFwdModel::kctissue_nodisp(const ColumnVector &tis, float
 
         n_bolus_arrived++;
     }
+
+    /*
+  for(int it=1; it<=tis.Nrows(); it++) {
+    ti = tis(it);
+    float F = 2 * exp(-ti/T_1app);
+    if (ti< deltll)
+      T_1b = T_1bin;
+    else
+      T_1b = T_1ll;
+
+    R = 1/T_1app - 1/T_1b;
+    if(ti < delttiss) {
+      kctissue(it) = 0;
+    }
+    else if(ti >= delttiss && ti <= (delttiss + tau)) {
+      kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) );
+      //kctissue(it) = F/R * ( (exp(R*ti) - exp(R*delttiss)) ) * exp( (-1) * R *
+  ti );
+    }
+    else //(ti > delttiss + tau)
+    {
+      kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  );
+      //kctissue(it) = F/R * ( (exp(R*(delttiss+tau)) - exp(R*delttiss))  ) *
+  exp( (-1) * R * ti );
+    }
+  }
+  */
 
     return kctissue;
 }
