@@ -91,6 +91,13 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
 namespace OXASL
 {
 // --- Kinetic curve functions ---
+
+// Wrapper around the error function to screen out very high and low values to avoid 'erfc underflow' errors
+static double myerf(double x)
+{
+    return MISCMATHS::erf(max(min(x, 5.0), -5.0));
+}
+
 // Arterial
 
 double AIFModel_nodisp::kcblood(const double ti, const double deltblood, const double taub,
@@ -119,7 +126,7 @@ double AIFModel_nodisp::kcblood(const double ti, const double deltblood, const d
         double leadscale = min(deltblood, m_leadscale);
         if (leadscale > 0)
         {
-            kcblood *= 0.5 * (1 + erf((ti - deltblood) / leadscale));
+            kcblood *= 0.5 * (1 + myerf((ti - deltblood) / leadscale));
         }
         else if (ti < deltblood)
         {
@@ -129,7 +136,7 @@ double AIFModel_nodisp::kcblood(const double ti, const double deltblood, const d
     else
     {
         // 'lead out' rather than immediate drop to zero
-        kcblood *= 0.5 * (1 + erf(-(ti - deltblood - taub) / m_leadscale));
+        kcblood *= 0.5 * (1 + myerf(-(ti - deltblood - taub) / m_leadscale));
     }
 
     return kcblood;
@@ -277,17 +284,7 @@ double AIFModel_gaussdisp::kcblood(const double ti, const double deltblood, cons
         erf2 = (ti - deltblood - taub) / (sqrt2 * sig2);
     }
 
-    if (erf1 > 5)
-        erf1 = 5;
-    if (erf2 > 5)
-        erf2 = 5;
-    if (erf1 < -5)
-        erf1 = -5;
-    if (erf2 < -5)
-        erf2 = -5;
-
-    kcblood *= 0.5 * (MISCMATHS::erf(erf1) - MISCMATHS::erf(erf2));
-
+    kcblood *= 0.5 * (myerf(erf1) - myerf(erf2));
     return kcblood;
 }
 
@@ -296,10 +293,8 @@ double AIFModel_spatialgaussdisp_alternate::integral(double t, double k, double 
     // This implements the indefinite integral from wolfram
     double erf1 = (C - A*t)/sqrt(t);
     double erf2 = (C + A*t)/sqrt(t);
-    erf1 = max(min(erf1, 5.0), -5.0);
-    erf2 = max(min(erf2, 5.0), -5.0);
-    double P1 = -erf(erf1);
-    double P2 = erf(erf2) - 1;
+    double P1 = -myerf(erf1);
+    double P2 = myerf(erf2) - 1;
     // Check P2 because when P2 -> 0 4AC -> inf and we get overflow
     if (P2 > 1e-6)
     {
@@ -331,9 +326,7 @@ double AIFModel_spatialgaussdisp_alternate::kcblood(const double ti, const doubl
 
         double erf1 = (ti - deltblood) / (k * sqrt(ti));
         double erf2 = (ti - deltblood - taub) / (k * sqrt(ti));
-        erf1 = max(min(erf1, 5.0), -5.0);
-        erf2 = max(min(erf2, 5.0), -5.0);
-        return 2 * kcblood * (MISCMATHS::erf(erf1) - MISCMATHS::erf(erf2));
+        return 2 * kcblood * (myerf(erf1) - myerf(erf2));
     }
 }
 
@@ -392,16 +385,7 @@ double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltbloo
         erf1 = (ti - deltblood) / (k * sqrt(ti));
         erf2 = (ti - deltblood - taub) / (k * sqrt(ti));
 
-        if (erf1 > 5)
-            erf1 = 5;
-        if (erf2 > 5)
-            erf2 = 5;
-        if (erf1 < -5)
-            erf1 = -5;
-        if (erf2 < -5)
-            erf2 = -5;
-
-        kcblood *= 0.5 * (MISCMATHS::erf(erf1) - MISCMATHS::erf(erf2));
+        kcblood *= 0.5 * (myerf(erf1) - myerf(erf2));
     }
 
     return kcblood;
