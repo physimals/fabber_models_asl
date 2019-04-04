@@ -664,6 +664,7 @@ double TissueModel_nodisp_2cpt::kctissue(const double ti, const double fcalib,
             T = kw + 1 / T_1b + 1 / residparam(2);
             break;
         case DIST:
+        default:
             T = kw + 1 / T_1b;
             if (ti >= residparam(2))
                 T += 1 / residparam(2);

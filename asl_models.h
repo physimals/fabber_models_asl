@@ -351,6 +351,7 @@ public:
         case SLOW:
             return "Slow solution (MTT >> measurement time) | Two compartment(no backflow)";
         case DIST:
+        default:
             return "Distributed solution (MTT=" + stringify(m_mtt_prior)
                 + ") | Two compartment(no backflow)";
         }

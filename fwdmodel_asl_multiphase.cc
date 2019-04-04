@@ -169,7 +169,7 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &r
     // loop to create result
     for (int i = 1; i <= nph; i++)
     {
-        double evalfunc;
+        double evalfunc = 0;
 
         double ph;
         ph = ph_list(i); // extract the measurement phase from list (vector)

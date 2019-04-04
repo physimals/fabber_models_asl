@@ -577,14 +577,14 @@ void QuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) 
     float tauwmset;
     float T_1wm;
 
-    float p;
+    float p = 0;
     float s;
 
     // float blooddir;
     // float crusheff;
-    float bloodth;
-    float bloodphi;
-    float bloodbv;
+    float bloodth = 0.0;
+    float bloodphi = 0.0;
+    float bloodbv = 0.0;
     float fbloodc1 = 0.0;
     float fbloodc2 = 0.0;
     float fbloodc3 = 0.0;

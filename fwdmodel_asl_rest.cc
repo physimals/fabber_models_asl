@@ -646,9 +646,9 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     double T_1b = t1b;
     double pvgm = 1.0;
     double pvwm = 0.0;
-    double taupctiss;
+    double taupctiss = 0.0;
     ColumnVector pcvec(1);
-    double taupcwm;
+    double taupcwm = 0.0;
     ColumnVector pcvecwm(1);
     ColumnVector disptiss;
     ColumnVector dispwm;
@@ -943,7 +943,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
 
         for (int it = 1; it <= tis.Nrows(); it++)
         {
-            ti = tis(it) + slicedt * coord_z; // calcualte the actual TI for this
+            ti = tis(it) + slicedt * thisz; // calcualte the actual TI for this
             result(it) = art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
         }
     }
@@ -1161,7 +1161,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // Timing parameters (TIs / PLDs)
     vector<double> ti_list = args.GetDoubleList("ti");
     bool ti_set = (ti_list.size() >= 1);
-    int num_times = ti_list.size();
+    unsigned int num_times = ti_list.size();
 
     vector<double> pld_list = args.GetDoubleList("pld");
     bool pld_set = (pld_list.size() >= 1);
@@ -1187,7 +1187,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     else
     {
         // Multiple repeats not specified - use single value defaulting to 1
-        for (int it = 0; it < num_times; it++)
+        for (unsigned int it = 0; it < num_times; it++)
         {
             repeats.push_back(args.GetIntDefault("repeats", 1));
         }
@@ -1221,7 +1221,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
                 "bolus durations - these should be equal");
         }
         taus.ReSize(taus_list.size());
-        for (int i = 0; i < taus_list.size(); i++)
+        for (unsigned int i = 0; i < taus_list.size(); i++)
             taus(i + 1) = taus_list[i];
     }
 
@@ -1303,14 +1303,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
         tis.ReSize(num_times);
         if (ti_set)
         {
-            for (int i = 0; i < ti_list.size(); i++)
+            for (unsigned int i = 0; i < ti_list.size(); i++)
                 tis(i + 1) = ti_list[i];
         }
         if (pld_set)
         {
             if (casl)
             {
-                for (int i = 0; i < pld_list.size(); i++)
+                for (unsigned int i = 0; i < pld_list.size(); i++)
                 {
                     if (multitau)
                         tis(i + 1) = pld_list[i] + taus_list[i];
@@ -1321,7 +1321,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
             else
             {
                 // unlikely to happen, but permits the user to supply PLDs for a pASL acquisition
-                for (int i = 0; i < pld_list.size(); i++)
+                for (unsigned int i = 0; i < pld_list.size(); i++)
                     tis(i + 1) = pld_list[i];
             }
         }
@@ -1954,13 +1954,13 @@ Matrix ASLFwdModel::HadamardMatrix(const int size, const bool FullHad, const boo
                 std::cout << skip_list << std::endl;
                 matrix.ReSize(size - skip_list.size(), size);
 
-                int i = 0;
-                int k = 0;
+                unsigned int i = 0;
+                unsigned int k = 0;
                 while (i < size - skip_list.size())
                 {
                     if (k < skip_list.size())
                     {
-                        if ((i + k + 1) == skip_list[k])
+                        if (int(i + k + 1) == skip_list[k])
                         {
                             k++;
                         }
