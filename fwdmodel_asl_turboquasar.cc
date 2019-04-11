@@ -63,6 +63,7 @@ static OptionSpec OPTIONS[] = {
     { "bolus_<n>", OPT_FLOAT, "Whether the bolus is on or off. E.g --bolus_1=1 --bolus_2=0. n<=7",
         OPT_NONREQ, "" },
     { "slice_shift", OPT_FLOAT, "Slice shifting factor (default: 1)", OPT_NONREQ, "" },
+    { "dti", OPT_FLOAT, "Delta TI (default: 0.6)", OPT_NONREQ, "" },
     { "fa", OPT_FLOAT, "Flip angle in degrees", OPT_NONREQ, "30" }, { "" },
 };
 
@@ -202,8 +203,10 @@ void TurboQuasarFwdModel::Initialize(ArgsType &args)
     }
 
     timax = tis.Maximum(); // dtermine the final TI
+
     // determine the TI interval (assume it is even throughout)
-    dti = (tis(2) - tis(1)) * slice_shifting_factor;
+    //dti = (tis(2) - tis(1)) * slice_shifting_factor;
+    dti = convertTo<double>(args.ReadWithDefault("dti", "0.6"));
 
     // Bolus duration parameters
     // determine delta bolus (time between each successive bolus)
@@ -414,14 +417,14 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
     {
         prior.means(tau_index()) = seqtau;
         // precisions(tau_index(),tau_index()) = 1;
-        precisions(tau_index(), tau_index()) = 1;
+        precisions(tau_index(), tau_index()) = 100;
     }
 
     if (infertaub)
     {
         prior.means(taub_index()) = seqtau;
         // precisions(taub_index(),taub_index()) = 1;
-        precisions(taub_index(), taub_index()) = 1;
+        precisions(taub_index(), taub_index()) = 100;
     }
 
     // Arterial Perfusion & bolus delay
@@ -466,7 +469,7 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
         {
             prior.means(wmi + 2) = seqtau;
             // precisions(wmi+2,wmi+2) = 1;
-            precisions(wmi + 2, wmi + 2) = 1;
+            precisions(wmi + 2, wmi + 2) = 100;
         }
 
         if (infert1)
@@ -699,7 +702,7 @@ void TurboQuasarFwdModel::Evaluate(const ColumnVector &params, ColumnVector &res
         tauset = paramcpy(tau_index());
         // tauset = (dti * 0.5) * (tanh(tauset) + 1);
         // tauset = 0.1 * tanh(tauset) + dti - 0.1;
-        tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
+        //tauset = ((dti - tau_lowest) / 2) * tanh(tauset) + (dti - (dti - tau_lowest) / 2);
         // cout << "tanh function used" << endl;
         // tauset = dti * ((1 / M_PI) * atan(tauset) + 0.5);
         // cout << tauset << endl;
