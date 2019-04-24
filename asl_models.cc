@@ -17,6 +17,7 @@
 #include "fwdmodel_asl_quasar.h"
 #include "fwdmodel_asl_rest.h"
 #include "fwdmodel_asl_satrecov.h"
+#include "fwdmodel_asl_satrecovdualfa.h"
 #include "fwdmodel_asl_turboquasar.h"
 
 extern "C" {
