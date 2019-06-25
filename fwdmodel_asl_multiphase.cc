@@ -138,7 +138,7 @@ void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params)
     params.clear();
 
     int p=0;
-    params.push_back(Parameter(p++, "mag", DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    params.push_back(Parameter(p++, "mag", DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
     params.push_back(Parameter(p++, "phase", DistParams(0, 10.0/M_PI), DistParams(0, 10.0/M_PI), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
     params.push_back(Parameter(p++, "offset", DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
     if (m_incvel)
