@@ -174,7 +174,7 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     // Initialize the phase value from the point of max intensity. A peak
     // at 180 means a phase of 0.
     int ind;
-    float val = dmean.Maximum1(ind);
+    dmean.Maximum1(ind);
     float phase = m_phases_deg(ind) - 180;
     posterior.means(2) = phase * M_PI / 180;
 }
