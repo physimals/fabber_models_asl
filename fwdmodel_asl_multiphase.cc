@@ -40,6 +40,8 @@ static OptionSpec OPTIONS[] = {
     { "infervel", OPT_BOOL, "Infer value of vel parameter", OPT_NONREQ, "" },
     { "nph", OPT_INT, "Number of evenly-spaced phases between 0 and 360", OPT_NONREQ, "8" },
     { "ph<n>", OPT_FLOAT, "Individually-specified phase angles in degrees", OPT_NONREQ, "" },
+    { "ntis", OPT_INT, "Number of delay times (TIs/PLDs)", OPT_NONREQ, "1" },
+    { "multi-phase-offsets", OPT_BOOL, "Each TI/PLD has its own independent phase offset parameter", OPT_NONREQ, "" },
     { "" },
 };
 
@@ -65,18 +67,32 @@ string MultiPhaseASLFwdModel::ModelVersion() const
 
 void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
 {
-    // number of repeats in data
+    // Number of TIs/PLDs
+    m_ntis = rundata.GetIntDefault("ntis", 1);
+    LOG << "MultiPhaseASLFwdModel::Data has " << m_ntis << " TIs/PLDs" << endl;
+
+    // Number of repeats in data
     m_repeats = rundata.GetIntDefault("repeats", 1);
+    LOG << "MultiPhaseASLFwdModel::Data has " << m_repeats << " repeats" << endl;
+
+    m_multi_phase_offsets = (m_ntis > 1) && rundata.GetBool("multi-phase-offsets");
+    if (m_multi_phase_offsets) LOG << "MultiPhaseASLFwdModel::Each TI/PLD has its own phase offset" << endl;
+    else LOG << "MultiPhaseASLFwdModel::Using single phase offset for all TIs/PLDs" << endl;
+
+    // The number of parameters inferred for each TI
+    m_num_ti_params = m_multi_phase_offsets ? 3 : 2;
     
-    // phases
+    // Phases - either specified explicitly or evenly spaced between 0 and 360
     std::vector<double> phases_deg = rundata.GetDoubleList("ph", 0, 360);
     m_nphases = phases_deg.size();
     if (m_nphases > 0) 
     {
         m_phases_deg.ReSize(m_nphases);
+        LOG << "MultiPhaseASLFwdModel::Using " << m_nphases << " user-specified phases: ";
         for (int i=0; i<m_nphases; i++) 
         {
             m_phases_deg(i+1) = phases_deg[i];
+            LOG << " " << phases_deg[i];
         }
     }
     else
@@ -85,11 +101,14 @@ void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
         // out evenly between 0 and 360
         m_nphases = rundata.GetIntDefault("nph", 8);
         m_phases_deg.ReSize(m_nphases);
+        LOG << "MultiPhaseASLFwdModel::Using " << m_nphases << " evenly spaced phases: ";
         for (int i=0; i<m_nphases; i++)
         {
             m_phases_deg(i+1) = i * 360 / m_nphases;
+            LOG << " " << m_phases_deg(i+1);
         }
     }
+    LOG << endl;
 
     m_infervel = false;
     m_incvel = false;
@@ -115,8 +134,8 @@ void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
         m_infervel = rundata.ReadBool("infervel");
         m_incvel = m_infervel || rundata.ReadBool("incvel");
 
-        LOG << "Inference using numerical modulation function" << endl;
-        LOG << "File is: " << modmatstring << endl;
+        LOG << "MultiPhaseASLFwdModel::Inference using numerical modulation function" << endl;
+        LOG << "MultiPhaseASLFwdModel::File is: " << modmatstring << endl;
     }
     else if (m_modfn == "fermi")
     {
@@ -124,8 +143,8 @@ void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
         m_alpha = rundata.GetDoubleDefault("alpha", 55);
         m_beta = rundata.GetDoubleDefault("beta", 12);
         
-        LOG << "Inference using Fermi model" << endl;
-        LOG << "alpha=" << m_alpha << " ,beta=" << m_beta << endl;
+        LOG << "MultiPhaseASLFwdModel::Inference using Fermi model" << endl;
+        LOG << "MultiPhaseASLFwdModel::alpha=" << m_alpha << " ,beta=" << m_beta << endl;
     }
     else
     {
@@ -138,9 +157,32 @@ void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params)
     params.clear();
 
     int p=0;
-    params.push_back(Parameter(p++, "mag", DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
-    params.push_back(Parameter(p++, "phase", DistParams(0, 10.0/M_PI), DistParams(0, 10.0/M_PI), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
-    params.push_back(Parameter(p++, "offset", DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    if (m_ntis == 1) 
+    {
+        // For compatibility don't number outputs if there is only one TI/PLD
+        params.push_back(Parameter(p++, "mag", DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "offset", DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    }
+    else 
+    {
+        // Separate magnitude/offset for each TI/PLD 
+        for (int i=0; i<m_ntis; i++) 
+        {
+            params.push_back(Parameter(p++, "mag" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+            params.push_back(Parameter(p++, "offset" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+            if (m_multi_phase_offsets) 
+            {
+                params.push_back(Parameter(p++, "phase" + stringify(i+1), DistParams(0, 10.0/M_PI), DistParams(0, 10.0/M_PI), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+            }
+        }
+    }
+
+    // Parameters common to all TIs
+    if (!m_multi_phase_offsets || (m_ntis == 1))
+    {
+        params.push_back(Parameter(p++, "phase", DistParams(0, 10.0/M_PI), DistParams(0, 10.0/M_PI), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    }
+
     if (m_incvel)
     {
         // If we are not inferring the velocity set the variance to be very low
@@ -152,76 +194,124 @@ void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params)
 void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
 {
     // Initialize the magntidue and offset parameters
-
-    // Take mean over the repeats and initialize the offset
-    // to the average of the maximum and minimum intensity
-    ColumnVector dmean(8);
-    dmean = 0.0;
-    for (int i = 1; i <= 8; i++)
+    if (data.Nrows() != m_nphases*m_ntis*m_repeats)
     {
-        for (int j = 1; j <= m_repeats; j++)
+        throw InvalidOptionValue("Num phases * num TIs * num repeats", 
+                                 stringify(m_nphases*m_ntis*m_repeats), 
+                                 "Should match number of data volumes: " + stringify(data.Nrows()));
+    }
+
+    // For each TI/PLD, take mean over the repeats and initialize the offset
+    // to the average of the maximum and minimum intensity
+    for (int t=0; t<m_ntis; t++) 
+    {
+        ColumnVector dmean(m_nphases);
+        dmean = 0.0;
+        for (int r=0; r<m_repeats; r++)
         {
-            dmean(i) = dmean(i) + data((j - 1) * m_nphases + i);
+            for (int p=1; p<=m_nphases; p++)
+            {
+                dmean(p) = dmean(p) + data(t*m_repeats*m_nphases + r*m_nphases + p);
+            }
+        }
+        dmean = dmean / m_repeats;
+        double dmax = dmean.Maximum();
+        double dmin = dmean.Minimum();
+
+        posterior.means(m_num_ti_params*t + 1) = (dmax - dmin) / 2;
+        posterior.means(m_num_ti_params*t + 2) = (dmax + dmin) / 2;
+    }
+
+    // Initialize the phase value from the point of max intensity (averaged over
+    // all repeats/TIs). A peak at 180 means a phase of 0. We use the full averaged
+    // data even if we are inferring individual phases as there may be TIs where
+    // the signal is weak and we don't expect it to vary much with TIs
+    ColumnVector dmean(m_nphases);
+    dmean = 0.0;
+    for (int i = 1; i <= m_nphases; i++)
+    {
+        for (int j = 0; j < m_repeats*m_ntis; j++)
+        {
+            dmean(i) = dmean(i) + data(j * m_nphases + i);
         }
     }
-    dmean = dmean / m_repeats;
-    double dmax = dmean.Maximum();
-    double dmin = dmean.Minimum();
 
-    posterior.means(1) = (dmax - dmin) / 2;
-    posterior.means(3) = (dmax + dmin) / 2;
-
-    // Initialize the phase value from the point of max intensity. A peak
-    // at 180 means a phase of 0.
     int ind;
     dmean.Maximum1(ind);
     float phase = m_phases_deg(ind) - 180;
-    posterior.means(2) = phase * M_PI / 180;
+
+    if (m_multi_phase_offsets)
+    {
+        for (int t=0; t<m_ntis; t++) 
+        {
+            posterior.means(m_num_ti_params*t + 3) = phase * M_PI / 180;
+        }
+    }
+    else 
+    {
+        posterior.means(m_num_ti_params*m_ntis + 1) = phase * M_PI / 180;
+    }
 }
 
 void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
     // Extract inferred parameters
-    double mag = params(1);
-    double phaserad = params(2);           // in radians
-    double phase = params(2) * 180 / M_PI; // in degrees
-    double offset = params(3);
+    ColumnVector mag(m_ntis);
+    ColumnVector offset(m_ntis);
+    ColumnVector phase_off_rad(m_ntis);
+    for (int t=0; t<m_ntis; t++) 
+    {
+        mag(t+1) = params(m_num_ti_params*t+1);
+        offset(t+1) = params(m_num_ti_params*t+2);
+        if (m_multi_phase_offsets)
+        {
+            phase_off_rad(t+1) = params(m_num_ti_params*t+3);
+        }
+        else
+        {
+            phase_off_rad(t+1) = params(m_num_ti_params*m_ntis+1);
+        }
+    }
 
+    ColumnVector phase_off_deg = phase_off_rad * 180 / M_PI;    // in degrees
     double flowvel = 0.3;
     if (m_incvel)
     {
-        flowvel = params(4);
+        flowvel = params(m_num_ti_params*m_ntis + 2);
     }
 
-    // Loop over phases to create result including repeated measurements
-    int nn = m_nphases * m_repeats;
+    // Loop over TIs and phases to create result including repeated measurements
+    int nn = m_nphases * m_repeats * m_ntis;
     result.ReSize(nn);
-    for (int i = 1; i <= m_nphases; i++)
+    for (int t=0; t<m_ntis; t++) 
     {
-        double evalfunc = 0;
-
-        // Extract the measurement phase from list and convert to radians
-        double ph_deg = m_phases_deg(i);
-        if (ph_deg > 179) ph_deg -= 360;
-        double ph_rad = ph_deg * M_PI / 180;
-
-        if (m_modfn == "fermi")
+        for (int p=1; p<=m_nphases; p++)
         {
-            // Use the Fermi modulation function
-            // Note using the given values requires phases here to be in degrees
-            evalfunc = mag * (-2 / (1 + exp((abs(ph_deg - phase) - m_alpha) / m_beta)))
-                + offset;
-        }
-        else if (m_modfn == "mat")
-        {
-            // Evaluation modulation function from interpolation of values
-            evalfunc = mag * (mod_fn(ph_rad - phaserad, flowvel)) + offset;
-        }
+            double evalfunc = 0;
 
-        // Write the same output for each of the repeats 
-        for (int j = 1; j <= m_repeats; j++)
-        {
-            result((j - 1) * m_nphases + i) = evalfunc;
+            // Extract the measurement phase from list and convert to radians
+            double phase_meas_deg = m_phases_deg(p);
+            if (phase_meas_deg > 179) phase_meas_deg -= 360;
+            double phase_meas_rad = phase_meas_deg * M_PI / 180;
+
+            if (m_modfn == "fermi")
+            {
+                // Use the Fermi modulation function
+                // Note using the given values requires phases here to be in degrees
+                evalfunc = mag(t+1) * (-2 / (1 + exp((abs(phase_meas_deg - phase_off_deg(t+1)) - m_alpha) / m_beta)))
+                    + offset(t+1);
+            }
+            else if (m_modfn == "mat")
+            {
+                // Evaluation modulation function from interpolation of values
+                evalfunc = mag(t+1) * (mod_fn(phase_meas_rad - phase_off_rad(t+1), flowvel)) + offset(t+1);
+            }
+
+            // Write the same output for each of the repeats 
+            for (int r=0; r<m_repeats; r++)
+            {
+                result(t*m_repeats*m_nphases + r*m_nphases + p) = evalfunc;
+            }
         }
     }
 }

@@ -35,9 +35,20 @@ private:
     // Number of repeats in the data. Phases are assumed to be fastest varying
     int m_repeats;
 
+    // Number of TIs in the data. Data for a given TI/PLD (including all phases and 
+    // repeats) is assumed to be blocked within the data
+    int m_ntis;
+
+    // Number of parameters inferred for each TI - 2 normally (magnitude + offset)
+    // but can be 3 if m_multi_phase_offsets is true
+    int m_num_ti_params;
+
     // Number of phases in data. If phase list not provided these are assumed to 
     // be evenly spaced between 0 and 360
     int m_nphases;
+
+    // If true, each TI/PLD has its own phase offset parameter
+    bool m_multi_phase_offsets;
 
     // Explicitly provided list of phases in degrees
     NEWMAT::ColumnVector m_phases_deg;
