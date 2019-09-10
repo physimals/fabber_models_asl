@@ -24,7 +24,7 @@ XFILES = fabber_asl
 # Forward models
 OBJS =  fwdmodel_asl_multiphase.o fwdmodel_asl_grase.o asl_models.o fwdmodel_asl_rest.o \
         fwdmodel_asl_quasar.o fwdmodel_asl_satrecov.o fwdmodel_asl_satrecovdualfa.o fwdmodel_asl_turboquasar.o \
-		fwdmodel_asl_2compartment.o
+	fwdmodel_asl_2compartment.o fwdmodel_asl_multite.o
 
 # For debugging:
 #OPTFLAGS = -ggdb
