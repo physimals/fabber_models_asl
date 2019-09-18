@@ -38,9 +38,15 @@ static OptionSpec OPTIONS[] = {
     { "tau", OPT_FLOAT, "Temporal bolus length (s)", OPT_NONREQ, "10" },
     { "t1", OPT_FLOAT, "T1 of tissue(s)", OPT_NONREQ, "1.0" },
     { "t1b", OPT_FLOAT, "T1 of blood (s)", OPT_NONREQ, "1.2" },
-    { "infertau", OPT_BOOL, "Infer on bolus length", OPT_NONREQ, "" },
+    { "t2", OPT_FLOAT, "T2 of tissue(s)", OPT_NONREQ, "0.030" },
+    { "t2b", OPT_FLOAT, "T2 of blood (s)", OPT_NONREQ, "0.120" },
+    { "exch2", OPT_FLOAT, "Exchange time", OPT_NONREQ, "0.1" },
+    { "infertau", OPT_BOOL, "Infer bolus length", OPT_NONREQ, "" },
     { "inferart", OPT_BOOL, "Infer arterial component", OPT_NONREQ, "" },
-    { "infertau", OPT_BOOL, "Infer on T1 values", OPT_NONREQ, "" },
+    { "infert1", OPT_BOOL, "Infer T1 values", OPT_NONREQ, "" },
+    { "infert2", OPT_BOOL, "Infer T2 values", OPT_NONREQ, "" },
+    { "infertexch", OPT_BOOL, "Infer exchange time", OPT_NONREQ, "" },
+    { "tauboff", OPT_BOOL, "Forces the inference of arterial bolus off", OPT_NONREQ, "" },
     { "" },
 };
 
@@ -124,10 +130,6 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     // Forces the inference of arterial bolus off
     bool tauboff = rundata.GetBool("tauboff");
     infertaub = (inferart && infertau && !tauboff);
-
-    // ARD selection
-    bool ardoff = rundata.GetBool("ardoff");
-    doard = (inferart == true && ardoff == false);
 
     // Write information about the parameters to the log
     LOG << "Exchange Time: " << texch << endl; // TH
