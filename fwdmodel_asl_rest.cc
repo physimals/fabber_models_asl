@@ -998,9 +998,8 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
         }
     }
 
-    if (result.Nrows() != data.Nrows())
+    if ((key != "aif") && (result.Nrows() != data.Nrows()))
     {
-        //        string reason =
         throw InvalidOptionValue("num volumes", stringify(data.Nrows()),
             "Expected " + stringify(result.Nrows()) + " volumes - check the number of repeats/TIs");
     }
