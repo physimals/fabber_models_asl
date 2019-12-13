@@ -172,7 +172,7 @@ void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params)
             params.push_back(Parameter(p++, "offset" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
             if (m_multi_phase_offsets) 
             {
-                params.push_back(Parameter(p++, "phase" + stringify(i+1), DistParams(0, 10.0/M_PI), DistParams(0, 10.0/M_PI), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+                params.push_back(Parameter(p++, "phase" + stringify(i+1), DistParams(0, 100.0), DistParams(0, 10.0), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
             }
         }
     }
@@ -180,7 +180,7 @@ void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params)
     // Parameters common to all TIs
     if (!m_multi_phase_offsets || (m_ntis == 1))
     {
-        params.push_back(Parameter(p++, "phase", DistParams(0, 10.0/M_PI), DistParams(0, 10.0/M_PI), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+        params.push_back(Parameter(p++, "phase", DistParams(0, 100.0), DistParams(0, 10.0), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
     }
 
     if (m_incvel)
@@ -223,9 +223,12 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     }
 
     // Initialize the phase value from the point of max intensity (averaged over
-    // all repeats/TIs). A peak at 180 means a phase of 0. We use the full averaged
-    // data even if we are inferring individual phases as there may be TIs where
-    // the signal is weak and we don't expect it to vary much with TIs
+    // all repeats/TIs). 
+    // With a phase offset of 0, the maximum will be at 180 and the mininum 
+    // at 0. Phase offset of 90 gives max/min at 270/90, etc. In general the minimum
+    // occurs at the phase offset value.
+    // Note that the phase offset is in radians but the the measured phases are input 
+    // in degrees, and we initialize the phase offset in the range -pi to pi.
     ColumnVector dmean(m_nphases);
     dmean = 0.0;
     for (int i = 1; i <= m_nphases; i++)
@@ -237,19 +240,19 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     }
 
     int ind;
-    dmean.Maximum1(ind);
-    float phase = m_phases_deg(ind) - 180;
-
+    dmean.Minimum1(ind);
+    float phase_init = m_phases_deg(ind);
+    while (phase_init > 180) phase -= 360; 
     if (m_multi_phase_offsets)
     {
         for (int t=0; t<m_ntis; t++) 
         {
-            posterior.means(m_num_ti_params*t + 3) = phase * M_PI / 180;
+            posterior.means(m_num_ti_params*t + 3) = phase_init * M_PI / 180;
         }
     }
     else 
     {
-        posterior.means(m_num_ti_params*m_ntis + 1) = phase * M_PI / 180;
+        posterior.means(m_num_ti_params*m_ntis + 1) = phase_init * M_PI / 180;
     }
 }
 
@@ -289,22 +292,25 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &r
         {
             double evalfunc = 0;
 
-            // Extract the measurement phase from list and convert to radians
+            // Extract the measurement phase from list, apply offset and convert
+            // to radians. Force range to -180 -> 180 / -pi -> pi
             double phase_meas_deg = m_phases_deg(p);
-            if (phase_meas_deg > 179) phase_meas_deg -= 360;
-            double phase_meas_rad = phase_meas_deg * M_PI / 180;
-
+            double phase_actual_deg = phase_meas_deg - phase_off_deg(t+1);
+            while (phase_actual_deg < -180) phase_actual_deg += 360;
+            while (phase_actual_deg > 180) phase_actual_deg -= 360;
+            double phase_actual_rad = phase_actual_deg * M_PI / 180;
             if (m_modfn == "fermi")
             {
                 // Use the Fermi modulation function
                 // Note using the given values requires phases here to be in degrees
-                evalfunc = mag(t+1) * (-2 / (1 + exp((abs(phase_meas_deg - phase_off_deg(t+1)) - m_alpha) / m_beta)))
+                evalfunc = mag(t+1) * (-2 / (1 + exp((abs(phase_actual_deg) - m_alpha) / m_beta)))
                     + offset(t+1);
             }
             else if (m_modfn == "mat")
             {
                 // Evaluation modulation function from interpolation of values
-                evalfunc = mag(t+1) * (mod_fn(phase_meas_rad - phase_off_rad(t+1), flowvel)) + offset(t+1);
+                // FIXME range of phase values: 0 to 2pi or -pi to pi???
+                evalfunc = mag(t+1) * (mod_fn(phase_actual_rad, flowvel)) + offset(t+1);
             }
 
             // Write the same output for each of the repeats 
