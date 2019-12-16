@@ -176,7 +176,7 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
 {
     // Negative check
     ColumnVector paramcpy = params;
-    for (int i = 1; i <= NumParams(); i++)
+    for (int i = 1; i <= params.Nrows(); i++)
     {
         if (params(i) < 0)
         {
@@ -184,39 +184,39 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
         }
     }
 
-    // Sensible limits on transit times
+    // Sensible limits on transit time
     if (params(tiss_index() + 1) > m_timax - 0.2)
     {
         paramcpy(tiss_index() + 1) = m_timax - 0.2;
     }
 
     // Parameters - extract and give sensible names
-    float f = paramcpy(tiss_index());        // perfusion in ml/100g/min
-    float att = paramcpy(tiss_index() + 1);  // arterial transit time in s
+    double f = paramcpy(tiss_index());        // perfusion in ml/100g/min
+    double att = paramcpy(tiss_index() + 1);  // arterial transit time in s
 
     // Set defaults to be used if the parameters are fixed (not inferred)
-    float t1 = m_t1;                        // longitudinal relaxation time in tissue in s
-    float t1b = m_t1b;                      // longitudinal relaxation time in blood in s
-    float t2 = m_t2;                        // transversal relaxation time in tissue in s
-    float t2b = m_t2b;                      // transversal relaxation time in blood in s
-    float texch = m_texch;                  // characteristic transfer time in s
+    double t1 = m_t1;                        // longitudinal relaxation time in tissue in s
+    double t1b = m_t1b;                      // longitudinal relaxation time in blood in s
+    double t2 = m_t2;                        // transversal relaxation time in tissue in s
+    double t2b = m_t2b;                      // transversal relaxation time in blood in s
+    double texch = m_texch;                  // characteristic transfer time in s
 
     if (m_infert1)
     {  
-        // T1 cannot be zero!
-        t1 = paramcpy(t1_index());
-        t1b = paramcpy(t1_index() + 1);
-        if (t1 < 0.01)
-            t1 = 0.01;
-        if (t1b < 0.01)
-            t1b = 0.01;
+        // T1 cannot get too close to zero
+        t1 = params(t1_index());
+        t1b = params(t1_index() + 1);
+        if (t1 < 1e-2)
+            t1 = 1e-2;
+        if (t1b < 1e-2)
+            t1b = 1e-2;
     }
     
     if (m_infert2)
     { 
-        // T2 cannot be zero!
-        t2b = paramcpy(t2_index() + 1);
-        t2 = paramcpy(t2_index());
+        // T2 cannot get too close to zero
+        t2b = params(t2_index() + 1);
+        t2 = params(t2_index());
         if (t2b < 1e-2)
             t2b = 1e-2;
         if (t2 < 1e-2)
@@ -225,11 +225,11 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
    
     if (m_infertexch)
     {
+        // Texch cannot get too close to zero
         texch = params(texch_index());
         if (texch < 1e-2)
             texch = 1e-2;
     }
-    
 
     // Calculation of delta M using the two compartment model (PCASL) with T1 and T2 decay using
     // only the B-part
@@ -316,18 +316,9 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
     signal.ReSize(m_tis.Nrows() * m_tes.Nrows());
 
     // Fill in the results of the matrix delta_M_final
-    for (int j = 1; j < m_tis.Nrows() + 1; j++)
+    for (int j = 1; j <= m_tis.Nrows(); j++)
     {
-        /*if (isnan(signal))
-        {
-            kctissue = 0;
-            double ti = ti;
-            LOG << "Warning NaN in tissue curve at TI:" << ti << " with f:" << f
-                << " delt:" << att << " tau:" << tauset << " T1:" << t1 << " T1b:" << t1b
-                << endl;
-        }*/
-
-        for (int k = 1; k < m_tes.Nrows() + 1; k++)
+        for (int k = 1; k <= m_tes.Nrows(); k++)
         {
             signal((j - 1) * m_tes.Nrows() + k) = delta_M_final(j, k);
         }
