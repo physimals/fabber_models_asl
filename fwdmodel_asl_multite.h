@@ -31,73 +31,42 @@ public:
     static FwdModel *NewInstance();
 protected: 
     // Lookup the starting indices of the parameters
-    int tiss_index() const { return 1 - (parametermapftiss ? 1 : 0); }
-
-    int tau_index() const
-    {
-        return 2 - (parametermapftiss ? 1 : 0) - (parametermapdelttiss ? 1 : 0)
-            + (infertau ? 1 : 0);
-    }
-
-    int art_index() const
-    {
-        return 2 - (parametermapftiss ? 1 : 0) - (parametermapdelttiss ? 1 : 0) + (infertau ? 1 : 0)
-            + (inferart ? 1 : 0);
+    int tiss_index() const 
+    { 
+        return 1;
     }
 
     int t1_index() const
     {
-        return 2 - (parametermapftiss ? 1 : 0) - (parametermapdelttiss ? 1 : 0) + (infertau ? 1 : 0)
-            + (inferart ? 2 : 0) + (infert1 ? 1 : 0);
-    }
-
-    int taub_index() const
-    {
-        return 2 - (parametermapftiss ? 1 : 0) - (parametermapdelttiss ? 1 : 0) + (infertau ? 1 : 0)
-            + (inferart ? 2 : 0) + (infert1 ? 2 : 0) + (infertaub ? 1 : 0);
+        return 2 + (m_infert1 ? 1 : 0);
     }
 
     int t2_index() const
     {
-        return 2 - (parametermapftiss ? 1 : 0) - (parametermapdelttiss ? 1 : 0) + (infertau ? 1 : 0)
-            + (inferart ? 2 : 0) + (infert1 ? 2 : 0) + (infertaub ? 1 : 0) + (infert2 ? 1 : 0);
+        return 2 + (m_infert1 ? 2 : 0) + (m_infert2 ? 1 : 0);
     }
 
     int texch_index() const
     {
-        return 2 - (parametermapftiss ? 1 : 0) - (parametermapdelttiss ? 1 : 0) + (infertau ? 1 : 0)
-            + (inferart ? 2 : 0) + (infert1 ? 2 : 0) + (infertaub ? 1 : 0) + (infert2 ? 2 : 0)
-            + (infertexch ? 1 : 0);
+        return 2 + (m_infert1 ? 2 : 0) + (m_infert2 ? 2 : 0) + (m_infertexch ? 1 : 0);
     }
 
     // Scan parameters
-    int repeats;     // Number of repeats
-    double t1;       // T1_tis relaxation time of tissue
-    double t1b;      // T1_bl relaxation time of blood
-    double t2;       // T2_tis relaxation time of tissue
-    double t2b;      // T2_bl relaxation time of blood
-    double texch;    // T1_bl_tis transfer time between blood and tissue
-    double pretisat; // Pre-TI saturation time
-    double lambda;   // lambda
-    bool casl;       // casl or pasl
-    bool grase;      // Data was collected with GRASE-ASL
-    NEWMAT::ColumnVector tis; // column vector of t_i
-    NEWMAT::ColumnVector tes; // column vector of t_e
-    NEWMAT::ColumnVector taus; // column vector of bolus durations - same length as tis
-    NEWMAT::Real timax;
+    int m_repeats;     // Number of repeats
+    double m_t1;       // T1_tis relaxation time of tissue
+    double m_t1b;      // T1_bl relaxation time of blood
+    double m_t2;       // T2_tis relaxation time of tissue
+    double m_t2b;      // T2_bl relaxation time of blood
+    double m_texch;    // T1_bl_tis transfer time between blood and tissue
+    NEWMAT::ColumnVector m_tis; // column vector of t_i
+    NEWMAT::ColumnVector m_tes; // column vector of t_e
+    NEWMAT::ColumnVector m_taus; // column vector of bolus durations - same length as tis
+    NEWMAT::Real m_timax;
 
     // Inference options
-    bool infertau;
-    bool infertaub;
-    bool inferart;
-    bool infert1;
-    bool infert2;
-    bool infertexch;
-    bool doard;
-
-    // FIXME not sure what these are for
-    bool parametermapftiss;
-    bool parametermapdelttiss;
+    bool m_infert1;
+    bool m_infert2;
+    bool m_infertexch;
 
 private:
     /** Auto-register with forward model factory. */
