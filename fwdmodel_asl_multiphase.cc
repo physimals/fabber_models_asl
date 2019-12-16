@@ -242,7 +242,7 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     int ind;
     dmean.Minimum1(ind);
     float phase_init = m_phases_deg(ind);
-    while (phase_init > 180) phase -= 360; 
+    while (phase_init > 180) phase_init -= 360; 
     if (m_multi_phase_offsets)
     {
         for (int t=0; t<m_ntis; t++) 
