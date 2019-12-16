@@ -33,9 +33,10 @@ static OptionSpec OPTIONS[] = {
     { "ti<n>", OPT_BOOL, "Sequence of inversion times in seconds (e.g. --ti1=1.4 --ti2=1.8, etc)", OPT_REQ, "" },
     { "te<n>", OPT_BOOL, "Sequence of TE times in seconds (e.g. --te1=1.4 --te2=1.8, etc)", OPT_REQ, "" },
     { "casl", OPT_BOOL, "Use CASL (or pCASL) preparation rather than PASL", OPT_NONREQ, "" },
-    { "grase", OPT_BOOL, "*DEPRECEATAED* (data collected using GRASE-ASL: same as --pretissat=0.1)", OPT_NONREQ, "" },
+    { "grase", OPT_BOOL, "*DEPRECATAED* (data collected using GRASE-ASL: same as --pretissat=0.1)", OPT_NONREQ, "" },
     { "pretisat", OPT_FLOAT, "Blood is saturated a specific time (seconds) before TI image acquired", OPT_NONREQ, "0" },
-    { "tau", OPT_FLOAT, "Temporal bolus length (s)", OPT_NONREQ, "10" },
+    { "tau", OPT_FLOAT, "Temporal bolus lengths (s)", OPT_NONREQ, "1.0" },
+    { "tau<n>", OPT_FLOAT, "Temporal bolus lengths (one per TI) (s)", OPT_NONREQ, "1.0" },
     { "t1", OPT_FLOAT, "T1 of tissue(s)", OPT_NONREQ, "1.0" },
     { "t1b", OPT_FLOAT, "T1 of blood (s)", OPT_NONREQ, "1.2" },
     { "t2", OPT_FLOAT, "T2 of tissue(s)", OPT_NONREQ, "0.030" },
@@ -76,7 +77,6 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
 {
     // Acquisition data
     repeats = rundata.GetIntDefault("repeats", 1);
-    seqtau = rundata.GetDoubleDefault("tau", 1.0);
 
     // Saturation of the bolus a fixed time pre TI measurement
     pretisat = rundata.GetDoubleDefault("pretisat", 0.0);
@@ -98,6 +98,26 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     }
     // The final TI
     timax = tis.Maximum();
+
+    std::vector<double> taus_list = rundata.GetDoubleList("tau", 0.0);
+    taus.ReSize(tis_list.size());
+    if (taus_list.size() < 2) {
+        double tau = 1.0;
+        if (taus_list.size() == 1) tau = taus_list[0];
+        taus = tau;
+    }
+    else if (taus_list.size() == tis_list.size()) 
+    {
+        for (unsigned int i=0; i<taus_list.size(); i++) 
+        {
+            taus(i+1) = taus_list[i];
+        }
+    }
+    else 
+    {
+        throw InvalidOptionValue("Incorrect number of taus specified - should match the number of TIs", 
+                                 stringify(taus_list.size()), stringify(tis_list.size()));
+    }
 
     // TEs FIXME original code had default of 0.03 for first
     std::vector<double> tes_list = rundata.GetDoubleList("te", 0.0);
@@ -146,7 +166,7 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     //    LOG << "Input data is in physiological units, using estimated CBF in T_1app calculation"
     //        << endl;
     LOG << "    Data parameters: repeats = " << repeats << ", t1 = " << t1 << ", t1b = " << t1b;
-    LOG << ", bolus length (tau) = " << seqtau << endl;
+    LOG << ", bolus lengths (tau) = " << taus.t() << endl;
     if (infertau)
         LOG << "Infering on bolus length " << endl;
     if (inferart)
@@ -180,10 +200,10 @@ void multiTEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
         // changed from 0.7 to 0.6 (rat) 28.09.2015
         params.push_back(Parameter(p++, "delttiss", DistParams(0.6, 10), DistParams(0.6, 10)));
     }
-    if (infertau)
-    {
-        params.push_back(Parameter(p++, "tautiss", DistParams(seqtau, 100), DistParams(seqtau, 100)));
-    }
+    //if (infertau)
+    //{
+    //    params.push_back(Parameter(p++, "tautiss", DistParams(seqtau, 100), DistParams(seqtau, 100)));
+    //}
     if (inferart)
     {
         if (doard) 
@@ -201,9 +221,9 @@ void multiTEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
         params.push_back(Parameter(p++, "T_1", DistParams(t1, 0.1), DistParams(t1, 0.1)));
         params.push_back(Parameter(p++, "T_1b", DistParams(t1b, 0.1), DistParams(t1b, 0.1)));
     }
-    if (infertaub) {
-        params.push_back(Parameter(p++, "taublood", DistParams(seqtau, 10), DistParams(seqtau, 10)));
-    }
+    //if (infertaub) {
+    //    params.push_back(Parameter(p++, "taublood", DistParams(seqtau, 10), DistParams(seqtau, 10)));
+    //}
     if (infert2)
     {
         params.push_back(Parameter(p++, "T_2", DistParams(t2, 1.0), DistParams(t2, 1.0)));
@@ -251,8 +271,6 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
     // Set defaults to be used if the parameters are fixed (not inferred)
     float ftiss;
     float delttiss;
-    float tauset = seqtau;
-    float taubset;
     float fblood = 0;
     float deltblood = 0;
     float T_1 = t1;
@@ -274,19 +292,10 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
         // delttiss = parametermapdelttiss(1);
     }
 
-    if (infertau)
-    {
-        tauset = paramcpy(tau_index());
-    }
-
-    if (infertaub)
-    {
-        taubset = paramcpy(taub_index());
-    }
-    else
-    {
-        taubset = tauset;
-    }
+    // FIXME
+    //if (infertau)
+   // {
+   // }
 
     if (inferart)
     {
@@ -325,16 +334,13 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
     }
     
     // October 2016: Josepha Hilmer
-
     // Compatibility of parameter names
-
     float M_0_bl = 1;          // equilibrium magnetization blood in A/m
     float M_0_tis = M_0_bl;    // equilibrium magnetization tissue in A/m
     float alpha = 1;
 
     double f = ftiss;          // perfusion in ml/100g/min
     double t_tra = delttiss;   // arterial transit time in s
-    double tau = tauset;       // bolus duration time in s
     double T1_bl = T_1b;       // longitudinal relaxation time in blood in s
     double T1_tis = T_1;       // longitudinal relaxation time in tissue in s
     double T2_bl = T_2b;       // transversal relaxation time in blood in s
@@ -350,6 +356,7 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
 
     for (int j = 1; j < tis.Nrows() + 1; j++)
     {
+        double tau = taus(j);
         if ((0 < tis(j)) && (tis(j) < t_tra))
         {
             for (int k = 1; k < tes.Nrows() + 1; k++)

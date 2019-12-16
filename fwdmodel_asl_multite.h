@@ -71,7 +71,6 @@ protected:
     }
 
     // Scan parameters
-    double seqtau;   // Bolus length as set by the sequence
     int repeats;     // Number of repeats
     double t1;       // T1_tis relaxation time of tissue
     double t1b;      // T1_bl relaxation time of blood
@@ -84,6 +83,7 @@ protected:
     bool grase;      // Data was collected with GRASE-ASL
     NEWMAT::ColumnVector tis; // column vector of t_i
     NEWMAT::ColumnVector tes; // column vector of t_e
+    NEWMAT::ColumnVector taus; // column vector of bolus durations - same length as tis
     NEWMAT::Real timax;
 
     // Inference options
