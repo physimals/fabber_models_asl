@@ -112,11 +112,16 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     }
 
     // Physiological parameters
-    m_t1 = rundata.GetDoubleDefault("t1", 1.0);
-    m_t1b = rundata.GetDoubleDefault("t1b", 1.2);
-    m_t2 = rundata.GetDoubleDefault("t2", 0.030);
-    m_t2b = rundata.GetDoubleDefault("t2b", 0.120);
+    // Defaults matched to the ASLREST model which is
+    // different from the original model. These are generally
+    // overridden when called by OXASL
+    m_t1 = rundata.GetDoubleDefault("t1", 1.3);
+    m_t1b = rundata.GetDoubleDefault("t1b", 1.65);
+    m_t2 = rundata.GetDoubleDefault("t2", 0.050);
+    m_t2b = rundata.GetDoubleDefault("t2b", 0.150);
     m_texch = rundata.GetDoubleDefault("exch2", 0.1);
+    m_bat = rundata.GetDoubleDefault("bat", 0.7)
+    m_batsd = rundata.GetDoubleDefault("batsd", 0.316)
 
     // Inference options
     m_infert1 = rundata.GetBool("infert1");   // infer on T1 values
@@ -150,8 +155,7 @@ void multiTEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
     int p = 0;
 
     params.push_back(Parameter(p++, "ftiss", DistParams(0, 1e12), DistParams(0.1, 1.0)));
-    // changed from 0.7 to 0.6 (rat) 28.09.2015
-    params.push_back(Parameter(p++, "delttiss", DistParams(0.6, 10), DistParams(0.6, 10)));
+    params.push_back(Parameter(p++, "delttiss", DistParams(m_bat, m_batsd**2), DistParams(m_bat, m_batsd**2)));
 
     if (m_infert1)
     {
