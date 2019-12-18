@@ -58,6 +58,8 @@ protected:
     double m_t2;       // T2_tis relaxation time of tissue
     double m_t2b;      // T2_bl relaxation time of blood
     double m_texch;    // T1_bl_tis transfer time between blood and tissue
+    double m_bat;      // Arterial transit time in s
+    double m_batsd;    // Prior std.dev on BAT
     NEWMAT::ColumnVector m_tis; // column vector of t_i
     NEWMAT::ColumnVector m_tes; // column vector of t_e
     NEWMAT::ColumnVector m_taus; // column vector of bolus durations - same length as tis

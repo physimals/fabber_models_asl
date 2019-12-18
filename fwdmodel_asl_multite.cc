@@ -120,8 +120,8 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     m_t2 = rundata.GetDoubleDefault("t2", 0.050);
     m_t2b = rundata.GetDoubleDefault("t2b", 0.150);
     m_texch = rundata.GetDoubleDefault("exch2", 0.1);
-    m_bat = rundata.GetDoubleDefault("bat", 0.7)
-    m_batsd = rundata.GetDoubleDefault("batsd", 0.316)
+    m_bat = rundata.GetDoubleDefault("bat", 0.7);
+    m_batsd = rundata.GetDoubleDefault("batsd", 0.316);
 
     // Inference options
     m_infert1 = rundata.GetBool("infert1");   // infer on T1 values
@@ -155,7 +155,7 @@ void multiTEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
     int p = 0;
 
     params.push_back(Parameter(p++, "ftiss", DistParams(0, 1e12), DistParams(0.1, 1.0)));
-    params.push_back(Parameter(p++, "delttiss", DistParams(m_bat, m_batsd**2), DistParams(m_bat, m_batsd**2)));
+    params.push_back(Parameter(p++, "delttiss", DistParams(m_bat, m_batsd*m_batsd), DistParams(m_bat, m_batsd*m_batsd)));
 
     if (m_infert1)
     {
