@@ -1,23 +1,34 @@
-/*  fwdmodel_biexp.cc - Implements a model for correcting off resonance effect
- for multiphase pcASL
-
- Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
-
- Copyright (C) 2013 University of Oxford  */
+/**
+ * fwdmodel_asl_multiphase.cc
+ * 
+ * Implements a model for correcting off resonance effect
+ * for multiphase pcASL
+ *
+ * Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
+ *
+ * Copyright (C) 2013 University of Oxford  
+ */
 
 /*  CCOPYRIGHT */
 
 #include "fwdmodel_asl_multiphase.h"
 
-#include "newimage/newimageall.h"
-#include <iostream>
-#include <newmatio.h>
-#include <stdexcept>
-using namespace NEWIMAGE;
-#include "fabber_core/easylog.h"
+#include <fabber_core/tools.h>
+#include <fabber_core/fwdmodel.h>
+#include <fabber_core/priors.h>
 
-FactoryRegistration<FwdModelFactory, MultiPhaseASLFwdModel> MultiPhaseASLFwdModel::registration(
-    "asl_multiphase");
+#include <newmat.h>
+
+#include <string>
+#include <vector>
+
+using namespace std;
+using namespace NEWMAT;
+
+string MultiPhaseASLFwdModel::GetDescription() const 
+{ 
+    return "ASL multiphase model";
+}
 
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
@@ -29,6 +40,8 @@ static OptionSpec OPTIONS[] = {
     { "infervel", OPT_BOOL, "Infer value of vel parameter", OPT_NONREQ, "" },
     { "nph", OPT_INT, "Number of evenly-spaced phases between 0 and 360", OPT_NONREQ, "8" },
     { "ph<n>", OPT_FLOAT, "Individually-specified phase angles in degrees", OPT_NONREQ, "" },
+    { "ntis", OPT_INT, "Number of delay times (TIs/PLDs)", OPT_NONREQ, "1" },
+    { "multi-phase-offsets", OPT_BOOL, "Each TI/PLD has its own independent phase offset parameter", OPT_NONREQ, "" },
     { "" },
 };
 
@@ -40,7 +53,6 @@ void MultiPhaseASLFwdModel::GetOptions(vector<OptionSpec> &opts) const
     }
 }
 
-string MultiPhaseASLFwdModel::GetDescription() const { return "ASL multiphase model"; }
 string MultiPhaseASLFwdModel::ModelVersion() const
 {
     string version = "fwdmodel_asl_multiphase.cc";
@@ -53,269 +65,260 @@ string MultiPhaseASLFwdModel::ModelVersion() const
     return version;
 }
 
-void MultiPhaseASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const
+void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
 {
-    assert(prior.means.Nrows() == NumParams());
+    // Number of TIs/PLDs
+    m_ntis = rundata.GetIntDefault("ntis", 1);
+    LOG << "MultiPhaseASLFwdModel::Data has " << m_ntis << " TIs/PLDs" << endl;
 
-    SymmetricMatrix precisions = IdentityMatrix(NumParams()) * 1e12;
+    // Number of repeats in data
+    m_repeats = rundata.GetIntDefault("repeats", 1);
+    LOG << "MultiPhaseASLFwdModel::Data has " << m_repeats << " repeats" << endl;
 
-    // Set priors
+    m_multi_phase_offsets = (m_ntis > 1) && rundata.GetBool("multi-phase-offsets");
+    if (m_multi_phase_offsets) LOG << "MultiPhaseASLFwdModel::Each TI/PLD has its own phase offset" << endl;
+    else LOG << "MultiPhaseASLFwdModel::Using single phase offset for all TIs/PLDs" << endl;
 
-    // magnitude
-    prior.means(1) = 0;
-    precisions(1, 1) = 1e-12;
-
-    // phase (radians)
-    prior.means(2) = 0;
-    precisions(2, 2) = M_PI / 10;
-
-    // offset
-    prior.means(3) = 0;
-    precisions(3, 3) = 1e-12;
-
-    // flow vel
-    if (incvel)
+    // The number of parameters inferred for each TI
+    m_num_ti_params = m_multi_phase_offsets ? 3 : 2;
+    
+    // Phases - either specified explicitly or evenly spaced between 0 and 360
+    std::vector<double> phases_deg = rundata.GetDoubleList("ph", 0, 360);
+    m_nphases = phases_deg.size();
+    if (m_nphases > 0) 
     {
-        prior.means(4) = 0.3;
-        if (infervel)
+        m_phases_deg.ReSize(m_nphases);
+        LOG << "MultiPhaseASLFwdModel::Using " << m_nphases << " user-specified phases: ";
+        for (int i=0; i<m_nphases; i++) 
         {
-            precisions(4, 4) = 10;
+            m_phases_deg(i+1) = phases_deg[i];
+            LOG << " " << phases_deg[i];
         }
     }
+    else
+    {
+        // Phases have not been specified explicitly - read the number and space them
+        // out evenly between 0 and 360
+        m_nphases = rundata.GetIntDefault("nph", 8);
+        m_phases_deg.ReSize(m_nphases);
+        LOG << "MultiPhaseASLFwdModel::Using " << m_nphases << " evenly spaced phases: ";
+        for (int i=0; i<m_nphases; i++)
+        {
+            m_phases_deg(i+1) = i * 360 / m_nphases;
+            LOG << " " << m_phases_deg(i+1);
+        }
+    }
+    LOG << endl;
 
-    // Set precsions on priors
-    prior.SetPrecisions(precisions);
+    m_infervel = false;
+    m_incvel = false;
 
-    // Set initial posterior
-    posterior = prior;
+    // modulation function
+    m_modfn = rundata.GetStringDefault("modfn", "fermi");
+    if (m_modfn == "mat")
+    {
+        // modmat
+        string modmatstring;
+        Matrix mod_temp;
+        modmatstring = rundata.GetString("modmat");
+        mod_temp = fabber::read_matrix_file(modmatstring);
+        int nphasepts = mod_temp.Nrows() - 1;
+        m_mod_nvelpts = mod_temp.Ncols() - 1;
+        m_mod_phase = (mod_temp.SubMatrix(2, nphasepts + 1, 1, 1)).AsColumn();
+        m_mod_v = (mod_temp.SubMatrix(1, 1, 2, m_mod_nvelpts + 1)).AsColumn();
+        m_mod_mat = mod_temp.SubMatrix(2, nphasepts + 1, 2, m_mod_nvelpts + 1);
+
+        m_mod_vmax = m_mod_v(m_mod_nvelpts);
+        m_mod_vmin = m_mod_v(1);
+
+        m_infervel = rundata.ReadBool("infervel");
+        m_incvel = m_infervel || rundata.ReadBool("incvel");
+
+        LOG << "MultiPhaseASLFwdModel::Inference using numerical modulation function" << endl;
+        LOG << "MultiPhaseASLFwdModel::File is: " << modmatstring << endl;
+    }
+    else if (m_modfn == "fermi")
+    {
+        // shape of the fermi function
+        m_alpha = rundata.GetDoubleDefault("alpha", 55);
+        m_beta = rundata.GetDoubleDefault("beta", 12);
+        
+        LOG << "MultiPhaseASLFwdModel::Inference using Fermi model" << endl;
+        LOG << "MultiPhaseASLFwdModel::alpha=" << m_alpha << " ,beta=" << m_beta << endl;
+    }
+    else
+    {
+        throw InvalidOptionValue("modfn", m_modfn, "Must be fermi or mat");
+    }
 }
 
-void MultiPhaseASLFwdModel::InitParams(MVNDist &posterior) const
+void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
 {
-    // init the magntidue and offset parameters
+    params.clear();
 
-    // mean over the repeats
-    ColumnVector dmean(8);
-    dmean = 0.0;
-    for (int i = 1; i <= 8; i++)
+    int p=0;
+    if (m_ntis == 1) 
     {
-        for (int j = 1; j <= repeats; j++)
+        // For compatibility don't number outputs if there is only one TI/PLD
+        params.push_back(Parameter(p++, "mag", DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+        params.push_back(Parameter(p++, "offset", DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    }
+    else 
+    {
+        // Separate magnitude/offset for each TI/PLD 
+        for (int i=0; i<m_ntis; i++) 
         {
-            dmean(i) = dmean(i) + data((j - 1) * 8 + i);
+            params.push_back(Parameter(p++, "mag" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
+            params.push_back(Parameter(p++, "offset" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+            if (m_multi_phase_offsets) 
+            {
+                params.push_back(Parameter(p++, "phase" + stringify(i+1), DistParams(0, 100.0), DistParams(0, 10.0), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+            }
         }
     }
-    dmean = dmean / repeats;
 
-    double dmax = dmean.Maximum();
-    double dmin = dmean.Minimum();
-
-    posterior.means(1) = (dmax - dmin) / 2;
-    posterior.means(3) = (dmax + dmin) / 2;
-
-    // init the mid phase value - by finding the point where the max intensity
-    // is
-    int ind;
-    float val;
-    val = dmean.Maximum1(ind);    // find the max
-    val = (ind - 1) * 180 / M_PI; // frequency of the minimum in ppm
-    if (val > 179)
-        val -= 360;
-    val *= M_PI / 180;
-    posterior.means(2) = val;
-
-    if (incvel)
+    // Parameters common to all TIs
+    if (!m_multi_phase_offsets || (m_ntis == 1))
     {
-        posterior.means(4) = 0.3;
+        params.push_back(Parameter(p++, "phase", DistParams(0, 100.0), DistParams(0, 10.0), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    }
+
+    if (m_incvel)
+    {
+        // If we are not inferring the velocity set the variance to be very low
+        double var = m_infervel ? 0.1 : 1e-12;
+        params.push_back(Parameter(p++, "vel", DistParams(0.3, var), DistParams(0.3, var), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
+    }
+}
+
+void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
+{
+    // Initialize the magntidue and offset parameters
+    if (data.Nrows() != m_nphases*m_ntis*m_repeats)
+    {
+        throw InvalidOptionValue("Num phases * num TIs * num repeats", 
+                                 stringify(m_nphases*m_ntis*m_repeats), 
+                                 "Should match number of data volumes: " + stringify(data.Nrows()));
+    }
+
+    // For each TI/PLD, take mean over the repeats and initialize the offset
+    // to the average of the maximum and minimum intensity
+    for (int t=0; t<m_ntis; t++) 
+    {
+        ColumnVector dmean(m_nphases);
+        dmean = 0.0;
+        for (int r=0; r<m_repeats; r++)
+        {
+            for (int p=1; p<=m_nphases; p++)
+            {
+                dmean(p) = dmean(p) + data(t*m_repeats*m_nphases + r*m_nphases + p);
+            }
+        }
+        dmean = dmean / m_repeats;
+        double dmax = dmean.Maximum();
+        double dmin = dmean.Minimum();
+
+        posterior.means(m_num_ti_params*t + 1) = (dmax - dmin) / 2;
+        posterior.means(m_num_ti_params*t + 2) = (dmax + dmin) / 2;
+    }
+
+    // Initialize the phase value from the point of max intensity (averaged over
+    // all repeats/TIs). 
+    // With a phase offset of 0, the maximum will be at 180 and the mininum 
+    // at 0. Phase offset of 90 gives max/min at 270/90, etc. In general the minimum
+    // occurs at the phase offset value.
+    // Note that the phase offset is in radians but the the measured phases are input 
+    // in degrees, and we initialize the phase offset in the range -pi to pi.
+    ColumnVector dmean(m_nphases);
+    dmean = 0.0;
+    for (int i = 1; i <= m_nphases; i++)
+    {
+        for (int j = 0; j < m_repeats*m_ntis; j++)
+        {
+            dmean(i) = dmean(i) + data(j * m_nphases + i);
+        }
+    }
+
+    int ind;
+    dmean.Minimum1(ind);
+    float phase_init = m_phases_deg(ind);
+    while (phase_init > 180) phase_init -= 360; 
+    if (m_multi_phase_offsets)
+    {
+        for (int t=0; t<m_ntis; t++) 
+        {
+            posterior.means(m_num_ti_params*t + 3) = phase_init * M_PI / 180;
+        }
+    }
+    else 
+    {
+        posterior.means(m_num_ti_params*m_ntis + 1) = phase_init * M_PI / 180;
     }
 }
 
 void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &result) const
 {
-    // ensure that values are reasonable
-    // negative check
-
-    ColumnVector paramcpy = params;
-    for (int i = 1; i <= NumParams(); i++)
+    // Extract inferred parameters
+    ColumnVector mag(m_ntis);
+    ColumnVector offset(m_ntis);
+    ColumnVector phase_off_rad(m_ntis);
+    for (int t=0; t<m_ntis; t++) 
     {
-        if (params(i) < 0)
+        mag(t+1) = params(m_num_ti_params*t+1);
+        offset(t+1) = params(m_num_ti_params*t+2);
+        if (m_multi_phase_offsets)
         {
-            paramcpy(i) = 0;
-        }
-    }
-
-    // parameters that are inferred - extract and give sensible names
-    double mag;
-    double phase;
-    double phaserad;
-    double offset;
-    double flowvel;
-
-    mag = params(1);
-    phaserad = params(2);           // in radians
-    phase = params(2) * 180 / M_PI; // in degrees
-    offset = params(3);
-
-    if (incvel)
-    {
-        flowvel = params(4);
-    }
-    else
-    {
-        flowvel = 0.3;
-    }
-
-    int nn = nph * repeats;
-    result.ReSize(nn);
-    // loop to create result
-    for (int i = 1; i <= nph; i++)
-    {
-        double evalfunc = 0;
-
-        double ph;
-        ph = ph_list(i); // extract the measurement phase from list (vector)
-        if (ph > 179)
-            ph -= 360;
-        double ph_rad = ph * M_PI / 180; // in radians
-
-        if (modfn == "fermi")
-        {
-            // use the Fermi modulation function
-            evalfunc = mag * (-2 / (1 + exp((abs(ph - phase) - alpha) / beta)))
-                + offset; // note using the given values requires phases here to
-                          // be in degrees
-        }
-        else if (modfn == "mat")
-        {
-            // evaluation modulation function from interpolation of values
-            evalfunc = mag * (mod_fn(ph_rad - phaserad, flowvel)) + offset;
-        }
-
-        for (int j = 1; j <= repeats; j++)
-        {
-            result((j - 1) * nph + i) = evalfunc;
-        }
-    }
-    // cout << result.t();
-
-    return;
-}
-
-FwdModel *MultiPhaseASLFwdModel::NewInstance() { return new MultiPhaseASLFwdModel(); }
-void MultiPhaseASLFwdModel::Initialize(ArgsType &args)
-{
-    // specify command line parameters here
-    repeats = convertTo<int>(args.ReadWithDefault("repeats", "1")); // number of repeats in data
-
-    // phases
-    string ph_temp;
-    ph_temp = args.ReadWithDefault("ph1", "none");
-    if (ph_temp != "none")
-    {
-        // a list of phases
-        ph_list.ReSize(1); // will add extra values onto end as needed
-        ph_list(1) = convertTo<double>(ph_temp);
-
-        while (true) // get the rest of the phases
-        {
-            int N = ph_list.Nrows() + 1;
-            ph_temp = args.ReadWithDefault("ph" + stringify(N), "stop!");
-            if (ph_temp == "stop!")
-                break; // we have run out of phases
-
-            // append the new phase onto the end of the list
-            ColumnVector tmp(1);
-            tmp = convertTo<double>(ph_temp);
-            ph_list &= tmp; // vertical concatenation
-        }
-    }
-    else
-    {
-        // phases have not been specified on command line  - use defaults
-        nph = convertTo<int>(args.ReadWithDefault("nph", "8")); // number of phases
-        for (int i = 1; i <= nph; i++)
-        {
-            // evenly spaced phases
-            double ph = (360 / nph * (i - 1)); // in degrees
-            ColumnVector tmp(1);
-            tmp = ph;
-            ph_list &= tmp; // vertical concatention
-        }
-    }
-
-    // modulation function
-    modfn = args.ReadWithDefault("modfn", "fermi");
-
-    // modmat
-    string modmatstring;
-    Matrix mod_temp;
-    modmatstring = args.ReadWithDefault("modmat", "none");
-    if (modmatstring != "none")
-    {
-        mod_temp = read_ascii_matrix(modmatstring);
-    }
-
-    // shape of the fermi function
-    alpha = convertTo<double>(args.ReadWithDefault("alpha", "55"));
-    beta = convertTo<double>(args.ReadWithDefault("beta", "12"));
-
-    // deal with ARD selection
-    // doard=false;
-    // if (inferart==true && ardoff==false) { doard=true; }
-
-    infervel = false;
-    incvel = false;
-    if (modfn == "mat")
-    {
-        assert(mod_temp(1, 1) == 99);
-        int nphasepts = mod_temp.Nrows() - 1;
-        nvelpts = mod_temp.Ncols() - 1;
-
-        mod_phase = (mod_temp.SubMatrix(2, nphasepts + 1, 1, 1)).AsColumn();
-        mod_v = (mod_temp.SubMatrix(1, 1, 2, nvelpts + 1)).AsColumn();
-        mod_mat = mod_temp.SubMatrix(2, nphasepts + 1, 2, nvelpts + 1);
-
-        vmax = mod_v(nvelpts);
-        vmin = mod_v(1);
-
-        infervel = args.ReadBool("infervel");
-        if (infervel)
-        {
-            incvel = true;
+            phase_off_rad(t+1) = params(m_num_ti_params*t+3);
         }
         else
         {
-            incvel = args.ReadBool("incvel");
+            phase_off_rad(t+1) = params(m_num_ti_params*m_ntis+1);
         }
     }
 
-    // add information about the parameters to the log
-    // test correctness of specified modulation function
-    if (modfn == "fermi")
+    ColumnVector phase_off_deg = phase_off_rad * 180 / M_PI;    // in degrees
+    double flowvel = 0.3;
+    if (m_incvel)
     {
-        LOG << "Inference using Fermi model" << endl;
-        LOG << "alpha=" << alpha << " ,beta=" << beta << endl;
+        flowvel = params(m_num_ti_params*m_ntis + 2);
     }
-    else if (modfn == "mat")
-    {
-        LOG << "Inference using numerical modulation function" << endl;
-        LOG << "File is: " << modmatstring << endl;
-    }
-    else
-    {
-        throw invalid_argument("Unrecognised modulation function");
-    }
-}
 
-void MultiPhaseASLFwdModel::NameParams(vector<string> &names) const
-{
-    names.clear();
-
-    names.push_back("mag");
-    names.push_back("phase");
-    names.push_back("offset");
-    if (incvel)
+    // Loop over TIs and phases to create result including repeated measurements
+    int nn = m_nphases * m_repeats * m_ntis;
+    result.ReSize(nn);
+    for (int t=0; t<m_ntis; t++) 
     {
-        names.push_back("vel");
+        for (int p=1; p<=m_nphases; p++)
+        {
+            double evalfunc = 0;
+
+            // Extract the measurement phase from list, apply offset and convert
+            // to radians. Force range to -180 -> 180 / -pi -> pi
+            double phase_meas_deg = m_phases_deg(p);
+            double phase_actual_deg = phase_meas_deg - phase_off_deg(t+1);
+            while (phase_actual_deg < -180) phase_actual_deg += 360;
+            while (phase_actual_deg > 180) phase_actual_deg -= 360;
+            double phase_actual_rad = phase_actual_deg * M_PI / 180;
+            if (m_modfn == "fermi")
+            {
+                // Use the Fermi modulation function
+                // Note using the given values requires phases here to be in degrees
+                evalfunc = mag(t+1) * (-2 / (1 + exp((abs(phase_actual_deg) - m_alpha) / m_beta)))
+                    + offset(t+1);
+            }
+            else if (m_modfn == "mat")
+            {
+                // Evaluation modulation function from interpolation of values
+                // FIXME range of phase values: 0 to 2pi or -pi to pi???
+                evalfunc = mag(t+1) * (mod_fn(phase_actual_rad, flowvel)) + offset(t+1);
+            }
+
+            // Write the same output for each of the repeats 
+            for (int r=0; r<m_repeats; r++)
+            {
+                result(t*m_repeats*m_nphases + r*m_nphases + p) = evalfunc;
+            }
+        }
     }
 }
 
@@ -338,38 +341,38 @@ double MultiPhaseASLFwdModel::mod_fn(const double inphase, const double v) const
     // ** end old
 
     // bilinear interpolation
-    if (v >= vmax)
+    if (v >= m_mod_vmax)
     {
-        ColumnVector usecolumn = mod_mat.Column(nvelpts);
-        ans = interp(mod_phase, usecolumn, phase);
+        ColumnVector usecolumn = m_mod_mat.Column(m_mod_nvelpts);
+        ans = interp(m_mod_phase, usecolumn, phase);
     }
-    else if (v <= vmin)
+    else if (v <= m_mod_vmin)
     {
-        ColumnVector usecolumn = mod_mat.Column(1);
-        ans = interp(mod_phase, usecolumn, phase);
+        ColumnVector usecolumn = m_mod_mat.Column(1);
+        ans = interp(m_mod_phase, usecolumn, phase);
     }
     else
     {
         int ind = 1;
-        while (v >= mod_v(ind))
+        while (v >= m_mod_v(ind))
             ind++;
 
-        ColumnVector usecolumn = mod_mat.Column(ind - 1);
-        double mod_l = interp(mod_phase, usecolumn, phase);
-        ColumnVector usecolumn2 = mod_mat.Column(ind);
-        double mod_u = interp(mod_phase, usecolumn2, phase);
-        ans = mod_l + (v - mod_v(ind - 1)) / (mod_v(ind) - mod_v(ind - 1)) * (mod_u - mod_l);
+        ColumnVector usecolumn = m_mod_mat.Column(ind - 1);
+        double mod_l = interp(m_mod_phase, usecolumn, phase);
+        ColumnVector usecolumn2 = m_mod_mat.Column(ind);
+        double mod_u = interp(m_mod_phase, usecolumn2, phase);
+        ans = mod_l + (v - m_mod_v(ind - 1)) / (m_mod_v(ind) - m_mod_v(ind - 1)) * (mod_u - mod_l);
     }
 
     return ans;
 }
 
-double MultiPhaseASLFwdModel::interp(
-    const ColumnVector &x, const ColumnVector &y, const double xi) const
 // Look-up function for data table defined by x, y
 // Returns the values yi at xi using linear interpolation
 // Assumes that x is sorted in ascending order
 // ? could be replaced my MISCMATHS:interp1 ?
+double MultiPhaseASLFwdModel::interp(
+    const ColumnVector &x, const ColumnVector &y, const double xi) const
 {
     double ans;
     if (xi >= x.Maximum())
@@ -386,3 +389,8 @@ double MultiPhaseASLFwdModel::interp(
     }
     return ans;
 }
+
+FwdModel *MultiPhaseASLFwdModel::NewInstance() { return new MultiPhaseASLFwdModel(); }
+
+FactoryRegistration<FwdModelFactory, MultiPhaseASLFwdModel> MultiPhaseASLFwdModel::registration(
+    "asl_multiphase");

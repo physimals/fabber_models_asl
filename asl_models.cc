@@ -17,10 +17,12 @@
 #include "fwdmodel_asl_quasar.h"
 #include "fwdmodel_asl_rest.h"
 #include "fwdmodel_asl_satrecov.h"
+#include "fwdmodel_asl_satrecovdualfa.h"
 #include "fwdmodel_asl_turboquasar.h"
+#include "fwdmodel_asl_multite.h"
 
 extern "C" {
-int CALL get_num_models() { return 7; }
+int CALL get_num_models() { return 8; }
 const char *CALL get_model_name(int index)
 {
     switch (index)
@@ -45,6 +47,9 @@ const char *CALL get_model_name(int index)
         break;
     case 6:
         return "satrecov";
+        break;
+    case 7:
+        return "multite";
         break;
     default:
         return NULL;
@@ -80,6 +85,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     if (string(name) == "satrecov")
     {
         return SatrecovFwdModel::NewInstance;
+    }
+    if (string(name) == "multite")
+    {
+        return multiTEFwdModel::NewInstance;
     }
     else
     {

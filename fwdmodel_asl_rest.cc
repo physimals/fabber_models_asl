@@ -592,18 +592,18 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
                     posterior.means(bat_index() + wmidx) = tissbatinit + 0.3;
                 }
             }
-        }
-        else if (bat_init != "")
-        {
-            double bat_post = atof(bat_init.c_str());
-            if (bat_post > 0)
+            else if (bat_init != "")
             {
-                posterior.means(bat_index()) = bat_post;
-            }
-            else
-            {
-                throw InvalidOptionValue(
-                    "bat-init", bat_init, "Must be 'step', 'max' or a number > 0");
+                double bat_post = atof(bat_init.c_str());
+                if (bat_post > 0)
+                {
+                    posterior.means(bat_index()) = bat_post;
+                }
+                else
+                {
+                    throw InvalidOptionValue(
+                        "bat-init", bat_init, "Must be 'step', 'max' or a number > 0");
+                }
             }
         }
     }
@@ -998,9 +998,8 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
         }
     }
 
-    if (result.Nrows() != data.Nrows())
+    if ((key != "aif") && (result.Nrows() != data.Nrows()))
     {
-        //        string reason =
         throw InvalidOptionValue("num volumes", stringify(data.Nrows()),
             "Expected " + stringify(result.Nrows()) + " volumes - check the number of repeats/TIs");
     }

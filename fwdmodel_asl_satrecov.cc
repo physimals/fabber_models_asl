@@ -127,8 +127,11 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
 
     float g = 1.0;
     if (m_lfa_on) g = paramcpy(4);
-    float FA = (g + m_dg) * m_fa;
-    float lFA = (g + m_dg) * m_lfa;
+
+    // Duo flip angle correction
+    // Details refer to Moss's Turbo QUASAR methodology paper or Esben's thesis p122
+    float FA = g * m_fa;
+    float lFA = (g + m_dg) * m_lfa; // dg only corrects for the low flip angle.
 
     float T1tp = T1t;
     float M0tp = M0t;

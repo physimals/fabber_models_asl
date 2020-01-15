@@ -14,12 +14,14 @@ FSLDIR = os.environ["FSLDIR"]
 sys.path.insert(0, FSLDIR + "/lib/python")
 from fabber import self_test
 
+pi = 3.141592654
+
 TEST_DATA = {
     "asl_multiphase" : [
-        {"repeats" : 1, "nph" : 8, "modfn" : "fermi", "alpha" : 66, "beta" : 21}, # Model options
-        {"mag" : [10, 20, 40, 80, 160, 320],
-         "phase" : [0, 0.1, 0.2, 0.3, 0.4, 0.5],
-         "offset" : [500, 1000, 1500, 2000]}, # Parameter values - at most 3 can vary
+        {"repeats" : 1, "nph" : 8, "modfn" : "fermi", "alpha" : 55, "beta" : 12}, # Model options
+        {"mag" : [100, 200, 400],
+         "phase" : [-pi, -pi/2, -pi/4, 0, pi/4, pi/2, pi],
+         "offset" : [500, 1000]}, # Parameter values - at most 3 can vary
         {"nt" : 8} # Other options
     ]
 }
@@ -27,7 +29,7 @@ TEST_DATA = {
 try:
     for model, test_data in TEST_DATA.items():
         rundata, params, kwargs = test_data
-        self_test(model, rundata, params, noise=0.01, **kwargs)
+        ret = self_test(model, rundata, params, noise=50, patchsize=10, save_input=True, save_output=True, **kwargs)
 except:
     traceback.print_exc()
 

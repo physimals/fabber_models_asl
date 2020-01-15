@@ -1,70 +1,83 @@
-/*  fwdmodel_asl_multiphase.h -
-
- Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
-
- Copyright (C) 2013 University of Oxford  */
+/**
+ * fwdmodel_asl_multiphase.h
+ *
+ * Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
+ *
+ * Copyright (C) 2013 University of Oxford  
+ */
 
 /*  CCOPYRIGHT */
 
-#ifndef __FABBER_ASL_MULTIPHASE_FWDMODEL_H
-#define __FABBER_ASL_MULTIPHASE_FWDMODEL_H 1
+#pragma once
 
-#include "fabber_core/fwdmodel.h"
-#include "fabber_core/inference.h"
+#include <fabber_core/fwdmodel.h>
+
+#include <newmat.h>
+
 #include <string>
-
-using namespace std;
+#include <vector>
 
 class MultiPhaseASLFwdModel : public FwdModel
 {
 public:
     static FwdModel *NewInstance();
 
-    // Virtual function overrides
-    virtual void Initialize(ArgsType &args);
-    virtual void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
-    virtual string ModelVersion() const;
-    virtual void GetOptions(vector<OptionSpec> &opts) const;
-    virtual string GetDescription() const;
-
-    virtual void NameParams(vector<string> &names) const;
-    virtual int NumParams() const { return 3 + (incvel ? 1 : 0); }
-    virtual ~MultiPhaseASLFwdModel() { return; }
-    virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;
-    virtual void InitParams(MVNDist &posterior) const;
-
-protected: // Constants
-    int repeats;
-
-    // phases in data
-    int nph;
-    NEWMAT::ColumnVector ph_list;
-
-    // modulation function
-    string modfn;
-
-    // inference options
-    bool incvel;
-    bool infervel;
-
-    // fermi function variables
-    double alpha;
-    double beta;
-
-    // modulation matrix
-    double mod_fn(const double inphase, const double v) const;
-    double interp(
-        const NEWMAT::ColumnVector &x, const NEWMAT::ColumnVector &y, const double xi) const;
-    NEWMAT::Matrix mod_mat;
-    NEWMAT::ColumnVector mod_phase;
-    NEWMAT::ColumnVector mod_v;
-    double vmax;
-    double vmin;
-    int nvelpts;
+    std::string ModelVersion() const;
+    void GetOptions(std::vector<OptionSpec> &opts) const;
+    std::string GetDescription() const;
+    void Initialize(ArgsType &args);
+    void GetParameterDefaults(std::vector<Parameter> &params) const;
+    void InitVoxelPosterior(MVNDist &posterior) const;
+    
+    void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
 
 private:
-    /** Auto-register with forward model factory. */
+    // Number of repeats in the data. Phases are assumed to be fastest varying
+    int m_repeats;
+
+    // Number of TIs in the data. Data for a given TI/PLD (including all phases and 
+    // repeats) is assumed to be blocked within the data
+    int m_ntis;
+
+    // Number of parameters inferred for each TI - 2 normally (magnitude + offset)
+    // but can be 3 if m_multi_phase_offsets is true
+    int m_num_ti_params;
+
+    // Number of phases in data. If phase list not provided these are assumed to 
+    // be evenly spaced between 0 and 360
+    int m_nphases;
+
+    // If true, each TI/PLD has its own phase offset parameter
+    bool m_multi_phase_offsets;
+
+    // Explicitly provided list of phases in degrees
+    NEWMAT::ColumnVector m_phases_deg;
+
+    // Inference options
+    bool m_incvel;
+    bool m_infervel;
+
+    // Name of modulation function
+    std::string m_modfn;
+
+    // Fermi function variables
+    double m_alpha;
+    double m_beta;
+
+    // Modulation function data, used when m_modfn='mat'
+    NEWMAT::Matrix m_mod_mat;
+    NEWMAT::ColumnVector m_mod_phase;
+    NEWMAT::ColumnVector m_mod_v;
+    int m_mod_nvelpts;
+    double m_mod_vmax;
+    double m_mod_vmin;
+
+    // Calculate the modulation function, used when m_modfn='mat'
+    double mod_fn(const double inphase, const double v) const;
+
+    // Basic linear interpolation function
+    double interp(const NEWMAT::ColumnVector &x, const NEWMAT::ColumnVector &y, const double xi) const;
+
+    // Auto-register with forward model factory
     static FactoryRegistration<FwdModelFactory, MultiPhaseASLFwdModel> registration;
 };
-
-#endif //__FABBER_ASL_MULTIPHASE_FWDMODEL_H

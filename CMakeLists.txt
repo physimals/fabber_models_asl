@@ -9,8 +9,8 @@ endif(APPLE)
 
 set(MODELS_NAME asl)
 set(MODELS_SRC fwdmodel_asl_rest.cc fwdmodel_asl_grase.cc fwdmodel_asl_multiphase.cc 
-               fwdmodel_asl_quasar.cc fwdmodel_asl_satrecov.cc fwdmodel_asl_turboquasar.cc
-               fwdmodel_asl_2compartment.cc asl_models.cc)
+               fwdmodel_asl_quasar.cc fwdmodel_asl_satrecov.cc fwdmodel_asl_satrecovdualfa.cc  fwdmodel_asl_turboquasar.cc
+               fwdmodel_asl_2compartment.cc fwdmodel_asl_multite.cc asl_models.cc)
 
 add_library(fabber_models_${MODELS_NAME} SHARED ${MODELS_SRC})
 add_executable(fabber_${MODELS_NAME} ${MODELS_SRC} fabber_client.cc)
