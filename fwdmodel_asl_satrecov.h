@@ -43,10 +43,13 @@ protected:
     double m_dti;
 
     /** Number of repeats at each TI */
-    int m_repeats;
+    vector<int> m_repeats;
 
     /** Time between slices in ms */
     double m_slicedt;
+
+    /** Number of slices per band */
+    int m_sliceband;
 
     /** Number of phases */
     int m_nphases;

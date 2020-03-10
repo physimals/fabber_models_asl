@@ -27,9 +27,11 @@ FwdModel *SatrecovFwdModel::NewInstance() { return new SatrecovFwdModel(); }
 
 static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data", OPT_NONREQ, "1" },
+    { "rpt<n>", OPT_INT, "Number of repeats in data - varying by TI", OPT_NONREQ, "1" },
     { "t1", OPT_FLOAT, "T1 value (s)", OPT_NONREQ, "1.3" },
     { "phases", OPT_INT, "Number of phases", OPT_NONREQ, "1" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice", OPT_NONREQ, "0.0" },
+    { "sliceband", OPT_INT, "Number of slices per band for multiband readouts", OPT_NONREQ, "1" },
     { "fixa", OPT_BOOL, "Fix the A parameter where it will be ambiguous", OPT_NONREQ, "" },
     { "FA", OPT_FLOAT, "Flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
     { "m_lfa", OPT_FLOAT, "Low flip angle in degrees for Look-Locker readout", OPT_NONREQ, "0" },
@@ -65,10 +67,30 @@ void SatrecovFwdModel::Initialize(ArgsType &args)
 {
     // Basic acquisition parameters
     m_tis = args.GetDoubleList("ti", 0);
-    m_repeats = args.GetIntDefault("repeats", 1);
     m_t1 = args.GetDoubleDefault("t1", 1.3);
     m_nphases = args.GetIntDefault("phases", 1);
     m_slicedt = args.GetDoubleDefault("slicedt", 0);
+    m_sliceband = args.GetIntDefault("sliceband", 1);
+
+    // Repeats - may be single repeat or multiple (one per T)
+    if (args.HaveKey("rpt1"))
+    {
+        // Multiple repeats have been specified
+        m_repeats = args.GetIntList("rpt");
+        if (m_repeats.size() != m_tis.size())
+        {
+            throw InvalidOptionValue("Number of repeats", stringify(m_repeats.size()),
+                "Mismatch between number of TIs and variable repeats - should be equal");
+        }
+    }
+    else
+    {
+        // Multiple repeats not specified - use single value defaulting to 1
+        for (unsigned int it = 0; it < m_tis.size(); it++)
+        {
+            m_repeats.push_back(args.GetIntDefault("repeats", 1));
+        }
+    }
 
     // Assuming even sampling - this only applies to LL acquisitions
     if (m_tis.size() < 2) throw InvalidOptionValue("Number of TIs", stringify(m_tis.size()), "Need at least 2 TIs");
@@ -144,42 +166,50 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
         M0tp = M0t * (1 - exp(-m_dti / T1t)) / (1 - cos(FA) * exp(-m_dti / T1t));
     }
 
-    if (m_lfa_on)
-        result.ReSize(m_tis.size() * (m_nphases + 1) * m_repeats);
-    else
-        result.ReSize(m_tis.size() * m_nphases * m_repeats);
+    int nti = m_tis.size();
+    int total_repeats = 0;
+    for (int it = 0; it < nti; it++)
+    {
+        if (m_lfa_on)
+            total_repeats += m_repeats[it];
+        else
+            total_repeats += m_repeats[it];
+    }
 
+    if (m_lfa_on)
+        result.ReSize(total_repeats * m_nphases);
+    else
+        result.ReSize(total_repeats * (m_nphases+1));
+    
     if (result.Nrows() != data.Nrows()) throw InvalidOptionValue("ti<n>", stringify(result.Nrows()), string("Number of TIs/repeats does not match number of volumes in data: ") + stringify(data.Nrows()));
 
-    int nti = m_tis.size();
+    int tpt = 1;
     for (int ph = 1; ph <= m_nphases; ph++)
     {
         for (int it = 0; it < nti; it++)
         {
-            for (int rpt = 1; rpt <= m_repeats; rpt++)
+            for (int rpt = 1; rpt <= m_repeats[it]; rpt++)
             {
-                double ti = m_tis[it] + m_slicedt * coord_z;
-                result((ph - 1) * (nti * m_repeats) + it * m_repeats + rpt)
-                    = M0tp * (1 - A * exp(-ti / T1tp));
+                double ti = m_tis[it] + m_slicedt * (coord_z % m_sliceband);
+                result[tpt] = M0tp * (1 - A * exp(-ti / T1tp));
+                tpt++;
             }
         }
     }
 
     if (m_lfa_on)
     {
-        int ph = m_nphases + 1;
         T1tp = 1 / (1 / T1t - log(cos(lFA)) / m_dti);
         M0tp = M0t * (1 - exp(-m_dti / T1t)) / (1 - cos(lFA) * exp(-m_dti / T1t));
         for (int it = 0; it < nti; it++)
         {
-            for (int rpt = 1; rpt <= m_repeats; rpt++)
+            for (int rpt = 1; rpt <= m_repeats[it]; rpt++)
             {
-                // slicedt accounts for increase in delay between slices
-                double ti = m_tis[it] + m_slicedt * coord_z;
+                // slicedt accounts for increase in delay between slices (modulo sliceband)
+                double ti = m_tis[it] + m_slicedt * (coord_z % m_sliceband);
                 // Note the sin(m_lfa)/sin(FA) term since the M0 we estimate is
                 // actually MOt*sin(FA)
-                result((ph - 1) * (nti * m_repeats) + it * m_repeats + rpt)
-                    = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(-m_tis[it] / T1tp));
+                result(tpt) = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(ti / T1tp));
             }
         }
     }
