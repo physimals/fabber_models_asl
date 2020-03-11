@@ -170,16 +170,13 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
     int total_repeats = 0;
     for (int it = 0; it < nti; it++)
     {
-        if (m_lfa_on)
-            total_repeats += m_repeats[it];
-        else
-            total_repeats += m_repeats[it];
+        total_repeats += m_repeats[it];
     }
 
     if (m_lfa_on)
-        result.ReSize(total_repeats * m_nphases);
-    else
         result.ReSize(total_repeats * (m_nphases+1));
+    else
+        result.ReSize(total_repeats * m_nphases);
     
     if (result.Nrows() != data.Nrows()) throw InvalidOptionValue("ti<n>", stringify(result.Nrows()), string("Number of TIs/repeats does not match number of volumes in data: ") + stringify(data.Nrows()));
 
@@ -191,7 +188,7 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
             for (int rpt = 1; rpt <= m_repeats[it]; rpt++)
             {
                 double ti = m_tis[it] + m_slicedt * (coord_z % m_sliceband);
-                result[tpt] = M0tp * (1 - A * exp(-ti / T1tp));
+                result(tpt) = M0tp * (1 - A * exp(-ti / T1tp));
                 tpt++;
             }
         }
@@ -210,6 +207,7 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
                 // Note the sin(m_lfa)/sin(FA) term since the M0 we estimate is
                 // actually MOt*sin(FA)
                 result(tpt) = M0tp * sin(lFA) / sin(FA) * (1 - A * exp(ti / T1tp));
+                tpt++;
             }
         }
     }
