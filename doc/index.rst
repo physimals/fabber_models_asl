@@ -60,6 +60,13 @@ This model is intended for processing data from the Turbo-QUASAR ASL sequence.
 
 This model is selected using ``--model=turboquasar``.
 
+The Velocity-selective model
+~~~~~~~~~~~~~~~~~~~~~~
+
+This model is intended for processing data from the Velocity Selective ASL sequence.
+
+This model is selected using ``--model=velocity_selective``.
+
 The Saturation-Recovery model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

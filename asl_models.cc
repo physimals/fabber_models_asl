@@ -20,6 +20,7 @@
 #include "fwdmodel_asl_satrecovdualfa.h"
 #include "fwdmodel_asl_turboquasar.h"
 #include "fwdmodel_asl_multite.h"
+#include "fwdmodel_asl_velocityselective.h"
 
 extern "C" {
 int CALL get_num_models() { return 8; }
@@ -50,6 +51,9 @@ const char *CALL get_model_name(int index)
         break;
     case 7:
         return "multite";
+        break;
+    case 8:
+        return "velocity_selective";
         break;
     default:
         return NULL;
@@ -89,6 +93,10 @@ NewInstanceFptr CALL get_new_instance_func(const char *name)
     if (string(name) == "multite")
     {
         return multiTEFwdModel::NewInstance;
+    }
+    if (string(name) == "velocity_selective")
+    {
+        return VelocitySelectiveFwdModel::NewInstance;
     }
     else
     {
