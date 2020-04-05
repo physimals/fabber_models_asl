@@ -41,11 +41,11 @@ string VelocitySelectiveFwdModel::ModelVersion() const
 }
 
 static OptionSpec OPTIONS[] = {
-    { "tau", OPT_FLOAT, "Bolus duration in seconds.", OPT_REQ, "" },
-    { "repeats", OPT_INT, "Number of repeats in data.", OPT_REQ, "" },
+    { "tau", OPT_FLOAT, "Bolus duration in seconds. GE DATA DICOM field <Private_0043_10a5>", OPT_REQ, "1.59" },
+    { "repeats", OPT_INT, "Number of repeats in data.", OPT_REQ, "1" },
     { "t1b", OPT_FLOAT, "T1 blood value in seconds.", OPT_NONREQ, "1.65" },
-    { "slicedt", OPT_FLOAT, "Increase in TI per slice.", OPT_NONREQ, "0.0" },
-    { "ti<n>", OPT_FLOAT, "List of TI values in seconds. Note: this should be the time between labeling and imaging. DICOM field <XX> of GE's VS ASL data.", OPT_NONREQ, "" },
+    { "slicedt", OPT_FLOAT, "Increase in TI per slice.", OPT_NONREQ, "0" },
+    { "ti<n>", OPT_FLOAT, "List of TI values in seconds. Note: this should be the time between labeling and imaging. DICOM field <InversionTime> of GE's VS ASL data.", OPT_NONREQ, "" },
     { "predelay", OPT_FLOAT, "Predelay time in seconds. This should be a user defined variable during scanning.", OPT_NONREQ, "1.9" },
     { "tissoff", OPT_BOOL, "Turn off tissue CPT. Not advised to use", OPT_NONREQ, "" },
     { "" },
@@ -262,6 +262,8 @@ ColumnVector VelocitySelectiveFwdModel::kctissue_model(double ftiss, const Colum
     kctissue = 0.0;
 
     // VS ASL uses saturation to in the labeling pulse, thus it is a 90 degree inversion so we don't need to 'times 2' in the model
+    // The predelay component is to account for the time that between the readout and next inversion
+    // Ref: Figure 1 in Perfusion imaging using FAIR with a short predelay, Jinyuan Zhou, 1999
     for (int it = 1; it <= tis.Nrows(); it++) {
         kctissue(it) = ftiss * tau * exp((-1) * tis(it)/ T_1b) * (1 - exp((-1) * predelay / T_1b));
     }
