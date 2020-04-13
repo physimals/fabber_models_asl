@@ -50,6 +50,8 @@ protected:
     double predelay_initial; // User set variatio typically found in one of the CV values in the scanner. Range should be around 2 secs
     double t1b_initial; // We only need T1 of blood in VS ASL model
     double slicedt_initial; // GE uses spiral readout so this value is zero by default
+    double t2b_initial;
+    double te_initial;
 
     // Decision to infer tissue component. Default true.
     bool infertiss;
@@ -57,7 +59,7 @@ protected:
     NEWMAT::ColumnVector tis;  // Currently only support a single TI VS ASL
 
     // kinetic curve functions
-    NEWMAT::ColumnVector kctissue_model(double ftiss, const NEWMAT::ColumnVector &tis, double tau, double T_1b, double predelay) const;
+    NEWMAT::ColumnVector kctissue_model(double ftiss, const NEWMAT::ColumnVector &tis, double tau, double T_1b, double predelay, double te, double T_2b) const;
 
 private:
     /** Auto-register with forward model factory. */

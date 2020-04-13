@@ -45,6 +45,11 @@ static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data.", OPT_REQ, "1" },
     { "t1b", OPT_FLOAT, "T1 blood value in seconds.", OPT_NONREQ, "1.65" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice.", OPT_NONREQ, "0" },
+    { "t2b", OPT_FLOAT, "T2 blood value in seconds.", OPT_NONREQ, "0.116" }, //J. Zhao et al 2007 MRM, with Hct=0.44 and SatO2=0.99, more suitable for the labeling pulse
+    //In GE's raw header file:
+    //effective_te=header.RawHeader.echotimes(1) - header.RawHeader.te/1e6
+    //effective_te=0.0360-0.010704
+    { "te", OPT_FLOAT, "Effective TE in seconds. Note:In GE's raw header file, effective_te=header.RawHeader.echotimes(1) - header.RawHeader.te/1e6", OPT_NONREQ, "0.0253" },
     { "ti<n>", OPT_FLOAT, "List of TI values in seconds. Note: this should be the time between labeling and imaging. DICOM field <InversionTime> of GE's VS ASL data.", OPT_NONREQ, "" },
     { "predelay", OPT_FLOAT, "Predelay time in seconds. This should be a user defined variable during scanning.", OPT_NONREQ, "1.9" },
     { "tissoff", OPT_BOOL, "Turn off tissue CPT. Not advised to use", OPT_NONREQ, "" },
@@ -73,6 +78,8 @@ void VelocitySelectiveFwdModel::Initialize(ArgsType &args)
     predelay_initial = convertTo<double>(args.ReadWithDefault("predelay", "1.9"));
     tau_initial = convertTo<double>(args.ReadWithDefault("tau", "1.59"));
     slicedt_initial = convertTo<double>(args.ReadWithDefault("slicedt", "0"));
+    te_initial = convertTo<double>(args.ReadWithDefault("te", "0.0253"));
+    t2b_initial = convertTo<double>(args.ReadWithDefault("t2b", "0.116"));
 
     // special - turn off tissue cpt
     infertiss = true;
@@ -102,7 +109,9 @@ void VelocitySelectiveFwdModel::Initialize(ArgsType &args)
     LOG << "    Data parameters: #repeats = " << repeats_initial
         //<< ", t1 = " << t1
         << ", t1b = " << t1b_initial
-        << ", predelay = " << predelay_initial;
+        << ", predelay = " << predelay_initial
+        << ", t2b = " << t2b_initial
+        << ", te = " << te_initial;
     LOG << ", bolus length (tau) = " << tau_initial << endl;
     if (infertiss)
     {
@@ -198,6 +207,10 @@ void VelocitySelectiveFwdModel::Evaluate(const ColumnVector &params, ColumnVecto
     double the_T_1b = t1b_initial;
     // sequence parameter T_1b - we copy them from the user proivded values
     double the_predelay = predelay_initial; 
+     // sequence parameter T_1b - we copy them from the user proivded values
+    double the_te = te_initial; 
+    // sequence parameter T_1b - we copy them from the user proivded values
+    double the_T_2b = t2b_initial;    
 
 
     /*****************************/
@@ -209,7 +222,7 @@ void VelocitySelectiveFwdModel::Evaluate(const ColumnVector &params, ColumnVecto
     kctissue = 0.0;
 
     if (infertiss) {
-        kctissue = kctissue_model(ftiss, the_tis, the_tau, the_T_1b, the_predelay);
+        kctissue = kctissue_model(ftiss, the_tis, the_tau, the_T_1b, the_predelay, the_te, the_T_2b);
     }
 
     // Nan catching
@@ -255,17 +268,21 @@ void VelocitySelectiveFwdModel::Evaluate(const ColumnVector &params, ColumnVecto
 
 // --- Kinetic curve functions ---
 // Reference: Eric Wong, 2006. https://onlinelibrary.wiley.com/doi/full/10.1002/mrm.20906
-// We need to replace the TE part of the equation of this paper with the predelay
-ColumnVector VelocitySelectiveFwdModel::kctissue_model(double ftiss, const ColumnVector &tis, double tau, double T_1b, double predelay) const {
+ColumnVector VelocitySelectiveFwdModel::kctissue_model(double ftiss, const ColumnVector &tis, double tau, double T_1b, double predelay, double te, double T_2b) const {
 
     ColumnVector kctissue(tis.Nrows());
     kctissue = 0.0;
+
+    // Perfusion quantification equation of Wong's 2006 paper 
+    double alpha = exp((-1) * te / T_2b);
+    double M_ZB = alpha * (1 - exp((-1) * predelay / T_1b));
 
     // VS ASL uses saturation to in the labeling pulse, thus it is a 90 degree inversion so we don't need to 'times 2' in the model
     // The predelay component is to account for the time that between the readout and next inversion
     // Ref: Figure 1 in Perfusion imaging using FAIR with a short predelay, Jinyuan Zhou, 1999
     for (int it = 1; it <= tis.Nrows(); it++) {
-        kctissue(it) = ftiss * tau * exp((-1) * tis(it)/ T_1b) * (1 - exp((-1) * predelay / T_1b));
+
+        kctissue(it) = M_ZB * ftiss * tau * exp((-1) * tis(it)/ T_1b) * exp((-1) * te / T_2b);
     }
 
     return kctissue;
