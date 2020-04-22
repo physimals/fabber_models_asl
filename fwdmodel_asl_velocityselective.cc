@@ -45,7 +45,7 @@ static OptionSpec OPTIONS[] = {
     { "repeats", OPT_INT, "Number of repeats in data.", OPT_REQ, "1" },
     { "t1b", OPT_FLOAT, "T1 blood value in seconds.", OPT_NONREQ, "1.65" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice.", OPT_NONREQ, "0" },
-    { "t2b", OPT_FLOAT, "T2 blood value in seconds.", OPT_NONREQ, "0.116" }, //J. Zhao et al 2007 MRM, with Hct=0.44 and SatO2=0.99, more suitable for the labeling pulse
+    { "t2b", OPT_FLOAT, "T2 blood value in seconds.", OPT_NONREQ, "0.122" }, //J. Zhao et al 2007 MRM, with Hct=0.44 and SatO2=0.99, more suitable for the labeling pulse
     //In GE's raw header file:
     //effective_te=header.RawHeader.echotimes(1) - header.RawHeader.te/1e6
     //effective_te=0.0360-0.010704
@@ -79,7 +79,7 @@ void VelocitySelectiveFwdModel::Initialize(ArgsType &args)
     tau_initial = convertTo<double>(args.ReadWithDefault("tau", "1.59"));
     slicedt_initial = convertTo<double>(args.ReadWithDefault("slicedt", "0"));
     te_initial = convertTo<double>(args.ReadWithDefault("te", "0.0253"));
-    t2b_initial = convertTo<double>(args.ReadWithDefault("t2b", "0.116"));
+    t2b_initial = convertTo<double>(args.ReadWithDefault("t2b", "0.122"));
 
     // special - turn off tissue cpt
     infertiss = true;
