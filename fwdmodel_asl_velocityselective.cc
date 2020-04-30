@@ -274,15 +274,20 @@ ColumnVector VelocitySelectiveFwdModel::kctissue_model(double ftiss, const Colum
     kctissue = 0.0;
 
     // Perfusion quantification equation of Wong's 2006 paper 
-    double alpha = exp((-1) * te / T_2b);
-    double M_ZB = alpha * (1 - exp((-1) * predelay / T_1b));
+    //double alpha = exp((-1) * te / T_2b);
+    //double M_ZB = alpha * (1 - exp((-1) * predelay / T_1b));
+    //double M_ZB = (1 - exp((-1) * predelay / T_1b));
 
     // VS ASL uses saturation to in the labeling pulse, thus it is a 90 degree inversion so we don't need to 'times 2' in the model
     // The predelay component is to account for the time that between the readout and next inversion
     // Ref: Figure 1 in Perfusion imaging using FAIR with a short predelay, Jinyuan Zhou, 1999
     for (int it = 1; it <= tis.Nrows(); it++) {
 
-        kctissue(it) = M_ZB * ftiss * tau * exp((-1) * tis(it)/ T_1b) * exp((-1) * te / T_2b);
+        //kctissue(it) = M_ZB * ftiss * tau * exp((-1) * tis(it)/ T_1b) * exp((-1) * te / T_2b);
+        //kctissue(it) = M_ZB * ftiss * tau * exp((-1) * tis(it)/ T_1b);
+        // Currently we ignore the pre-delay part and handles it in the VISTA script
+        // This is the CBF equation in Eric Wong's paper in 2006
+        kctissue(it) = ftiss * tau * exp((-1) * tis(it)/ T_1b) * exp((-1) * te / T_2b);
     }
 
     return kctissue;
