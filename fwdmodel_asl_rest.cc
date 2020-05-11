@@ -69,6 +69,7 @@ static OptionSpec OPTIONS[] = {
     { "pretisat", OPT_FLOAT, "Deal with saturation of the bolus a fixed time pre TI measurement",
         OPT_NONREQ, "0.0" },
     { "slicedt", OPT_FLOAT, "Increase in TI per slice (s)", OPT_NONREQ, "0.0" },
+    { "sliceband", OPT_INT, "Number of slices per band for multiband readouts", OPT_NONREQ, "1" },
     { "casl", OPT_BOOL, "Data is CASL (not PASL)", OPT_NONREQ, "PASL" },
     { "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
     { "batwm", OPT_FLOAT, "Bolus arrival time (white matter)", OPT_NONREQ, "bat+0.3" },
