@@ -89,6 +89,7 @@ static OptionSpec OPTIONS[] = {
     { "ti<n>", OPT_FLOAT, "List of TI values (s)", OPT_NONREQ, "" },
     { "pld", OPT_FLOAT, "Single PLD value (s)", OPT_NONREQ, "" },
     { "pld<n>", OPT_FLOAT, "List of PLD values (s)", OPT_NONREQ, "" },
+    { "tiimg", OPT_TIMESERIES, "4D volume containing the effective TI (s) at each voxel and for each volume", OPT_NONREQ, ""},
     { "hadamard", OPT_INT, "Number of Hadamard encoding lines", OPT_NONREQ, "0" },
     { "fullhad", OPT_BOOL, "Activate full Hadamard matrix", OPT_NONREQ, "" },
     { "tau", OPT_FLOAT, "Single tau value", OPT_NONREQ, "" },
@@ -533,6 +534,14 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             }
             else if (bat_init == "max")
             {
+                // Because this is a const method
+                ColumnVector tis_local;
+                if (have_tiimg)
+                    // Initialize tis from voxelwise image
+                    tis_local = tiimg.Column(voxel);
+                else
+                    tis_local = tis;
+
                 // Federico's method - Time of maximum signal minus the bolus duration (only for
                 // differenced data)
                 int ind;
@@ -541,12 +550,12 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
                 // Find the corresponding TI for this index
                 double ti = 0;
                 int idx = 1;
-                for (int ti_num = 1; ti_num <= tis.Nrows(); ti_num++)
+                for (int ti_num = 1; ti_num <= tis_local.Nrows(); ti_num++)
                 {
                     for (int rpt = 0; rpt < repeats[ti]; rpt++)
                     {
                         if (idx == ind)
-                            ti = tis(ti_num);
+                            ti = tis_local(ti_num);
                         idx++;
                     }
                 }
@@ -846,13 +855,21 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     double kcpcwm = 0.0;
     // Calcualte the Kinetic Model contirbutions at each TI
     // loop over tis
+    // We need a local copy of TIs as we need to set this each time
+    // when we have a voxelwise TI image and this method is declared const
+    ColumnVector tis_local;
+    if (have_tiimg)
+        tis_local = tiimg.Column(voxel);
+    else
+        tis_local = tis;
+
     double ti;
-    ColumnVector statcont(tis.Nrows()); // this stores the static tissue contribution at each TI
+    ColumnVector statcont(tis_local.Nrows()); // this stores the static tissue contribution at each TI
     statcont = 0.0;
-    ColumnVector kctotal(tis.Nrows()); // this stores the total kinetic signal contribution
+    ColumnVector kctotal(tis_local.Nrows()); // this stores the total kinetic signal contribution
     kctotal = 0.0;
 
-    for (int it = 1; it <= tis.Nrows(); it++)
+    for (int it = 1; it <= tis_local.Nrows(); it++)
     {
         // account here for an increase in the TI due to delays between slices
         int thisz = coord_z; // the slice number
@@ -866,7 +883,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
                                    // this band (lowest slice in volume for
                                    // normal (non multi-band) data)
         }
-        ti = tis(it) + slicedt * thisz; // calcualte the actual TI for this
+        ti = tis_local(it) + slicedt * thisz; // calcualte the actual TI for this
                                         // slice
         if (multitau)
         {
@@ -929,7 +946,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     // Assemble result
     if (key == "aif") 
     {
-        result.ReSize(tis.Nrows());
+        result.ReSize(tis_local.Nrows());
         int thisz = coord_z; // the slice number
         if (sliceband > 0)
         {
@@ -942,9 +959,9 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
                                    // normal (non multi-band) data)
         }
 
-        for (int it = 1; it <= tis.Nrows(); it++)
+        for (int it = 1; it <= tis_local.Nrows(); it++)
         {
-            ti = tis(it) + slicedt * thisz; // calcualte the actual TI for this
+            ti = tis_local(it) + slicedt * thisz; // calcualte the actual TI for this
             result(it) = art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
         }
     }
@@ -970,7 +987,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
         // ASL data - unstracted (raw)
         result.ReSize(2 * tpoints);
         int ent = 0;
-        for (int it = 1; it <= tis.Nrows(); it++)
+        for (int it = 1; it <= tis_local.Nrows(); it++)
         {
             // data is in blocks of repeated TIs
             // loop over the repeats
@@ -987,7 +1004,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
         // normal (differenced) ASL data
         result.ReSize(tpoints);
         int ent = 0;
-        for (int it = 1; it <= tis.Nrows(); it++)
+        for (int it = 1; it <= tis_local.Nrows(); it++)
         {
             // data is in blocks of repeated TIs
             // loop over the repeats
@@ -1159,6 +1176,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     pretisat = args.GetDoubleDefault("pretisat", 0);
 
     // Timing parameters (TIs / PLDs)
+    have_tiimg = false;
     vector<double> ti_list = args.GetDoubleList("ti");
     bool ti_set = (ti_list.size() >= 1);
     unsigned int num_times = ti_list.size();
@@ -1171,7 +1189,26 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (ti_set && pld_set)
         throw FabberRunDataError("Cannot specify TIs and PLDs at the same time");
     else if (num_times == 0)
-        throw FabberRunDataError("No TIs/PLDs specified");
+    {
+        if (!args.HaveKey("tiimg"))
+        {
+            throw FabberRunDataError("No TIs/PLDs specified");
+        }
+        else 
+        {
+            // A TI image is a voxelwise list of TIs. Note that this may be one
+            // per data volume (requiring repeats=1) or it may interact with
+            // the repeats in the normal way.
+            tiimg  = args.GetVoxelData("tiimg");
+            have_tiimg = true;
+            num_times = tiimg.Nrows();
+            if (slicedt != 0)
+            {
+                throw InvalidOptionValue("slicedt", stringify(slicedt),
+                                         "Can't specify slicedt when providing voxelwise TI image");
+            }
+        }
+    }
 
     // Repeats - may be single repeat or multiple (one per TI/PLD)
     if (args.HaveKey("rpt1"))
@@ -1250,6 +1287,11 @@ void ASLFwdModel::Initialize(ArgsType &args)
             throw InvalidOptionValue("Number of repeats", stringify(repeats.size()),
                 "Cannot specify more than one set of repeats with Hadmard encoding");
         }
+        if (have_tiimg)
+        {
+            throw InvalidOptionValue("TI image", stringify(num_times),
+                "Hadamard time encoding cannot be used with a voxelwise TI image");
+        }
         if (num_times != 1)
         {
             throw InvalidOptionValue("Number of TIs/PLDs", stringify(num_times),
@@ -1299,18 +1341,20 @@ void ASLFwdModel::Initialize(ArgsType &args)
     }
     else
     {
-        // normal ASL data
+        // normal ASL data. Note that if we have a TI image this
+        // code will leave the tis vector uninitialized - this is
+        // fine we will do it voxelwise in the Evaluate method
         tis.ReSize(num_times);
         if (ti_set)
         {
-            for (unsigned int i = 0; i < ti_list.size(); i++)
+            for (unsigned int i = 0; i < num_times; i++)
                 tis(i + 1) = ti_list[i];
         }
         if (pld_set)
         {
             if (casl)
             {
-                for (unsigned int i = 0; i < pld_list.size(); i++)
+                for (unsigned int i = 0; i < num_times; i++)
                 {
                     if (multitau)
                         tis(i + 1) = pld_list[i] + taus_list[i];
@@ -1321,21 +1365,21 @@ void ASLFwdModel::Initialize(ArgsType &args)
             else
             {
                 // unlikely to happen, but permits the user to supply PLDs for a pASL acquisition
-                for (unsigned int i = 0; i < pld_list.size(); i++)
+                for (unsigned int i = 0; i < num_times; i++)
                     tis(i + 1) = pld_list[i];
             }
         }
     }
 
     // Initialise BAT only if number of TIs > 1
-    if (tis.Nrows() == 1)
+    if (num_times == 1)
     {
         bat_init = "";
     }
 
     // Total number of time points in data
     tpoints = 0;
-    for (int it = 0; it < tis.Nrows(); it++)
+    for (int it = 0; it < num_times; it++)
     {
         if (repeats.size() > 1)
         {
@@ -1348,7 +1392,10 @@ void ASLFwdModel::Initialize(ArgsType &args)
     }
 
     // The final TI
-    timax = tis.Maximum();
+    if (have_tiimg)
+        timax = tiimg.Maximum();
+    else
+        timax = tis.Maximum();
 
     // Vascular crushing
     // FIXME use GetStringList
@@ -1358,9 +1405,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
 
     // If crush_temp = none then we assume all data has same crushing
     // parameters we will represent this as no crushers
-    crush.ReSize(tis.Nrows());
+    crush.ReSize(num_times);
     crush = 0.0; // default is no crusher
-    crushdir.ReSize(tis.Nrows(), 3);
+    crushdir.ReSize(num_times, 3);
     crushdir = 0.0;
     crushdir.Column(3) = 1.0; // default (which should remain ignored normally) is z-only
     if (crush_temp != "notsupplied")
@@ -1423,6 +1470,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
         // FA required in radians
         FA *= M_PI / 180;
         // NOTE LL correction is only valid with evenly spaced TIs
+        if (have_tiimg)
+        {
+            throw InvalidOptionValue("FA", FAin, "Look-locker correction cannot be used with voxelwise TI image");
+        }
+        if (num_times < 2)
+        {
+            throw InvalidOptionValue("FA", FAin, "Look-locker correction can only be used with >1 evenly spaced TIs");
+        }
         dti = tis(2) - tis(1);
     }
     // Indicate that we want to do FA correction - the g image will
@@ -1720,10 +1775,17 @@ void ASLFwdModel::Initialize(ArgsType &args)
     {
         LOG << "ARD has been set on arterial compartment " << endl;
     }
-    LOG << "TIs: ";
-    for (int i = 1; i <= tis.Nrows(); i++)
-        LOG << tis(i) << " ";
-    LOG << endl;
+    if (have_tiimg)
+    {
+        LOG << "Using voxelwise TI image" << endl;
+    }
+    else
+    {
+        LOG << "TIs: ";
+        for (int i = 1; i <= tis.Nrows(); i++)
+            LOG << tis(i) << " ";
+        LOG << endl;
+    }
 }
 
 void ASLFwdModel::NameParams(vector<string> &names) const
