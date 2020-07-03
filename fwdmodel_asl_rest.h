@@ -55,7 +55,6 @@ public:
 
     virtual void SetupARD(const MVNDist &posterior, MVNDist &prior, double &Fard) const;
     virtual void UpdateARD(const MVNDist &posterior, MVNDist &prior, double &Fard) const;
-    vector<int> ardindices;
 
 protected:
     // Constants
