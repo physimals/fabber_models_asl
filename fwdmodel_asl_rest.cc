@@ -1530,7 +1530,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     art_model = NULL;
     if (disptype == "none")
     {
-        art_model = new AIFModel_nodisp();
+        art_model = new AIFModel_nodisp(args.GetDoubleDefault("aif-leadscale", 0.01));
     }
     else if (disptype == "gamma")
     {
