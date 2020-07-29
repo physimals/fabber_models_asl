@@ -17,7 +17,8 @@ else
   NIFTILIB = -lNewNifti
 endif
 
-LIBS = -lnewimage -lmiscmaths -lutils -lprob ${MATLIB} ${NIFTILIB} -lznz -lz -ldl
+SURFACE_LIBS = -lfslsurface -lfslvtkio -lgiftiio -lmeshclass -lfirst_lib -lexpat
+LIBS = ${SURFACE_LIBS} -lnewimage -lmiscmaths -lutils -lprob ${MATLIB} ${NIFTILIB} -lznz -lz -ldl
 
 XFILES = fabber_asl
 
