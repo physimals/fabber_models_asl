@@ -1,25 +1,11 @@
 include ${FSLCONFDIR}/default.mk
 
 PROJNAME = fabber_asl
-
-USRINCFLAGS = -I${INC_NEWMAT} -I${INC_PROB} -I${INC_CPROB} -I${INC_BOOST} -I..
-USRLDFLAGS = -L${LIB_NEWMAT} -L${LIB_PROB} -L../fabber_core
-
-FSLVERSION= $(shell cat ${FSLDIR}/etc/fslversion | head -c 1)
-ifeq ($(FSLVERSION), 5) 
-  NIFTILIB = -lfslio -lniftiio 
-  MATLIB = -lnewmat
-else 
-  UNAME := $(shell uname -s)
-  ifeq ($(UNAME), Linux)
-    MATLIB = -lopenblas
-  endif
-  NIFTILIB = -lNewNifti
-endif
-
-LIBS = -lnewimage -lmiscmaths -lutils -lprob ${MATLIB} ${NIFTILIB} -lznz -lz -ldl
-
+LIBS = -lfsl-fabber_models_asl -lfsl-fabberexec -lfsl-fabbercore \
+       -lfsl-newimage -lfsl-miscmaths -lfsl-NewNifti -lfsl-utils \
+       -lfsl-cprob -lfsl-znz -ldl
 XFILES = fabber_asl
+SOFILES = libfsl-fabber_models_asl.so
 
 # Forward models
 OBJS =  fwdmodel_asl_multiphase.o fwdmodel_asl_grase.o asl_models.o fwdmodel_asl_rest.o \
@@ -38,14 +24,14 @@ CXXFLAGS += -DGIT_SHA1=\"${GIT_SHA1}\" -DGIT_DATE="\"${GIT_DATE}\""
 # Build
 #
 
-all:	${XFILES} libfabber_models_asl.a
+all: ${XFILES} ${SOFILES}
 
 # models in a library
-libfabber_models_asl.a : ${OBJS}
-	${AR} -r $@ ${OBJS}
+libfsl-fabber_models_asl.so : ${OBJS}
+	${CXX} ${CXXFLAGS} -shared -o $@ $^
 
 # fabber built from the FSL fabbercore library including the models specifieid in this project
-fabber_asl : fabber_client.o ${OBJS}
-	${CXX} ${CXXFLAGS} ${LDFLAGS} -o $@ $< ${OBJS} -lfabbercore -lfabberexec ${LIBS}
+fabber_asl : fabber_client.o libfsl-fabber_models_asl.so
+	${CXX} ${CXXFLAGS} -o $@ $< ${LDFLAGS}
 
 # DO NOT DELETE
