@@ -17,7 +17,7 @@
 
 /**
  * Fabber model for a saturation recovery calibration sequence
- * 
+ *
  * Supports normal saturation recovery and Look-Locker
  * acquisitions
  */
@@ -29,7 +29,7 @@ public:
     std::string ModelVersion() const;
     void GetOptions(std::vector<OptionSpec> &opts) const;
     std::string GetDescription() const;
-    
+
     void Initialize(FabberRunData &args);
     void EvaluateModel(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result,  const std::string &key="") const;
 

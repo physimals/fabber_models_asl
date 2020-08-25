@@ -625,7 +625,7 @@ void ASLFwdModel::GetOutputs(std::vector<std::string> &outputs) const
     outputs.push_back("aif");
 }
 
-void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params, 
+void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
                                 NEWMAT::ColumnVector &result,
                                 const std::string &key) const
 {
@@ -945,7 +945,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     }
 
     // Assemble result
-    if (key == "aif") 
+    if (key == "aif")
     {
         result.ReSize(tis_local.Nrows());
         int thisz = coord_z; // the slice number
@@ -966,7 +966,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
             result(it) = art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
         }
     }
-    else if (key != "") 
+    else if (key != "")
     {
         throw InvalidOptionValue("output name", key, "No such output supported");
     }
@@ -1195,7 +1195,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         {
             throw FabberRunDataError("No TIs/PLDs specified");
         }
-        else 
+        else
         {
             // A TI image is a voxelwise list of TIs. Note that this may be one
             // per data volume (requiring repeats=1) or it may interact with

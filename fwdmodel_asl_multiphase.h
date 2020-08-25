@@ -3,7 +3,7 @@
  *
  * Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
  *
- * Copyright (C) 2013 University of Oxford  
+ * Copyright (C) 2013 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -28,14 +28,14 @@ public:
     void Initialize(ArgsType &args);
     void GetParameterDefaults(std::vector<Parameter> &params) const;
     void InitVoxelPosterior(MVNDist &posterior) const;
-    
+
     void Evaluate(const NEWMAT::ColumnVector &params, NEWMAT::ColumnVector &result) const;
 
 private:
     // Number of repeats in the data. Phases are assumed to be fastest varying
     int m_repeats;
 
-    // Number of TIs in the data. Data for a given TI/PLD (including all phases and 
+    // Number of TIs in the data. Data for a given TI/PLD (including all phases and
     // repeats) is assumed to be blocked within the data
     int m_ntis;
 
@@ -43,7 +43,7 @@ private:
     // but can be 3 if m_multi_phase_offsets is true
     int m_num_ti_params;
 
-    // Number of phases in data. If phase list not provided these are assumed to 
+    // Number of phases in data. If phase list not provided these are assumed to
     // be evenly spaced between 0 and 360
     int m_nphases;
 
