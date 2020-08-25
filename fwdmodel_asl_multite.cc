@@ -15,8 +15,7 @@
 #include <fabber_core/tools.h>
 #include <fabber_core/priors.h>
 
-#include <newmatio.h>
-
+#include "armawrap/newmat.h"
 #include <miscmaths/miscprob.h>
 
 #include <string>

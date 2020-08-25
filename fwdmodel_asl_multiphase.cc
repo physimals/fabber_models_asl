@@ -17,7 +17,7 @@
 #include <fabber_core/fwdmodel.h>
 #include <fabber_core/priors.h>
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>

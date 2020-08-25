@@ -14,7 +14,7 @@
 #include <fabber_core/priors.h>
 #include <fabber_core/tools.h>
 
-#include <newmatio.h>
+#include "armawrap/newmat.h"
 
 #include <iostream>
 #include <stdexcept>

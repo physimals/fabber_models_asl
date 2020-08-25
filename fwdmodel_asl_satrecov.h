@@ -10,7 +10,7 @@
 
 #include "fabber_core/fwdmodel.h"
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>

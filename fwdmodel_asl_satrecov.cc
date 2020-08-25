@@ -12,9 +12,9 @@
 
 #include "miscmaths/miscprob.h"
 #include "newimage/newimageall.h"
+#include "armawrap/newmat.h"
 
 #include <iostream>
-#include <newmatio.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
