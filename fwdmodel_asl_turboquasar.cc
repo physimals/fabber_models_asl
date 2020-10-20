@@ -407,7 +407,8 @@ void TurboQuasarFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posteri
         prior.means(tiss_index() + 1) = 0.7;
         // prior.means(tiss_index()+1) = 0.6;
         // prior.means(tiss_index()+1) = 1;
-        precisions(tiss_index() + 1, tiss_index() + 1) = 1;
+        //precisions(tiss_index() + 1, tiss_index() + 1) = 1;
+        precisions(tiss_index() + 1, tiss_index() + 1) = 0.316;
         // precisions(tiss_index()+1,tiss_index()+1) = 1e-12;
         // }
     }
