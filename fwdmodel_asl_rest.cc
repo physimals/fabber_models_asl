@@ -85,6 +85,7 @@ static OptionSpec OPTIONS[] = {
     { "t1b", OPT_FLOAT, "T1b value", OPT_NONREQ, "1.65" },
     { "t1wm", OPT_FLOAT, "T1wm value", OPT_NONREQ, "1.1" },
     { "lambda", OPT_FLOAT, "lambda value", OPT_NONREQ, "0.9 (0.98 with WM component)" },
+    { "lambdawm", OPT_FLOAT, "lambda value for WM", OPT_NONREQ, "0.82" },
     { "ti", OPT_FLOAT, "Single TI value (s)", OPT_NONREQ, "" },
     { "ti<n>", OPT_FLOAT, "List of TI values (s)", OPT_NONREQ, "" },
     { "pld", OPT_FLOAT, "Single PLD value (s)", OPT_NONREQ, "" },
@@ -1144,7 +1145,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // Different default for lambda if we have a WM component (since then the 'tissue' is
     // GM only rather than mixed WM/GM)
     lambda = args.GetDoubleDefault("lambda", incwm ? 0.98 : 0.9);
-    lamwm = 0.82;
+    lamwm = args.GetDoubleDefault("lambdawm", 0.82);
 
     //
     // Data acquisition parameters
