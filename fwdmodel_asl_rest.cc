@@ -1754,7 +1754,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     LOG << "Data parameters: #repeats = " << repeats << endl;
     LOG << " t1 = " << t1 << ", t1b = " << t1b;
     if (incwm)
-        LOG << "t1wm= " << t1wm << endl;
+        LOG << ", t1wm= " << t1wm << endl;
     LOG << " bolus duration (tau) = " << seqtau << endl;
     // Hadamard
     if (hadamard)
