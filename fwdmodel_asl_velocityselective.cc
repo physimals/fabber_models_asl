@@ -1,7 +1,7 @@
 /**
  * fwdmodel_asl_velocityselective.cc
  *
- * Moss Zhao <mosszhao@stanford.edu>
+ * Moss Zhao - Center for Advanced Functional Neuroimaging (CAFN), Stanford University
  *
  * Copyright (C) 2020 Stanford University
  */

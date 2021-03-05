@@ -3,7 +3,7 @@
 /**
  * fwdmodel_asl_velocityselective.h Velocity selective ASL model
  *
- * Moss Zhao <mosszhao@stanford.edu>
+ * Moss Zhao - Center for Advanced Functional Neuroimaging (CAFN), Stanford University
  *
  * Copyright (C) 2020 Stanford University
  */
