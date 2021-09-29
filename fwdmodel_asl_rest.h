@@ -210,6 +210,12 @@ protected:
                         // (e.g. in case of non-subtracted data)
     bool inferstattiss; //
 
+    // T.O. CAPRIA
+    bool capria; // Is this a CAPRIA acquisition?
+    double capriafa1; // CAPRIA starting flip angle, degrees
+    double capriafa2; // CAPRIA finishing flip angle, degrees
+    double capriatr; // CAPRIA repetition time, seconds
+
     // relative indices
     int wmidx;
     int artidx;

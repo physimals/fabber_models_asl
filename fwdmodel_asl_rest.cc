@@ -100,6 +100,10 @@ static OptionSpec OPTIONS[] = {
     { "mtt", OPT_BOOL,
         "For 2-compartment model and fast/dist solution method, mean transit time (s)", OPT_NONREQ,
         "1" },
+    { "capria", OPT_BOOL, "CAPRIA acquisition", OPT_NONREQ, "" }, // T.O. Add CAPRIA options
+    { "capriafa1", OPT_FLOAT, "CAPRIA starting flip angle", OPT_NONREQ, "" }, 
+    { "capriafa2", OPT_FLOAT, "CAPRIA finishing flip angle", OPT_NONREQ, "" }, 
+    { "capriatr", OPT_FLOAT, "CAPRIA TR", OPT_NONREQ, "" }, 
     { "" },
 };
 
@@ -1429,6 +1433,14 @@ void ASLFwdModel::Initialize(ArgsType &args)
     incfacorr = args.ReadBool("facorr");
     dg = convertTo<double>(args.ReadWithDefault("dg", "0.0"));
 
+    // T.O. CAPRIA
+    capria = args.ReadBool("capria");
+    if (capria) {
+      capriafa1 = convertTo<double>(args.ReadWithDefault("capriafa1", "0.0")); // CAPRIA starting flip angle
+      capriafa2 = convertTo<double>(args.ReadWithDefault("capriafa2", "0.0")); // CAPRIA finishing flip angle
+      capriatr = convertTo<double>(args.ReadWithDefault("capriatr", "0.0"));  // CAPRIA repetition time
+    }
+
     // Kinetic model definition
     //
     // Up to three kinetic models are used - one for the arterial component,
@@ -1713,6 +1725,15 @@ void ASLFwdModel::Initialize(ArgsType &args)
         LOG << "  Number of Hadamard subboli: " << NumberOfSubBoli << endl;
         LOG << "  Subbolus length: " << seqtau << endl;
         LOG << "  Post labeling delay (PLD): " << pld_list[1] << endl;
+    }
+
+    // T.O. CAPRIA
+    if (capria)
+    {
+        LOG << "CAPRIA is on:" << endl;
+        LOG << "  Starting flip  angle/degs: " << capriafa1 << endl;
+        LOG << "  Finishing flip angle/degs: " << capriafa2 << endl;
+        LOG << "  Excitation pulse TR/s: " << capriatr << endl;
     }
 
     if (doard)
