@@ -1433,13 +1433,65 @@ void ASLFwdModel::Initialize(ArgsType &args)
     incfacorr = args.ReadBool("facorr");
     dg = convertTo<double>(args.ReadWithDefault("dg", "0.0"));
 
-    // T.O. CAPRIA
-    capria = args.ReadBool("capria");
+    // ---------------------------
+    // T.O. CAPRIA Initialisation
+    // ---------------------------
+    capria = args.ReadBool("capria"); // Use CAPRIA options?
     if (capria) {
-      capriafa1 = convertTo<double>(args.ReadWithDefault("capriafa1", "0.0")); // CAPRIA starting flip angle
-      capriafa2 = convertTo<double>(args.ReadWithDefault("capriafa2", "0.0")); // CAPRIA finishing flip angle
-      capriatr = convertTo<double>(args.ReadWithDefault("capriatr", "0.0"));  // CAPRIA repetition time
-    }
+      // Read in arguments
+      capriafa1 = convertTo<double>(args.ReadWithDefault("capriafa1", "-1.0")); // CAPRIA starting flip angle
+      capriafa2 = convertTo<double>(args.ReadWithDefault("capriafa2", "-1.0")); // CAPRIA finishing flip angle
+      capriatr = convertTo<double>(args.ReadWithDefault("capriatr", "-1.0"));  // CAPRIA repetition time
+
+      // Make sure parameters are defined
+      if (capriafa1 < 0.0)
+      {
+	throw InvalidOptionValue("capriafa1",stringify(capriafa1),
+				 "CAPRIA FA1 must be set and greater than zero");
+      }
+      if (capriafa2 < 0.0)
+      {
+	throw InvalidOptionValue("capriafa2",stringify(capriafa2),
+				 "CAPRIA FA2 must be set and greater than zero");
+      }
+      if (capriatr < 0.0)
+      {
+	throw InvalidOptionValue("capriatr",stringify(capriatr),
+				 "CAPRIA TR must be set and greater than zero");
+      }
+
+      // Calculate some useful parameters
+      dti = tis(2) - tis(1); // Assume constant spacing
+      Nsegs = std::round( dti / capriatr ); // Number of segments (excitations per frame per ASL prep)
+      int Ntrs = Nsegs * tis.Nrows(); // Number of TR periods after each ASL prep
+
+      // Calculate the flip angle schedule
+      ColumnVector capriaFAs;
+      capriaFAs.ReSize(Ntrs);
+      //      LOG << "CAPRIA flip angles:" << endl;
+      for (int ii=1; ii<=Ntrs; ii++) {
+	capriaFAs(ii) = capriafa1 + (capriafa2-capriafa1)*pow((double)(ii-1)/(double)(Ntrs-1),2);
+	//	LOG << capriaFAs(ii) << endl;
+      }
+
+      // Calculate the CAPRIA attenuation factors at each TR
+      ColumnVector Ract;
+      Ract.ReSize(Ntrs);
+      Ract(1) = 1.0; // No attenuation prior to the first pulse
+      //      LOG << "Ract:" << endl;
+      //      LOG << Ract(1) << endl;
+      for (int ii=2; ii<=Ntrs; ii++) {
+	// Each pulse leaves cos(alpha) of the previous Mz available
+	Ract(ii) = Ract(ii-1) * cos(capriaFAs(ii-1)*M_PI/180.0);
+	//	LOG << Ract(ii) << endl;
+	// NB. Agrees with Matlab implementation
+      }
+
+      // Downsample to the reconstructed temporal resolution
+      capriaR.ReSize(tis.Nrows());
+
+      // || capriafa2 < 0.0 || capriatr < 0.0)
+    } // end capria
 
     // Kinetic model definition
     //
@@ -1734,6 +1786,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         LOG << "  Starting flip  angle/degs: " << capriafa1 << endl;
         LOG << "  Finishing flip angle/degs: " << capriafa2 << endl;
         LOG << "  Excitation pulse TR/s: " << capriatr << endl;
+        LOG << "  Calculated Nsegs: " << Nsegs << endl;
     }
 
     if (doard)

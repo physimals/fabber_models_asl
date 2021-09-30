@@ -215,6 +215,8 @@ protected:
     double capriafa1; // CAPRIA starting flip angle, degrees
     double capriafa2; // CAPRIA finishing flip angle, degrees
     double capriatr; // CAPRIA repetition time, seconds
+    int Nsegs; // Number of segments (i.e. excitations per frame per ASL prep)
+    ColumnVector capriaR; // CAPRIA attenuation factor at each TI
 
     // relative indices
     int wmidx;
