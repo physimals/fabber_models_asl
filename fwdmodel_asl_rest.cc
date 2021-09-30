@@ -1487,10 +1487,40 @@ void ASLFwdModel::Initialize(ArgsType &args)
 	// NB. Agrees with Matlab implementation
       }
 
+      // Incoporate the sin(alpha) term which scales the signal strength
+      //      LOG << "CAPRIA signal scaling:" << endl;
+      for (int ii=1; ii<=Ntrs; ii++) {
+	// The signal is scaled by sin(alpha)
+	Ract(ii) = Ract(ii) * sin(capriaFAs(ii)*M_PI/180.0);
+	// LOG << Ract(ii) << endl;
+	// NB. Agrees with Matlab implementation
+      }
+
       // Downsample to the reconstructed temporal resolution
       capriaR.ReSize(tis.Nrows());
+      //      LOG << "CAPRIA signal scaling at downsampled resolution:" << endl;
+      for (int jj=1; jj<=tis.Nrows(); jj++) {
+	int StartIdx = (jj-1)*Nsegs + 1;
+	int EndIdx = jj*Nsegs;
 
-      // || capriafa2 < 0.0 || capriatr < 0.0)
+	// Sum up all the actual signal strength scaling factors in this frame
+	capriaR(jj) = 0;
+	for (int ii=StartIdx; ii<=EndIdx; ii++){
+	  capriaR(jj) += Ract(ii);
+	}
+
+	// Divide by the number of elements to get the mean signal scaling
+	capriaR(jj) = capriaR(jj) / ((double) Nsegs );
+	// NB. Multiplying this factor by the Buxton model evaluated at the midpoint 
+	// of each frame is not exactly equivalent to calculating the Buxton model at
+	// each TR, scaling it by the CAPRIA factors and then averaging, but it's a 
+	// pretty close approximation
+
+	//	LOG << capriaR(jj) << endl;
+	// NB. Agrees with Matlab implementation
+      }
+      
+
     } // end capria
 
     // Kinetic model definition
