@@ -39,6 +39,8 @@ static OptionSpec OPTIONS[] = {
     { "t2", OPT_FLOAT, "T2 of tissue(s)", OPT_NONREQ, "0.030" },
     { "t2b", OPT_FLOAT, "T2 of blood (s)", OPT_NONREQ, "0.120" },
     { "exch2", OPT_FLOAT, "Exchange time", OPT_NONREQ, "0.1" },
+    { "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "1.3" },
+    { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
     { "infert1", OPT_BOOL, "Infer T1 values", OPT_NONREQ, "" },
     { "infert2", OPT_BOOL, "Infer T2 values", OPT_NONREQ, "" },
     { "infertexch", OPT_BOOL, "Infer exchange time", OPT_NONREQ, "" },
@@ -114,13 +116,17 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     // Physiological parameters
     // Defaults matched to the ASLREST model which is
     // different from the original model. These are generally
-    // overridden when called by OXASL
+    // overridden when called by OXASL. Note that there is one
+    // difference from ASLREST in that we take the BAT prior
+    // as 1.3s which is appropriate for pCASL and multi-TE
+    // only works for pCASL. oxford_asl and oxasl both set
+    // the BAT prior to 1.3s for pCASL data.
     m_t1 = rundata.GetDoubleDefault("t1", 1.3);
     m_t1b = rundata.GetDoubleDefault("t1b", 1.65);
     m_t2 = rundata.GetDoubleDefault("t2", 0.050);
     m_t2b = rundata.GetDoubleDefault("t2b", 0.150);
     m_texch = rundata.GetDoubleDefault("exch2", 0.1);
-    m_bat = rundata.GetDoubleDefault("bat", 0.7);
+    m_bat = rundata.GetDoubleDefault("bat", 1.3);
     m_batsd = rundata.GetDoubleDefault("batsd", 0.316);
 
     // Inference options

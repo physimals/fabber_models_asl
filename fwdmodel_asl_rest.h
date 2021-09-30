@@ -55,7 +55,6 @@ public:
 
     virtual void SetupARD(const MVNDist &posterior, MVNDist &prior, double &Fard) const;
     virtual void UpdateARD(const MVNDist &posterior, MVNDist &prior, double &Fard) const;
-    vector<int> ardindices;
 
 protected:
     // Constants
@@ -126,6 +125,8 @@ protected:
     double slicedt;
     bool casl;
     ColumnVector tis;
+    Matrix tiimg;
+    bool have_tiimg;
     ColumnVector taus; // bolus durations if there are more than one
     Real timax;
     vector<int> repeats;
