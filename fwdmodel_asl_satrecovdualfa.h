@@ -23,7 +23,7 @@ public:
     virtual void GetOptions(std::vector<OptionSpec> &opts) const;
     virtual std::string GetDescription() const;
 
-    virtual void NameParams(vector<string> &names) const;
+    virtual void NameParams(std::vector<std::string> &names) const;
     //virtual int NumParams() const { return (LFAon ? 4 : 3); } // This needs to be changed (you need two additional parameters)
     virtual int NumParams() const { return 6; } // You have six parameters to estimate: M0t, T1, A, g, M0_initial_high_FA(fake), M0_initial_low_FA(fake).
     virtual void HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) const;

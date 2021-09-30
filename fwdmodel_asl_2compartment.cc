@@ -19,6 +19,7 @@
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
 using namespace NEWMAT;
 
 // Variance for non-informative priors

@@ -20,6 +20,7 @@
 #include <vector>
 
 using namespace std;
+using NEWMAT::ColumnVector;
 
 FactoryRegistration<FwdModelFactory, SatrecovFwdModel> SatrecovFwdModel::registration("satrecov");
 

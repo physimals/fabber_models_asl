@@ -43,7 +43,7 @@ protected:
     double m_dti;
 
     /** Number of repeats at each TI */
-    vector<int> m_repeats;
+    std::vector<int> m_repeats;
 
     /** Time between slices in ms */
     double m_slicedt;

@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, multiTEFwdModel> multiTEFwdModel::registration("asl_multite");

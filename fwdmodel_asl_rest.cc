@@ -13,9 +13,14 @@
 #include "armawrap/newmat.h"
 #include <iostream>
 #include <stdexcept>
-using namespace NEWIMAGE;
 #include "fabber_core/easylog.h"
 #include "fabber_core/tools.h"
+
+using namespace NEWIMAGE;
+using NEWMAT::Real;
+using NEWMAT::Matrix;
+using NEWMAT::IdentityMatrix;
+using NEWMAT::SymmetricMatrix;
 
 FactoryRegistration<FwdModelFactory, ASLFwdModel> ASLFwdModel::registration("aslrest");
 

@@ -20,6 +20,9 @@
 #include <vector>
 
 using namespace std;
+using NEWMAT::SymmetricMatrix;
+using NEWMAT::IdentityMatrix;
+using NEWMAT::ColumnVector;
 
 FactoryRegistration<FwdModelFactory, SatrecovDualFAFwdModel> SatrecovDualFAFwdModel::registration("satrecovdualfa");
 
