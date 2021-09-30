@@ -1877,6 +1877,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         LOG << "CAPRIA is on:" << endl;
         LOG << "  Starting flip  angle/degs: " << capriafa1 << endl;
         LOG << "  Finishing flip angle/degs: " << capriafa2 << endl;
+        LOG << "  ASSUME QUADRATIC FLIP ANGLE VARIATION! "  << endl;
         LOG << "  Excitation pulse TR/s: " << capriatr << endl;
         LOG << "  Calculated Nsegs: " << Nsegs << endl;
     }
