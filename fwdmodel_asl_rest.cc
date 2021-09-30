@@ -927,6 +927,11 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
             // a simple static contirbution at all TIs
             statcont(it) = stattiss;
         }
+
+	// T.O. Include CAPRIA signal modulation if needed, which applies equally to all signal components
+	if (capria) {
+	  kctotal(it) *= capriaR(it);
+	}
     }
 
     // Assemble result
