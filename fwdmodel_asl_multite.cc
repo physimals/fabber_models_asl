@@ -1,10 +1,10 @@
 /**
  * fwdmodel_asl_multite.cc - Implements the MULTITE ASL model
- * 
+ *
  * Michael Chappell, FMRIB Image Analysis Group
  * Josepha Hilmer, FME Bremen, MR Group
- * 
- * Copyright (C) 2007 University of Oxford  
+ *
+ * Copyright (C) 2007 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -15,13 +15,13 @@
 #include <fabber_core/tools.h>
 #include <fabber_core/priors.h>
 
-#include <newmatio.h>
-
+#include "armawrap/newmat.h"
 #include <miscmaths/miscprob.h>
 
 #include <string>
 #include <vector>
 
+using namespace std;
 using namespace NEWMAT;
 
 FactoryRegistration<FwdModelFactory, multiTEFwdModel> multiTEFwdModel::registration("asl_multite");
@@ -78,7 +78,7 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
     // TIs
     std::vector<double> tis_list = rundata.GetDoubleList("ti", 0.0);
     m_tis.ReSize(tis_list.size());
-    for (unsigned int i=0; i<tis_list.size(); i++) 
+    for (unsigned int i=0; i<tis_list.size(); i++)
     {
       m_tis(i+1) = tis_list[i];
     }
@@ -92,23 +92,23 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
         if (taus_list.size() == 1) tau = taus_list[0];
         m_taus = tau;
     }
-    else if (taus_list.size() == tis_list.size()) 
+    else if (taus_list.size() == tis_list.size())
     {
-        for (unsigned int i=0; i<taus_list.size(); i++) 
+        for (unsigned int i=0; i<taus_list.size(); i++)
         {
             m_taus(i+1) = taus_list[i];
         }
     }
-    else 
+    else
     {
-        throw InvalidOptionValue("Incorrect number of taus specified - should match the number of TIs", 
+        throw InvalidOptionValue("Incorrect number of taus specified - should match the number of TIs",
                                  stringify(taus_list.size()), stringify(tis_list.size()));
     }
 
     // TEs FIXME original code had default of 0.03 for first
     std::vector<double> tes_list = rundata.GetDoubleList("te", 0.0);
     m_tes.ReSize(tes_list.size());
-    for (unsigned int i=0; i<tes_list.size(); i++) 
+    for (unsigned int i=0; i<tes_list.size(); i++)
     {
       m_tes(i+1) = tes_list[i];
     }
@@ -143,7 +143,7 @@ void multiTEFwdModel::Initialize(FabberRunData &rundata)
         LOG << "Infering on T1 values " << endl;
     if (m_infert2)
         LOG << "Infering on T2 values " << endl;
-      
+
     LOG << "TIs: ";
     for (int i = 1; i <= m_tis.Nrows(); i++)
         LOG << m_tis(i) << " ";
@@ -168,7 +168,7 @@ void multiTEFwdModel::GetParameterDefaults(std::vector<Parameter> &params) const
         params.push_back(Parameter(p++, "T_1", DistParams(m_t1, 0.1), DistParams(m_t1, 0.1)));
         params.push_back(Parameter(p++, "t1b", DistParams(m_t1b, 0.1), DistParams(m_t1b, 0.1)));
     }
-    
+
     if (m_infert2)
     {
         params.push_back(Parameter(p++, "T_2", DistParams(m_t2, 1.0), DistParams(m_t2, 1.0)));
@@ -212,7 +212,7 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
     double texch = m_texch;                  // characteristic transfer time in s
 
     if (m_infert1)
-    {  
+    {
         // T1 cannot get too close to zero
         t1 = params(t1_index());
         t1b = params(t1_index() + 1);
@@ -221,9 +221,9 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
         if (t1b < 1e-2)
             t1b = 1e-2;
     }
-    
+
     if (m_infert2)
-    { 
+    {
         // T2 cannot get too close to zero
         t2b = params(t2_index() + 1);
         t2 = params(t2_index());
@@ -232,7 +232,7 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
         if (t2 < 1e-2)
             t2 = 1e-2;
     }
-   
+
     if (m_infertexch)
     {
         // Texch cannot get too close to zero
@@ -320,7 +320,7 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
     }
 
     // Generating the output
-    
+
     // Resize the ColumnVector signal to #m_tis * #tes
     ColumnVector signal;
     signal.ReSize(m_tis.Nrows() * m_tes.Nrows());
@@ -335,7 +335,7 @@ void multiTEFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &re
     }
 
     // Resize the ColumnVector result to #tis * #tes * #repeats
-    result.ReSize(m_tis.Nrows() * m_tes.Nrows() * m_repeats); 
+    result.ReSize(m_tis.Nrows() * m_tes.Nrows() * m_repeats);
     result = signal;
 
     // Concatenate signal repeats

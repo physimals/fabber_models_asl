@@ -10,10 +10,13 @@
 #define asl_models_h
 
 #include "fabber_core/fwdmodel.h"
+#include "armawrap/newmat.h"
 #include "miscmaths/miscmaths.h"
 #include "miscmaths/miscprob.h"
 
+using namespace std;
 using namespace MISCMATHS;
+using NEWMAT::ColumnVector;
 
 #ifdef _WIN32
 #ifdef fabber_asl_EXPORTS

@@ -13,7 +13,7 @@
 #include <fabber_core/tools.h>
 
 #include <miscmaths/miscprob.h>
-#include <newmatio.h>
+#include "armawrap/newmat.h"
 
 using namespace std;
 using namespace NEWMAT;

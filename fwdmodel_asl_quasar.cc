@@ -12,9 +12,9 @@
 #include <fabber_core/inference.h>
 
 #include <miscmaths/miscprob.h>
+#include "armawrap/newmat.h"
 
 #include <iostream>
-#include <newmatio.h>
 #include <stdexcept>
 
 using namespace std;

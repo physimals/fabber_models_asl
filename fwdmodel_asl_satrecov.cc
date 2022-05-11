@@ -12,14 +12,15 @@
 
 #include "miscmaths/miscprob.h"
 #include "newimage/newimageall.h"
+#include "armawrap/newmat.h"
 
 #include <iostream>
-#include <newmatio.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 using namespace std;
+using NEWMAT::ColumnVector;
 
 FactoryRegistration<FwdModelFactory, SatrecovFwdModel> SatrecovFwdModel::registration("satrecov");
 
@@ -58,9 +59,9 @@ string SatrecovFwdModel::ModelVersion() const
     return version;
 }
 
-string SatrecovFwdModel::GetDescription() const 
-{ 
-    return "Saturation recovery ASL model"; 
+string SatrecovFwdModel::GetDescription() const
+{
+    return "Saturation recovery ASL model";
 }
 
 void SatrecovFwdModel::Initialize(ArgsType &args)
@@ -94,7 +95,7 @@ void SatrecovFwdModel::Initialize(ArgsType &args)
 
     // Assuming even sampling - this only applies to LL acquisitions
     if (m_tis.size() < 2) throw InvalidOptionValue("Number of TIs", stringify(m_tis.size()), "Need at least 2 TIs");
-    m_dti = m_tis[1] - m_tis[0]; 
+    m_dti = m_tis[1] - m_tis[0];
 
     // To fix the A parameter where it will be ambiguous
     m_fix_a = args.GetBool("fixa");
@@ -103,7 +104,7 @@ void SatrecovFwdModel::Initialize(ArgsType &args)
     double fa_deg = args.GetDoubleDefault("FA", 0);
     m_look_locker = (fa_deg > 0.1);
     m_fa = fa_deg * M_PI / 180; // convert to radians
-        
+
     double lfa_deg = args.GetDoubleDefault("LFA", 0);
     m_lfa_on = (m_lfa > 0);
     m_lfa = lfa_deg * M_PI / 180; // convert to radians
@@ -177,7 +178,7 @@ void SatrecovFwdModel::EvaluateModel(const ColumnVector &params, ColumnVector &r
         result.ReSize(total_repeats * (m_nphases+1));
     else
         result.ReSize(total_repeats * m_nphases);
-    
+
     if (result.Nrows() != data.Nrows()) throw InvalidOptionValue("ti<n>", stringify(result.Nrows()), string("Number of TIs/repeats does not match number of volumes in data: ") + stringify(data.Nrows()));
 
     int tpt = 1;

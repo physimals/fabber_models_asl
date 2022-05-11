@@ -12,14 +12,17 @@
 
 #include "miscmaths/miscprob.h"
 #include "newimage/newimageall.h"
+#include "armawrap/newmat.h"
 
 #include <iostream>
-#include <newmatio.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 using namespace std;
+using NEWMAT::SymmetricMatrix;
+using NEWMAT::IdentityMatrix;
+using NEWMAT::ColumnVector;
 
 FactoryRegistration<FwdModelFactory, SatrecovDualFAFwdModel> SatrecovDualFAFwdModel::registration("satrecovdualfa");
 
@@ -65,7 +68,7 @@ void SatrecovDualFAFwdModel::Initialize(ArgsType &args)
     nphases = convertTo<int>(args.ReadWithDefault("phases", "1"));
     slicedt = convertTo<double>(args.ReadWithDefault("slicedt", "0.0")); // increase in TI per slice
 
-    t_initial_high_FA = convertTo<double>(args.ReadWithDefault("t_initial_high_FA", "0.0")); // Initial time point of the starting poitn of the high FA saturation recovery 
+    t_initial_high_FA = convertTo<double>(args.ReadWithDefault("t_initial_high_FA", "0.0")); // Initial time point of the starting poitn of the high FA saturation recovery
     t_initial_low_FA = convertTo<double>(args.ReadWithDefault("t_initial_low_FA", "0.0")); // Initial time point of the starting poitn of the low FA saturation recovery
 
     fixA = args.ReadBool("fixa"); // to fix the A parameter where it will be ambiguous
@@ -190,7 +193,7 @@ void SatrecovDualFAFwdModel::Evaluate(const ColumnVector &params, ColumnVector &
     // negative check
     ColumnVector paramcpy = params;
     for (int i = 1; i <= NumParams(); i++)
-    {   
+    {
         //printf("hahahahahahahhaha!!!!!");
         if (params(i) < 0)
         {

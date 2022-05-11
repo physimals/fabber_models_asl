@@ -14,9 +14,9 @@
 #include <fabber_core/priors.h>
 #include <fabber_core/inference.h>
 #include <fabber_core/tools.h>
-#include <newmatio.h>
 #include <iostream>
 #include <stdexcept>
+#include <armawrap/newmat.h>
 #include <miscmaths/miscprob.h>
 
 using namespace std;

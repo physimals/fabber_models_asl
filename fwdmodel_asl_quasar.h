@@ -104,7 +104,7 @@ protected:
     }
 
     // vector indices for the parameters to expereicne ARD
-    vector<int> ard_index;
+    std::vector<int> ard_index;
 
     // scan parameters
     double seqtau; // bolus length as set by the sequence

@@ -9,6 +9,7 @@
 #ifndef __FABBER_ASL_REST_FWDMODEL_H
 #define __FABBER_ASL_REST_FWDMODEL_H 1
 
+#include "armawrap/newmat.h"
 #include "fabber_core/fwdmodel.h"
 #include "fabber_core/inference.h"
 #include <string>
@@ -18,6 +19,7 @@
 using namespace std;
 using namespace OXASL;
 
+
 class ASLFwdModel : public FwdModel
 {
 public:
@@ -26,7 +28,7 @@ public:
     // Virtual function overrides
     virtual void Initialize(ArgsType &args);
 
-    virtual void EvaluateModel(const NEWMAT::ColumnVector &params, 
+    virtual void EvaluateModel(const NEWMAT::ColumnVector &params,
                                NEWMAT::ColumnVector &result,
                                const std::string &key = "") const;
     virtual std::string ModelVersion() const;
@@ -124,15 +126,15 @@ protected:
     double pretisat;
     double slicedt;
     bool casl;
-    ColumnVector tis;
-    Matrix tiimg;
+    NEWMAT::ColumnVector tis;
+    NEWMAT::Matrix tiimg;
     bool have_tiimg;
-    ColumnVector taus; // bolus durations if there are more than one
-    Real timax;
+    NEWMAT::ColumnVector taus; // bolus durations if there are more than one
+    NEWMAT::Real timax;
     vector<int> repeats;
     int tpoints;
-    ColumnVector crush;
-    Matrix crushdir;
+    NEWMAT::ColumnVector crush;
+    NEWMAT::Matrix crushdir;
     int sliceband; // number of slices per band
 
     // data information
@@ -170,9 +172,9 @@ protected:
     int HadamardSize;    // Size of the hadamard encoding
     int NumberOfSubBoli; // number of sub boli (might just different from
                          // HadamardSize)
-    Matrix HadEncMatrix; // stores the Hadamard encoding matrix
+    NEWMAT::Matrix HadEncMatrix; // stores the Hadamard encoding matrix
 
-    Matrix HadamardMatrix(const int size, const bool FullHad, const bool Walsh,
+    NEWMAT::Matrix HadamardMatrix(const int size, const bool FullHad, const bool Walsh,
         const bool NonHadamardMatrix, const vector<int> &skip_list) const;
     // inference/inclusion
     // -components

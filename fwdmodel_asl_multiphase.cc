@@ -1,12 +1,12 @@
 /**
  * fwdmodel_asl_multiphase.cc
- * 
+ *
  * Implements a model for correcting off resonance effect
  * for multiphase pcASL
  *
  * Michael Chappell, QuBIc (IBME) & FMRIB Image Analysis Group
  *
- * Copyright (C) 2013 University of Oxford  
+ * Copyright (C) 2013 University of Oxford
  */
 
 /*  CCOPYRIGHT */
@@ -17,7 +17,7 @@
 #include <fabber_core/fwdmodel.h>
 #include <fabber_core/priors.h>
 
-#include <newmat.h>
+#include "armawrap/newmat.h"
 
 #include <string>
 #include <vector>
@@ -25,8 +25,8 @@
 using namespace std;
 using namespace NEWMAT;
 
-string MultiPhaseASLFwdModel::GetDescription() const 
-{ 
+string MultiPhaseASLFwdModel::GetDescription() const
+{
     return "ASL multiphase model";
 }
 
@@ -81,15 +81,15 @@ void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
 
     // The number of parameters inferred for each TI
     m_num_ti_params = m_multi_phase_offsets ? 3 : 2;
-    
+
     // Phases - either specified explicitly or evenly spaced between 0 and 360
     std::vector<double> phases_deg = rundata.GetDoubleList("ph", 0, 360);
     m_nphases = phases_deg.size();
-    if (m_nphases > 0) 
+    if (m_nphases > 0)
     {
         m_phases_deg.ReSize(m_nphases);
         LOG << "MultiPhaseASLFwdModel::Using " << m_nphases << " user-specified phases: ";
-        for (int i=0; i<m_nphases; i++) 
+        for (int i=0; i<m_nphases; i++)
         {
             m_phases_deg(i+1) = phases_deg[i];
             LOG << " " << phases_deg[i];
@@ -142,7 +142,7 @@ void MultiPhaseASLFwdModel::Initialize(ArgsType &rundata)
         // shape of the fermi function
         m_alpha = rundata.GetDoubleDefault("alpha", 55);
         m_beta = rundata.GetDoubleDefault("beta", 12);
-        
+
         LOG << "MultiPhaseASLFwdModel::Inference using Fermi model" << endl;
         LOG << "MultiPhaseASLFwdModel::alpha=" << m_alpha << " ,beta=" << m_beta << endl;
     }
@@ -157,20 +157,20 @@ void MultiPhaseASLFwdModel::GetParameterDefaults(std::vector<Parameter> &params)
     params.clear();
 
     int p=0;
-    if (m_ntis == 1) 
+    if (m_ntis == 1)
     {
         // For compatibility don't number outputs if there is only one TI/PLD
         params.push_back(Parameter(p++, "mag", DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
         params.push_back(Parameter(p++, "offset", DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
     }
-    else 
+    else
     {
-        // Separate magnitude/offset for each TI/PLD 
-        for (int i=0; i<m_ntis; i++) 
+        // Separate magnitude/offset for each TI/PLD
+        for (int i=0; i<m_ntis; i++)
         {
             params.push_back(Parameter(p++, "mag" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 100), PRIOR_NORMAL, TRANSFORM_ABS()));
             params.push_back(Parameter(p++, "offset" + stringify(i+1), DistParams(0, 1e12), DistParams(0, 1e12), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
-            if (m_multi_phase_offsets) 
+            if (m_multi_phase_offsets)
             {
                 params.push_back(Parameter(p++, "phase" + stringify(i+1), DistParams(0, 100.0), DistParams(0, 10.0), PRIOR_NORMAL, TRANSFORM_IDENTITY()));
             }
@@ -196,14 +196,14 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     // Initialize the magntidue and offset parameters
     if (data.Nrows() != m_nphases*m_ntis*m_repeats)
     {
-        throw InvalidOptionValue("Num phases * num TIs * num repeats", 
-                                 stringify(m_nphases*m_ntis*m_repeats), 
+        throw InvalidOptionValue("Num phases * num TIs * num repeats",
+                                 stringify(m_nphases*m_ntis*m_repeats),
                                  "Should match number of data volumes: " + stringify(data.Nrows()));
     }
 
     // For each TI/PLD, take mean over the repeats and initialize the offset
     // to the average of the maximum and minimum intensity
-    for (int t=0; t<m_ntis; t++) 
+    for (int t=0; t<m_ntis; t++)
     {
         ColumnVector dmean(m_nphases);
         dmean = 0.0;
@@ -223,11 +223,11 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     }
 
     // Initialize the phase value from the point of max intensity (averaged over
-    // all repeats/TIs). 
-    // With a phase offset of 0, the maximum will be at 180 and the mininum 
+    // all repeats/TIs).
+    // With a phase offset of 0, the maximum will be at 180 and the mininum
     // at 0. Phase offset of 90 gives max/min at 270/90, etc. In general the minimum
     // occurs at the phase offset value.
-    // Note that the phase offset is in radians but the the measured phases are input 
+    // Note that the phase offset is in radians but the the measured phases are input
     // in degrees, and we initialize the phase offset in the range -pi to pi.
     ColumnVector dmean(m_nphases);
     dmean = 0.0;
@@ -242,15 +242,15 @@ void MultiPhaseASLFwdModel::InitVoxelPosterior(MVNDist &posterior) const
     int ind;
     dmean.Minimum1(ind);
     float phase_init = m_phases_deg(ind);
-    while (phase_init > 180) phase_init -= 360; 
+    while (phase_init > 180) phase_init -= 360;
     if (m_multi_phase_offsets)
     {
-        for (int t=0; t<m_ntis; t++) 
+        for (int t=0; t<m_ntis; t++)
         {
             posterior.means(m_num_ti_params*t + 3) = phase_init * M_PI / 180;
         }
     }
-    else 
+    else
     {
         posterior.means(m_num_ti_params*m_ntis + 1) = phase_init * M_PI / 180;
     }
@@ -262,7 +262,7 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &r
     ColumnVector mag(m_ntis);
     ColumnVector offset(m_ntis);
     ColumnVector phase_off_rad(m_ntis);
-    for (int t=0; t<m_ntis; t++) 
+    for (int t=0; t<m_ntis; t++)
     {
         mag(t+1) = params(m_num_ti_params*t+1);
         offset(t+1) = params(m_num_ti_params*t+2);
@@ -286,7 +286,7 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &r
     // Loop over TIs and phases to create result including repeated measurements
     int nn = m_nphases * m_repeats * m_ntis;
     result.ReSize(nn);
-    for (int t=0; t<m_ntis; t++) 
+    for (int t=0; t<m_ntis; t++)
     {
         for (int p=1; p<=m_nphases; p++)
         {
@@ -313,7 +313,7 @@ void MultiPhaseASLFwdModel::Evaluate(const ColumnVector &params, ColumnVector &r
                 evalfunc = mag(t+1) * (mod_fn(phase_actual_rad, flowvel)) + offset(t+1);
             }
 
-            // Write the same output for each of the repeats 
+            // Write the same output for each of the repeats
             for (int r=0; r<m_repeats; r++)
             {
                 result(t*m_repeats*m_nphases + r*m_nphases + p) = evalfunc;
