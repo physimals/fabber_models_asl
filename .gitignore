@@ -1,5 +1,6 @@
 CVS
 *.o
+*.so
 *~
 *.a
 .DS_Store
