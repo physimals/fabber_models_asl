@@ -147,6 +147,37 @@ private:
 
 };
 
+// generic venous model class
+class VenousModel
+{
+public:
+    // evaluate the model
+    virtual double kcven(const double ti, const double deltven, const double tauven,
+        const double T_1b, bool casl, const ColumnVector dispparam) const = 0;
+    // report the number of dispersion parameters
+    virtual int NumDisp() const = 0;
+    // return default priors for the parameters
+    virtual ColumnVector Priors() const { return priors; }
+    virtual string Name() const = 0;
+    virtual void SetPriorMean(int paramn, double value) { priors(paramn) = value; }
+protected:
+    ColumnVector priors; // list of prior means and precisions - all means first
+                         // then precisions
+};
+
+// Specific AIF models
+class VenousModel_nodisp : public VenousModel
+{
+public:
+    VenousModel_nodisp()
+    {
+    }
+    virtual double kcven(const double ti, const double deltven, const double tauven,
+        const double T_1b, bool casl, const ColumnVector dispparam) const;
+    virtual int NumDisp() const { return 0; }
+    virtual string Name() const { return "None"; }
+};
+
 //  double kcblood_gallichan(const double ti, const double deltblood, const
 //  double taub, const double T_1b, const double xdivVm, bool casl);
 

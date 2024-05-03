@@ -408,6 +408,43 @@ double AIFModel_spatialgaussdisp::kcblood(const double ti, const double deltbloo
     return kcblood;
 }
 
+// Venous model
+
+double VenousModel_nodisp::kcven(const double ti, const double deltven, const double tauven,
+    const double T_1b, const bool casl, const ColumnVector dispparam) const
+{
+    // Non dispersed venous signal
+    double kcven;
+    if (casl)
+        kcven = 2 * exp(-deltven / T_1b);
+    else
+        kcven = 2 * exp(-ti / T_1b);
+
+    // if (ti < (deltblood + taub / 2))
+    // {
+    //     // If deltblood is smaller than the lead in scale, we could 'lose' some
+    //     // of the bolus, so reduce degree of lead in as deltblood -> 0. We
+    //     // don't really need it in this case anyway since there will be no
+    //     // gradient discontinuity
+    //     double leadscale = min(deltblood, m_leadscale);
+    //     if (leadscale > 0)
+    //     {
+    //         kcblood *= 0.5 * (1 + myerf((ti - deltblood) / leadscale));
+    //     }
+    //     else if (ti < deltblood)
+    //     {
+    //         kcblood = 0;
+    //     }
+    // }
+    // else
+    // {
+    //     // 'lead out' rather than immediate drop to zero
+    //     kcblood *= 0.5 * (1 + myerf(-(ti - deltblood - taub) / m_leadscale));
+    // }
+
+    return kcven;
+}
+
 /*
  double kcblood_gallichan(const double ti,const double deltblood,const double
  taub,const double T_1b,const double xdivVm,const bool casl=false) {
@@ -583,8 +620,14 @@ double TissueModel_nodisp_wellmix::kctissue(const double ti, const double fcalib
     }
     else if (ti >= delttiss && ti <= (delttiss + tau))
     {
-        if (casl)
+        if (casl) {
+            //cout << "casl " << T_1app << endl;
+            //cout << "factor" << 2 * T_1app * exp(-delttiss / T_1b) << endl;
+            //cout << "decay" << (1 - exp(-(ti - delttiss) / T_1app)) << endl;
+            //cout << "parts" << ti << ", " << delttiss << ", " << (ti-delttiss) << ", " <<  exp(-(ti - delttiss) / T_1app) << endl;
             kctissue = 2 * T_1app * exp(-delttiss / T_1b) * (1 - exp(-(ti - delttiss) / T_1app));
+            //cout << "during signal" << kctissue << endl;
+        }
         else
             kctissue = F / R * ((exp(R * ti) - exp(R * delttiss)));
     }

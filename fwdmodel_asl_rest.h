@@ -40,7 +40,7 @@ public:
     virtual int NumParams() const
     {
         return (inctiss ? (incbat ? 2 : 1) : 0) + (incwm ? (incbat ? 2 : 1) : 0)
-            + (incart ? (incbat ? 2 : 1) : 0) + (inctau ? (septau ? ncomps : 1) : 0)
+            + (incart ? (incbat ? 2 : 1) : 0) + (incven ? (incbat ? 2 : 1) : 0) + (inctau ? (septau ? ncomps : 1) : 0)
             + (inct1 ? (1 + (inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0) + (incpve ? 2 : 0)
             + (incpc ? ((inctiss ? 1 : 0) + (incwm ? 1 : 0)) : 0)
             + (incdisp ? (sepdisp ? ((inctiss ? tiss_model->NumDisp() : 0)
@@ -145,8 +145,10 @@ protected:
     double setdelt; // BAT for prior (tissue compartment)
     double setdeltwm;
     double setdeltart;
+    double setdeltven;
     double deltprec;    // precision for tissue BAT (WM and GM)
     double deltartprec; // precision for arterial BAT
+    double deltvenprec; // precision for venous BAT
     bool calib;         // indicates calibrated data for T_1app calculation
     bool doard;
 
@@ -182,6 +184,8 @@ protected:
     bool infertiss;
     bool incart; // arterial (MV) component
     bool inferart;
+    bool incven; // venous component
+    bool inferven;
     bool incwm; // white matter component
     bool inferwm;
     int ncomps; // number of components
@@ -216,9 +220,11 @@ protected:
     // relative indices
     int wmidx;
     int artidx;
+    int venidx;
 
     // Models to use
     AIFModel *art_model;
+    VenousModel *ven_model;
     TissueModel *tiss_model;
     TissueModel *pc_model; // the model for pre-capilliary component
     ResidModel *resid_model;

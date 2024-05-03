@@ -48,6 +48,8 @@ static OptionSpec OPTIONS[] = {
     { "infertiss", OPT_BOOL, "Infer tissue parameters", OPT_NONREQ, "" },
     { "incart", OPT_BOOL, "Include arterial parameters", OPT_NONREQ, "" },
     { "inferart", OPT_BOOL, "Infer arterial parameters", OPT_NONREQ, "" },
+    { "incven", OPT_BOOL, "Include venous parameters", OPT_NONREQ, "" },
+    { "inferven", OPT_BOOL, "Infer venous parameters", OPT_NONREQ, "" },
     { "incwm", OPT_BOOL, "Include white matter parameters", OPT_NONREQ, "" },
     { "incbat", OPT_BOOL, "Include bolus arrival time parameter", OPT_NONREQ, "" },
     { "inferbat", OPT_BOOL, "Infer bolus arrival time parameter", OPT_NONREQ, "" },
@@ -79,6 +81,7 @@ static OptionSpec OPTIONS[] = {
     { "bat", OPT_FLOAT, "Bolus arrival time", OPT_NONREQ, "0.7" },
     { "batwm", OPT_FLOAT, "Bolus arrival time (white matter)", OPT_NONREQ, "bat+0.3" },
     { "batart", OPT_FLOAT, "Bolus arrival time (arterial)", OPT_NONREQ, "bat-0.3" },
+    { "batven", OPT_FLOAT, "Bolus arrival time (venous)", OPT_NONREQ, "bat+0.6" },
     { "batsd", OPT_FLOAT, "Bolus arrival time standard deviation", OPT_NONREQ, "0.316" },
     { "bat-init", OPT_FLOAT, "Initial value of BAT to use in optimisation procedure. If not "
                              "specified use prior. Special values: step=use step function "
@@ -143,6 +146,11 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
     {
         prior.means(flow_index() + artidx) = 0;
         precisions(flow_index() + artidx, flow_index() + artidx) = 1e-12;
+    } 
+    if (inferven)
+    {
+        prior.means(flow_index() + venidx) = 0;
+        precisions(flow_index() + venidx, flow_index() + venidx) = 1e-12;
     }
     // BAT
     if (incbat)
@@ -169,6 +177,14 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
             if (inferart & inferbat)
             {
                 precisions(bat_index() + artidx, bat_index() + artidx) = deltartprec;
+            }
+        }
+        if (incven)
+        {
+            prior.means(bat_index() + venidx) = setdeltven;
+            if (inferart & inferbat)
+            {
+                precisions(bat_index() + venidx, bat_index() + venidx) = deltvenprec;
             }
         }
     }
@@ -199,6 +215,14 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
                 if (infertau)
                 {
                     precisions(tau_index() + artidx, tau_index() + artidx) = 10;
+                }
+            }
+            if (incven)
+            {
+                prior.means(tau_index() + venidx) = seqtau;
+                if (infertau)
+                {
+                    precisions(tau_index() + venidx, tau_index() + venidx) = 10;
                 }
             }
         }
@@ -237,6 +261,7 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
         {
             precisions(t1_index() + artidx, t1_index() + artidx) = 100;
         }
+        // FIXME do we need a T1 for venous blood?
     }
     // PVE
     if (incpve)
@@ -344,6 +369,7 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
                     }
                 }
             }
+            // FIXME No separate dispersion yet for venous signal
         }
         else
         {
@@ -428,6 +454,11 @@ void ASLFwdModel::HardcodedInitialDists(MVNDist &prior, MVNDist &posterior) cons
         posterior.means(flow_index() + artidx) = 10;
         precisions(flow_index() + artidx, flow_index() + artidx) = 1;
     }
+    if (inferven)
+    {
+        posterior.means(flow_index() + venidx) = 10;
+        precisions(flow_index() + venidx, flow_index() + venidx) = 1;
+    }
     if (inferstattiss)
     {
         posterior.means(stattiss_index()) = 1000;
@@ -493,6 +524,12 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
             // init the aBV - 1% of static tissue
             posterior.means(flow_index() + artidx) = 0.01 * dataval;
         }
+        
+        if (inferven)
+        {
+            // init the vBV - 1% of static tissue
+            posterior.means(flow_index() + venidx) = 0.01 * dataval;
+        }
     }
     else
     {
@@ -506,6 +543,11 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
         {
             // init the aBV - use max value in data
             posterior.means(flow_index() + artidx) = data.Maximum();
+        }
+        if (inferven)
+        {
+            // init the vBV - use max value in data
+            posterior.means(flow_index() + venidx) = data.Maximum();
         }
         if (inferbat)
         {
@@ -595,6 +637,7 @@ void ASLFwdModel::InitParams(MVNDist &posterior) const
                         posterior.means(bat_index()) = tissbatinit;
                     }
                 }
+                // FIXME what the hell to do about venous BAT initialization here???
                 else
                 {
                     if (infertiss)
@@ -651,12 +694,15 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     double ftiss = 0.0;
     double fwm = 0.0;
     double fblood = 0.0;
+    double fven = 0.0;
     double delttiss = setdelt;
     double deltwm = setdeltwm;
     double deltblood = setdeltart;
+    double deltven = setdeltven;
     double tautiss = seqtau;
     double tauwm = seqtau;
     double taublood = seqtau;
+    double tauven = seqtau;
     double T_1 = t1;
     double T_1wm = t1wm;
     double T_1b = t1b;
@@ -669,6 +715,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     ColumnVector disptiss;
     ColumnVector dispwm;
     ColumnVector dispart;
+    ColumnVector dispven;
     ColumnVector residtiss;
     ColumnVector residwm;
     double g = 1.0;
@@ -686,6 +733,10 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     if (incart)
     {
         fblood = paramcpy(flow_index() + artidx);
+    }
+    if (incven)
+    {
+        fven = paramcpy(flow_index() + venidx);
     }
     // BAT
     if (incbat)
@@ -708,6 +759,13 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
             if (deltblood > timax - 0.2)
                 deltblood = timax - 0.2;
         }
+        if (incven)
+        {
+            deltven = paramcpy(bat_index() + venidx);
+            // FIXME is this hard limit still OK since venous signal will come at very end?
+            if (deltven > timax - 0.2)
+                deltven = timax - 0.2;
+        }
     }
     // Tau
     if (inctau)
@@ -726,12 +784,17 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
             {
                 taublood = paramcpy(tau_index() + artidx);
             }
+            if (incven)
+            {
+                tauven = paramcpy(tau_index() + venidx);
+            }
         }
         else
         {
             tautiss = paramcpy(tau_index());
             tauwm = paramcpy(tau_index());
             taublood = paramcpy(tau_index());
+            tauven = paramcpy(tau_index());
         }
     }
     // T1
@@ -794,12 +857,14 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
             {
                 dispart = params.Rows(end + 1, end + art_model->NumDisp());
             }
+            dispven = disptiss; // FIXME no separate dispersion for venous signal
         }
         else
         {
             disptiss = params.Rows(disp_index(), disp_index() - 1 + tiss_model->NumDisp());
             dispwm = disptiss;
             dispart = disptiss;
+            dispven = disptiss;
         }
     }
     // exchange (residue function) parameters
@@ -855,6 +920,8 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
     kctissue = 0.0;
     double kcblood;
     kcblood = 0.0;
+    double kcven;
+    kcven = 0.0;
     double kcwm;
     kcwm = 0.0;
     double kcpc = 0.0;
@@ -907,13 +974,19 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
 
         // crushers
         double artweight = 1.0;
+        double venweight = 1.0;
         artweight = 1.0 - crush(it); // arterial weight is opposte of crsuh extent
+        // FIXME venous crusher?
 
         // Tissue
-        if (inctiss)
+        if (inctiss) {
+            //cout << pvgm << ", " << ftiss  << ", " <<  ti  << ", " <<  f_calib  << ", " <<  delttiss   << ", " <<  tautiss  << ", " <<  T_1b  << ", " <<  T_1  << ", " <<  lambda  << ", " << 
+            //        casl  << ", " <<  disptiss  << ", " <<  residtiss << endl;
             kctissue = pvgm * ftiss
                 * tiss_model->kctissue(
                       ti, f_calib, delttiss, tautiss, T_1b, T_1, lambda, casl, disptiss, residtiss);
+            //cout << kctissue << endl;
+        }
         // White matter
         if (incwm)
             kcwm = pvwm * fwm
@@ -924,6 +997,10 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
             kcblood = artweight * fblood
                 * art_model->kcblood(ti, deltblood, taublood, T_1b, casl, dispart);
 
+        // Venous
+        if (incven)
+            kcven = venweight * fven
+                * ven_model->kcven(ti, deltven, tauven, T_1b, casl, dispven);
         if (incpc)
         {
             // pre-capilliary component
@@ -940,7 +1017,7 @@ void ASLFwdModel::EvaluateModel(const NEWMAT::ColumnVector &params,
         }
 
         // total kinetic contribution
-        kctotal(it) = kctissue + kcblood + kcwm + kcpc + kcpcwm;
+        kctotal(it) = kctissue + kcblood + kcven + kcwm + kcpc + kcpcwm;
         // static tissue contribution
         if (incstattiss)
         {
@@ -1040,7 +1117,9 @@ void ASLFwdModel::Initialize(ArgsType &args)
     inctiss = args.ReadBool("inctiss");
     infertiss = args.ReadBool("infertiss");
     inferart = args.ReadBool("inferart");
+    inferven = args.ReadBool("inferven");
     incart = args.ReadBool("incart") || inferart;
+    incven = args.ReadBool("incven") || inferven;
     if (!inctiss & !incart)
     {
         throw FabberRunDataError("Neither tissue nor arterial components have been selected. "
@@ -1101,7 +1180,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     inferstattiss = args.ReadBool("inferstattiss");
 
     // Parameter indices, relative to flow_index(), for WM and arterial components
-    ncomps = (inctiss ? 1 : 0) + (incart ? 1 : 0) + (incwm ? 1 : 0);
+    ncomps = (inctiss ? 1 : 0) + (incart ? 1 : 0) + (incven ? 1 : 0) + (incwm ? 1 : 0);
     wmidx = 0;
     if (inctiss)
         wmidx++;
@@ -1110,6 +1189,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
         artidx++;
     if (incwm)
         artidx++;
+    venidx = artidx+1;
 
     // ARD selection for aBV. ARD seems to be disabled currently?
     bool ardoff = false;
@@ -1118,6 +1198,10 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (inferart == true && ardoff == false)
     {
         ardindices.push_back(flow_index() + artidx);
+    }
+    if (inferven == true && ardoff == false)
+    {
+        ardindices.push_back(flow_index() + venidx);
     }
 
     //
@@ -1133,13 +1217,18 @@ void ASLFwdModel::Initialize(ArgsType &args)
     // By default BAT in blood is shorter then GM
     setdeltart = args.GetDoubleDefault("batart", setdelt - 0.3);
 
+    // By default BAT in venous signal is longer then GM
+    setdeltven = args.GetDoubleDefault("batven", setdelt + 0.6);
+
     // BAT std dev (same for all tissue)
     double deltsd = args.GetDoubleDefault("batsd", 0.316);
     deltprec = 1 / (deltsd * deltsd);
 
-    // Arterial BAT std dev - by default the arterial BAT SD is same as tissue
-    deltsd = args.GetDoubleDefault("batartsd", deltsd);
-    deltartprec = 1 / (deltsd * deltsd);
+    // Arterial/venous BAT std dev - by default the arterial/venous BAT SD is same as tissue
+    double deltartsd = args.GetDoubleDefault("batartsd", deltsd);
+    deltartprec = 1 / (deltartsd * deltartsd);
+    double deltvensd = args.GetDoubleDefault("batvensd", deltsd);
+    deltvenprec = 1 / (deltvensd * deltvensd);
 
     // Possible different default for T1 if we have a WM component (since then the 'tissue' is
     // GM only rather than mixed WM/GM)
@@ -1385,7 +1474,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
 
     // Total number of time points in data
     tpoints = 0;
-    for (int it = 0; it < num_times; it++)
+    for (unsigned int it = 0; it < num_times; it++)
     {
         if (repeats.size() > 1)
         {
@@ -1559,6 +1648,17 @@ void ASLFwdModel::Initialize(ArgsType &args)
         throw InvalidOptionValue("disptype", disptype, "Dispersion type not recognized");
     }
 
+    // Venous Model (only depends upon dispersion type)
+    ven_model = NULL;
+    if (disptype == "none")
+    {
+        ven_model = new VenousModel_nodisp();
+    }
+    else
+    {
+        throw InvalidOptionValue("disptype", disptype, "Dispersion not supported in venous model yet");
+    }
+
     // PC model
     pc_model = NULL;
     if (disptype == "none")
@@ -1681,6 +1781,8 @@ void ASLFwdModel::Initialize(ArgsType &args)
         LOG << "Tissue" << endl;
     if (incart)
         LOG << "Arterial/MV" << endl;
+    if (incven)
+        LOG << "Venous" << endl;
     if (incwm)
         LOG << "White matter" << endl;
     LOG << "Number of components: " << ncomps << endl;
@@ -1746,6 +1848,8 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (art_model->NumDisp() > 0)
         LOG << "Dispersion parameter priors (means then precisions): " << art_model->Priors()
             << endl;
+    if (incven)
+        LOG << "Venous model:" << ven_model->Name() << endl;
     if (incpc)
         LOG << "Pre-capillary model:" << pc_model->Name() << endl;
     LOG << "------" << endl;
@@ -1753,7 +1857,7 @@ void ASLFwdModel::Initialize(ArgsType &args)
     if (pretisat > 0)
         LOG << "Saturation of " << pretisat << " s before TI has been specified" << endl;
     if (calib)
-        LOG << "Input data is in physioligcal units, using estimated CBF "
+        LOG << "Input data is in physiological units, using estimated CBF "
                "in T_1app calculation"
             << endl;
     LOG << "Data parameters: #repeats = " << repeats << endl;
@@ -1804,6 +1908,8 @@ void ASLFwdModel::NameParams(vector<string> &names) const
         names.push_back("fwm");
     if (incart)
         names.push_back("fblood");
+    if (incven)
+        names.push_back("fven");
     if (incbat)
     {
         if (inctiss)
@@ -1812,6 +1918,8 @@ void ASLFwdModel::NameParams(vector<string> &names) const
             names.push_back("deltwm");
         if (incart)
             names.push_back("deltblood");
+        if (incven)
+            names.push_back("deltven");
     }
     if (inctau)
     {
@@ -1823,6 +1931,8 @@ void ASLFwdModel::NameParams(vector<string> &names) const
                 names.push_back("tauwm");
             if (incart)
                 names.push_back("taublood");
+            if (incven)
+                names.push_back("tauven");
         }
         else
         {
