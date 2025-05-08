@@ -29,11 +29,11 @@ FactoryRegistration<FwdModelFactory, multiTEFwdModel> multiTEFwdModel::registrat
 FwdModel *multiTEFwdModel::NewInstance() { return new multiTEFwdModel(); }
 
 static OptionSpec OPTIONS[] = {
-    { "repeats", OPT_BOOL, "Number of repeats in data", OPT_REQ, "" },
-    { "ti<n>", OPT_BOOL, "Sequence of inversion times in seconds (e.g. --ti1=1.4 --ti2=1.8, etc)", OPT_REQ, "" },
-    { "te<n>", OPT_BOOL, "Sequence of TE times in seconds (e.g. --te1=1.4 --te2=1.8, etc)", OPT_REQ, "" },
+    { "repeats", OPT_INT, "Number of repeats in data", OPT_REQ, "" },
+    { "ti<n>", OPT_FLOAT, "Sequence of inversion times in seconds (e.g. --ti1=1.4 --ti2=1.8, etc)", OPT_REQ, "" },
+    { "te<n>", OPT_FLOAT, "Sequence of TE times in seconds (e.g. --te1=1.4 --te2=1.8, etc)", OPT_REQ, "" },
     { "nte<n>", OPT_INT, "Number of TEs per TI (e.g. --nte1=1 --nte2= 6, etc)", OPT_REQ, "" },
-    { "tau", OPT_FLOAT, "Temporal bolus lengths (s)", OPT_NONREQ, "1.0" },
+    { "tau", OPT_FLOAT, "Fixed temporal bolus length (s)", OPT_NONREQ, "1.0" },
     { "tau<n>", OPT_FLOAT, "Temporal bolus lengths (one per TI) (s)", OPT_NONREQ, "1.0" },
     { "t1", OPT_FLOAT, "T1 of tissue(s)", OPT_NONREQ, "1.0" },
     { "t1b", OPT_FLOAT, "T1 of blood (s)", OPT_NONREQ, "1.2" },
